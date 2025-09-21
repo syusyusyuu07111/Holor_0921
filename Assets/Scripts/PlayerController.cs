@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 public class PlayerController : MonoBehaviour
 {
@@ -39,7 +40,18 @@ public class PlayerController : MonoBehaviour
             //移動する方向を決めて移動する--------------------------------------------------------------------------
             Vector3 Movedir = Forward * MoveInput.y + Right * MoveInput.x;
             if (Movedir.sqrMagnitude > 0.0001f)
+            {
                 transform.position += Movedir * Time.deltaTime * MoveSpeed;
+                //移動する方向にキャラクターの向きを変える------------------------------------------------------------
+                transform.rotation = Quaternion.LookRotation(Movedir, Vector3.up);
+            }
+            //移動してないときに前を向くようにする-----------------------------------------------------------------
+          //  if (Movedir.sqrMagnitude < 0.0001f)
+          //  {
+          //      transform.rotation = Quaternion.Euler(0, 0, 0);
+          //
+          //  }
+
         }
     }
 }
