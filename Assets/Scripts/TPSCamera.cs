@@ -1,3 +1,4 @@
+using Unity.Mathematics;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -11,6 +12,9 @@ public class TPSCamera : MonoBehaviour
     public Transform Pivot;
     public float Distance=3.0f;
     public Transform cam;
+    [Header("キャラクター（プレイヤー）")]
+    public Transform Player;
+    public float AimSpeed=5.0f;
     public void Awake()
     {
         input = new InputSystem_Actions();
@@ -36,5 +40,10 @@ public class TPSCamera : MonoBehaviour
         cam.LookAt(Pivot.transform.position,Vector3.up);
 
         //カメラを回転させたらキャラも回転させる
+        if(Player!=null)
+        {
+            quaternion target = Quaternion.Euler(0f, cam.eulerAngles.y, 0f);
+            Player.rotation = Quaternion.Slerp(Player.rotation,target, AimSpeed*Time.deltaTime);
+        }
     }
 }

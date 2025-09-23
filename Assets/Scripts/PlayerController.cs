@@ -16,12 +16,6 @@ public class PlayerController : MonoBehaviour
     {
         Input.Player.Enable();
     }
-    void Start()
-    {
-
-    }
-
-    // Update is called once per frame
     void Update()
     {
         //カメラ座標から移動する方向を取得する=============================================================
@@ -38,20 +32,19 @@ public class PlayerController : MonoBehaviour
         //プレイヤーの移動==================================================================================
         {
             //移動する方向を決めて移動する--------------------------------------------------------------------------
+            //前向きに進むときの挙動--------------------------------------------------------------------------------
             Vector3 Movedir = Forward * MoveInput.y + Right * MoveInput.x;
-            if (Movedir.sqrMagnitude > 0.0001f)
+            if (Movedir.sqrMagnitude > 0.0001f&&MoveInput.y>0.5)
             {
                 transform.position += Movedir * Time.deltaTime * MoveSpeed;
                 //移動する方向にキャラクターの向きを変える------------------------------------------------------------
                 transform.rotation = Quaternion.LookRotation(Movedir, Vector3.up);
             }
-            //移動してないときに前を向くようにする-----------------------------------------------------------------
-          //  if (Movedir.sqrMagnitude < 0.0001f)
-          //  {
-          //      transform.rotation = Quaternion.Euler(0, 0, 0);
-          //
-          //  }
-
+            //後ろ向きに進むときの挙動　回転せずに後ろずさりする------------------------------------------------------
+            if(Movedir.magnitude>0.00001f&&MoveInput.y<0.5)
+            {
+                transform.position += Movedir * Time.deltaTime * MoveSpeed;
+            }
         }
     }
 }
