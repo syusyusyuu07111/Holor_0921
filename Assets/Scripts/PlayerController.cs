@@ -34,14 +34,14 @@ public class PlayerController : MonoBehaviour
             //移動する方向を決めて移動する--------------------------------------------------------------------------
             //前向きに進むときの挙動--------------------------------------------------------------------------------
             Vector3 Movedir = Forward * MoveInput.y + Right * MoveInput.x;
-            if (Movedir.sqrMagnitude > 0.0001f&&MoveInput.y>0.5)
+            if (Movedir.sqrMagnitude > 0.0001f&&MoveInput.y>=0)
             {
                 transform.position += Movedir * Time.deltaTime * MoveSpeed;
                 //移動する方向にキャラクターの向きを変える------------------------------------------------------------
                 transform.rotation = Quaternion.LookRotation(Movedir, Vector3.up);
             }
             //後ろ向きに進むときの挙動　回転せずに後ろずさりする------------------------------------------------------
-            if(Movedir.magnitude>0.00001f&&MoveInput.y<0.5)
+            else if(Movedir.magnitude>0.00001f&&MoveInput.y<0)
             {
                 transform.position += Movedir * Time.deltaTime * MoveSpeed;
             }
