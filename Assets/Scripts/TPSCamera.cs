@@ -34,5 +34,7 @@ public class TPSCamera : MonoBehaviour
         Vector3 CameraPos = Pivot.transform.position + rot * new Vector3(0, 0, -Distance);
         cam.position = CameraPos;
         cam.LookAt(Pivot.transform.position,Vector3.up);
+
+        //ƒJƒƒ‰‚ğ‰ñ“]‚³‚¹‚½‚çƒLƒƒƒ‰‚à‰ñ“]‚³‚¹‚é
     }
 }
