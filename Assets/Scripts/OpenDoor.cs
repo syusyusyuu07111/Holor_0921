@@ -34,12 +34,25 @@ public class OpenDoor : MonoBehaviour
     {
         DistanceDoor = Vector3.Distance(Player.transform.position, Door.transform.position);
         Debug.Log(DistanceDoor);
-        if (DistanceDoor < OpenDistance)
+        if ((DistanceDoor < OpenDistance)&&CanOpen==false)
         {
             //タイムラインを再生
             Directer.playableAsset = Open;
             Directer.playOnAwake = true;
             Directer.Play();
+            CanOpen = true;
+        }
+        if(CanOpen&& (DistanceDoor > OpenDistance))
+        {
+            Debug.Log("離れました");
+            //タイムラインを逆再生
+            Directer.playableAsset = Open;
+            Directer.playOnAwake = true;
+            Directer.time = Directer.duration;//最後の時間に飛ばす
+            Directer.Evaluate();
+            Directer.Play();
+            Directer.playableGraph.GetRootPlayable(0).SetSpeed(-1);
+            CanOpen = false;
         }
     }
 }
