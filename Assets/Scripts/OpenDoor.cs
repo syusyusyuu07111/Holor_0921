@@ -2,6 +2,7 @@ using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Timeline;
 using UnityEngine.Playables;
+using UnityEngine.InputSystem;
 
 public class OpenDoor : MonoBehaviour
 {
@@ -13,6 +14,16 @@ public class OpenDoor : MonoBehaviour
     [Header("Timeline")]
     public TimelineAsset Open;
     public PlayableDirector Directer;
+
+    InputSystem_Actions input;
+    private void Awake()
+    {
+        input = new InputSystem_Actions();
+    }
+    private void OnEnable()
+    {
+        input.Player.Enable();
+    }
     void Start()
     {
         CanOpen = false;
