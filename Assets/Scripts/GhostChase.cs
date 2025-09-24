@@ -8,7 +8,10 @@ public class GhostChase : MonoBehaviour
     void Awake()
     {
         var go = GameObject.FindGameObjectWithTag("Player");
-        if (go) player = go.transform;
+        if (go != null)
+        {
+            player = go.transform;
+        }
     }
 
     void Update()
