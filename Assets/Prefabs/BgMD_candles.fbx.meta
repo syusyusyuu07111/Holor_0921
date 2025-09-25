@@ -3,7 +3,12 @@ guid: de3691ee18dd0df44acd3e2c519f744b
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: TX_candle
+    second: {fileID: 2800000, guid: b2fdf4d09084904478ac3cf4e6361531, type: 3}
   materials:
     materialImportMode: 2
     materialName: 0
