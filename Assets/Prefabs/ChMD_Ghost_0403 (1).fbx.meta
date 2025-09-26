@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 10677ac13f9ffb941bef021a3a4035dd
+guid: f6fdab95170b9cc4ea18f05a1be624fa
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
@@ -7,48 +7,43 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: standardSurface11
-    second: {fileID: 2100000, guid: 151b4d025683b6a45a3b9b009c32fc35, type: 2}
+      name: Default_Material
+    second: {fileID: 2100000, guid: 3ebb7515c90d24d41a87c76f66fac290, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: standardSurface12
-    second: {fileID: 2100000, guid: 057ffbf38330bc24e8d2b8074f968887, type: 2}
+      name: hair
+    second: {fileID: 2100000, guid: c4cd699fafa61554b9194ad842aba222, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: standardSurface2
-    second: {fileID: 2100000, guid: aede7430dc25cbf4fb406421ce20e8cb, type: 2}
+      name: hoppe
+    second: {fileID: 2100000, guid: c9b014d577c087443ae8d7f92657fe61, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: standardSurface3
-    second: {fileID: 2100000, guid: 70f182d44432a514bbe016adb27418c3, type: 2}
+      name: huku
+    second: {fileID: 2100000, guid: 96a024b1528991048aebf3ba342a14a8, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: standardSurface4
-    second: {fileID: 2100000, guid: 0f5996b878856fa4fb0de58e1686c928, type: 2}
+      name: huku_shadow
+    second: {fileID: 2100000, guid: 8bf904fa349158346b5a2b0f238c7e42, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: standardSurface5
-    second: {fileID: 2100000, guid: bc8f35e3af341694c9582a471e185481, type: 2}
+      name: matuge
+    second: {fileID: 2100000, guid: 281de2a9e3625b740a5b8c5fb87b553a, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: standardSurface7
-    second: {fileID: 2100000, guid: 49acd26fb329d324f92b4b9c95a38f1e, type: 2}
+      name: mayuge
+    second: {fileID: 2100000, guid: 5e6c4627780574d4cb912c3b8b5682d7, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: standardSurface8
-    second: {fileID: 2100000, guid: 9d38b9778eafd0e49b4ddc1a85da67f4, type: 2}
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: standardSurface9
-    second: {fileID: 2100000, guid: 965716f86caf39948b959d5bfcb22a9e, type: 2}
+      name: skin
+    second: {fileID: 2100000, guid: 9df7213d8dca04d4f8cd0ef4d67dbaf0, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
