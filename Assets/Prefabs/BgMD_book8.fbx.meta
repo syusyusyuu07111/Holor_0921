@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: d972733defbf9634d84fc0f4b23a17b2
+guid: d645fb2215f1322489af6682c160843d
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
@@ -7,8 +7,8 @@ ModelImporter:
   - first:
       type: UnityEngine:Texture2D
       assembly: UnityEngine.CoreModule
-      name: TX_book02
-    second: {fileID: 2800000, guid: 9fa55dcd543a3dc419a612ce9f939a33, type: 3}
+      name: TX_book08
+    second: {fileID: 2800000, guid: 9eb1b6507f2e361418e58bc315b65ba2, type: 3}
   materials:
     materialImportMode: 2
     materialName: 0
