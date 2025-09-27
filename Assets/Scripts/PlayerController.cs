@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 public class PlayerController : MonoBehaviour
@@ -6,7 +6,12 @@ public class PlayerController : MonoBehaviour
     InputSystem_Actions Input;
     [SerializeField] Transform Camera;
     [SerializeField] float MoveSpeed = 5.0f;
+    [SerializeField] Animator animator;//ã‚¢ãƒ‹ãƒ¡ãƒ¼ã‚·ãƒ§ãƒ³
+     // ã—ãã„å€¤
+    [SerializeField] float deadZone = 0.12f;   // ã‚¹ãƒ†ã‚£ãƒƒã‚¯ã®éŠã³
+    [SerializeField] float stopGrace = 0.08f;  // é›¢ã—ã¦ã‹ã‚‰Idleã«è½ã¨ã™é…å»¶ï¼ˆãƒ“ãƒ“ã‚Šé˜²æ­¢ï¼‰
 
+    float noInputTimer = 0f;
 
     private void Awake()
     {
@@ -18,32 +23,48 @@ public class PlayerController : MonoBehaviour
     }
     void Update()
     {
-        //ƒJƒƒ‰À•W‚©‚çˆÚ“®‚·‚é•ûŒü‚ğæ“¾‚·‚é=============================================================
+        //ã‚«ãƒ¡ãƒ©åº§æ¨™ã‹ã‚‰ç§»å‹•ã™ã‚‹æ–¹å‘ã‚’å–å¾—ã™ã‚‹=============================================================
         Vector2 MoveInput = Input.Player.Move.ReadValue<Vector2>();
-        //ƒJƒƒ‰À•W‚©‚ç‘O‚ÌŒü‚«‚ğæ“¾---------------------------------------------------------------------
+        //ã‚«ãƒ¡ãƒ©åº§æ¨™ã‹ã‚‰å‰ã®å‘ãã‚’å–å¾—---------------------------------------------------------------------
         Vector3 Forward = Camera.transform.forward;
         Forward.y = 0;
         Forward.Normalize();
-        //ƒJƒƒ‰À•W‚©‚ç‰¡‚ÌŒü‚«‚ğæ“¾‚·‚é-----------------------------------------------------------------
+        //ã‚«ãƒ¡ãƒ©åº§æ¨™ã‹ã‚‰æ¨ªã®å‘ãã‚’å–å¾—ã™ã‚‹-----------------------------------------------------------------
         Vector3 Right = Camera.transform.right;
         Right.y = 0;
         Right.Normalize();
 
-        //ƒvƒŒƒCƒ„[‚ÌˆÚ“®==================================================================================
+        //ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®ç§»å‹•==================================================================================
         {
-            //ˆÚ“®‚·‚é•ûŒü‚ğŒˆ‚ß‚ÄˆÚ“®‚·‚é--------------------------------------------------------------------------
-            //‘OŒü‚«‚Éi‚Ş‚Æ‚«‚Ì‹““®--------------------------------------------------------------------------------
+            //ç§»å‹•ã™ã‚‹æ–¹å‘ã‚’æ±ºã‚ã¦ç§»å‹•ã™ã‚‹--------------------------------------------------------------------------
+            //å‰å‘ãã«é€²ã‚€ã¨ãã®æŒ™å‹•--------------------------------------------------------------------------------
             Vector3 Movedir = Forward * MoveInput.y + Right * MoveInput.x;
             if (Movedir.sqrMagnitude > 0.0001f&&MoveInput.y>=0)
             {
                 transform.position += Movedir * Time.deltaTime * MoveSpeed;
-                //ˆÚ“®‚·‚é•ûŒü‚ÉƒLƒƒƒ‰ƒNƒ^[‚ÌŒü‚«‚ğ•Ï‚¦‚é------------------------------------------------------------
+                //ç§»å‹•ã™ã‚‹æ–¹å‘ã«ã‚­ãƒ£ãƒ©ã‚¯ã‚¿ãƒ¼ã®å‘ãã‚’å¤‰ãˆã‚‹------------------------------------------------------------
                 transform.rotation = Quaternion.LookRotation(Movedir, Vector3.up);
             }
-            //Œã‚ëŒü‚«‚Éi‚Ş‚Æ‚«‚Ì‹““®@‰ñ“]‚¹‚¸‚ÉŒã‚ë‚¸‚³‚è‚·‚é------------------------------------------------------
+            //å¾Œã‚å‘ãã«é€²ã‚€ã¨ãã®æŒ™å‹•ã€€å›è»¢ã›ãšã«å¾Œã‚ãšã•ã‚Šã™ã‚‹------------------------------------------------------
             else if(Movedir.magnitude>0.00001f&&MoveInput.y<0)
             {
                 transform.position += Movedir * Time.deltaTime * MoveSpeed;
+            }
+            //ã‚¢ãƒ‹ãƒ¡ãƒ¼ã‚·ãƒ§ãƒ³æ›´æ–°=========================================================================================
+            // --- Boolã§ã‚¢ãƒ‹ãƒ¡åˆ‡ã‚Šæ›¿ãˆ ---
+            bool hasInput = MoveInput != Vector2.zero;    // â˜…å­˜åœ¨ã—ãªã„ 'move' ã§ã¯ãªã 'MoveInput' ã‚’ä½¿ã†
+
+            if (hasInput)
+            {
+                noInputTimer = 0f;
+                if (animator && !animator.GetBool("IsMoving"))
+                    animator.SetBool("IsMoving", true);
+            }
+            else
+            {
+                noInputTimer += Time.deltaTime;
+                if (noInputTimer >= stopGrace && animator && animator.GetBool("IsMoving"))
+                    animator.SetBool("IsMoving", false);
             }
         }
     }
