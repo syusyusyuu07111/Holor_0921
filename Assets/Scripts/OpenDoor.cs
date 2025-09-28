@@ -1,3 +1,5 @@
+using TMPro;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class OpenDoor : MonoBehaviour
@@ -41,6 +43,7 @@ public class OpenDoor : MonoBehaviour
     Quaternion openLocalRot;    // 基準 × Δ回転
     bool isOpen;
 
+
     InputSystem_Actions input;
 
     void Start()
@@ -68,8 +71,6 @@ public class OpenDoor : MonoBehaviour
 
     void Update()
     {
-        if (!player || !doorPivot) return;
-
         // 「開けてよい」かの判定
         bool shouldOpen = CanOpen();
 
@@ -98,7 +99,7 @@ public class OpenDoor : MonoBehaviour
         doorPivot.localRotation = Quaternion.RotateTowards(doorPivot.localRotation, target, step);
     }
 
-        //ドアをopenにする条件=================================================================================
+    //ドアをopenにする条件=================================================================================
     bool CanOpen()
     {
         if (isLocked)
@@ -112,12 +113,14 @@ public class OpenDoor : MonoBehaviour
         {
             return false;
         }
+
+
         // 2) 入力
-            // 「今フレームで押されたら開けてよい」
-            if (!input.Player.DoorOpen.WasPressedThisFrame())
-            {
-                    return false;
-            }
+        // 「今フレームで押されたら開けてよい」
+        if (!input.Player.DoorOpen.WasPressedThisFrame())
+        {
+            return false;
+        }
         // ここまで通れば開けてよい
         return true;
     }
@@ -128,7 +131,10 @@ public class OpenDoor : MonoBehaviour
 
         // 距離外なら閉じる
         float dist = Vector3.Distance(player.position, doorPivot.position);
-        if (dist >= openDistance) return true;
+        if (dist >= openDistance)
+        {
+            return true;
+        }
 
         // 表側必須なら、裏側に回ったら閉じる
         if (requireFacingSide)
@@ -139,8 +145,10 @@ public class OpenDoor : MonoBehaviour
         }
 
         // 施錠されたら閉じる
-        if (isLocked) return true;
-
+        if (isLocked)
+        {
+            return true;
+        }
         return false;
     }
 
