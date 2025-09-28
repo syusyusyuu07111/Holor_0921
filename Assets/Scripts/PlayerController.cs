@@ -52,7 +52,7 @@ public class PlayerController : MonoBehaviour
             }
             //アニメーション更新=========================================================================================
             // --- Boolでアニメ切り替え ---
-            bool hasInput = MoveInput != Vector2.zero;    // ★存在しない 'move' ではなく 'MoveInput' を使う
+            bool hasInput = MoveInput != Vector2.zero;    //
 
             if (hasInput)
             {

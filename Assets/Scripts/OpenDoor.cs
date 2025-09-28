@@ -28,7 +28,7 @@ public class OpenDoor : MonoBehaviour
     [SerializeField] bool autoClose = true;
 
     [Tooltip("開くのに操作入力が必要か（trueならEキーなどでトグル的に開く）")]
-    [SerializeField] bool requireInteractInput = false;
+    [SerializeField] bool requireInteractInput = true;
     [SerializeField] KeyCode interactKey = KeyCode.E;
 
     [Tooltip("施錠中は開かない")]
@@ -41,11 +41,7 @@ public class OpenDoor : MonoBehaviour
     Quaternion openLocalRot;    // 基準 × Δ回転
     bool isOpen;
 
-    void Reset()
-    {
-        if (!doorPivot) doorPivot = transform;
-        if (!player && Camera.main) player = Camera.main.transform;
-    }
+    InputSystem_Actions input;
 
     void Start()
     {
@@ -61,19 +57,41 @@ public class OpenDoor : MonoBehaviour
 
         RebuildOpenRotation();
     }
+    private void Awake()
+    {
+        input = new InputSystem_Actions();
+    }
+    private void OnEnable()
+    {
+        input.Player.Enable();
+    }
 
     void Update()
     {
         if (!player || !doorPivot) return;
 
-        // 「開けてよい」かの判定を関数に集約
+        // 「開けてよい」かの判定
         bool shouldOpen = CanOpen();
 
-        if (shouldOpen) isOpen = true;
-        else if (autoClose && ShouldAutoClose()) isOpen = false;
+        if (shouldOpen)
+        {
+            isOpen = true;
+        }
+        else if (autoClose && ShouldAutoClose())
+        {
+            isOpen = false;
+        }
+        // 開いているなら「開き姿勢」を、閉じているなら「閉じ姿勢」を目標にする
+        Quaternion target;
+        if (isOpen)
+        {
+            target = openLocalRot;    // 基準 × Δ（開き）
+        }
+        else
+        {
+            target = closedLocalRot;  // 基準（閉）
+        }
 
-        // 目標は「基準」か「基準×Δ」
-        Quaternion target = isOpen ? openLocalRot : closedLocalRot;
 
         // 今の回転から目標まで一定角速度で回す
         float step = rotateSpeedDegPerSec * Time.deltaTime;
@@ -83,7 +101,10 @@ public class OpenDoor : MonoBehaviour
         //ドアをopenにする条件=================================================================================
     bool CanOpen()
     {
-        if (isLocked) return false;
+        if (isLocked)
+        {
+            return false;
+        }
 
         // 1) 距離判定
         float dist = Vector3.Distance(player.position, doorPivot.position);
@@ -91,30 +112,16 @@ public class OpenDoor : MonoBehaviour
         {
             return false;
         }
-
-        // 2) 表側チェック（必要な場合のみ）
-        //if (requireFacingSide)
-        //{
-        //    Vector3 toPlayer = (player.position - doorPivot.position).normalized;
-        //    float dot = Vector3.Dot(doorPivot.forward, toPlayer); // forward基準
-        //    if (dot < facingDotThreshold) return false;
-        //}
-
-        // 3) 入力要求（必要な場合のみ）
-        if (requireInteractInput)
-        {
+        // 2) 入力
             // 「今フレームで押されたら開けてよい」
-            if (!Input.GetKeyDown(interactKey)) return false;
-        }
-
+            if (!input.Player.DoorOpen.WasPressedThisFrame())
+            {
+                    return false;
+            }
         // ここまで通れば開けてよい
         return true;
     }
-
-    /// <summary>
     /// 自動で閉じてよいか。基本は「開け条件を満たしていない」時に閉じる。
-    /// _入力必須モード_ でも、プレイヤーが範囲外/裏側へ移動したら閉める。
-    /// </summary>
     bool ShouldAutoClose()
     {
         if (!player || !doorPivot) return false;
@@ -137,37 +144,18 @@ public class OpenDoor : MonoBehaviour
         return false;
     }
 
-    [ContextMenu("Set Closed From Current")]
     public void SetClosedFromCurrent()
     {
-        closedLocalRot = doorPivot ? doorPivot.localRotation : transform.localRotation;
-        RebuildOpenRotation();
+        // 今の基準(=閉)を、実際に回している対象の現在回転で記録
+        if (doorPivot != null)
+        {
+            closedLocalRot = doorPivot.localRotation;
+        }
+        RebuildOpenRotation(); // 基準を変えたので開き姿勢も作り直す
     }
-
     void RebuildOpenRotation()
     {
         var delta = Quaternion.Euler(openDeltaEuler * Mathf.Sign(direction));
         openLocalRot = closedLocalRot * delta;  // 「基準（現在）＋Δ」をクォータニオンで合成
-    }
-
-    void OnValidate()
-    {
-        if (doorPivot)
-        {
-            if (closedLocalRot == default) closedLocalRot = doorPivot.localRotation;
-            RebuildOpenRotation();
-        }
-    }
-
-    // --- 追加で使える公開API例 ---
-    public void Lock(bool locked)
-    {
-        isLocked = locked;
-        if (locked) isOpen = false;
-    }
-
-    public void ForceOpen(bool open)
-    {
-        isOpen = open;
     }
 }
