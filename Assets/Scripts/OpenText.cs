@@ -7,9 +7,12 @@ public class OpenText : MonoBehaviour
     public Transform player;
     public Transform Door;
     public float openDistance;
+    public bool CanOpen { get; set; }
+    public static OpenText instance { get; set; }
     void Start()
     {
         opentext.enabled = false;
+        CanOpen = false;
     }
 
     // Update is called once per frame
@@ -20,10 +23,12 @@ public class OpenText : MonoBehaviour
         if (dist >= openDistance)
         {
             opentext.enabled = false;
+            CanOpen = false;
         }
         else
         {
             opentext.enabled = true;
+            CanOpen = true;
         }
     }
 }
