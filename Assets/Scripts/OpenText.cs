@@ -14,8 +14,10 @@ public class OpenText : MonoBehaviour
         opentext.enabled = false;
         CanOpen = false;
     }
-
-    // Update is called once per frame
+    private void Awake()
+    {
+        instance = this;
+    }
     void Update()
     {
         // 1) ‹——£”»’è
