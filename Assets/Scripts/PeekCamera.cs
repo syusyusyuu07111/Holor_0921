@@ -24,6 +24,7 @@ public class PeekCamera : MonoBehaviour
         //プレイヤーと近いpivotを探す---------------------------------------------------------------------------------------
         Transform nearest = Nearest(Player.transform.position, MovePositions);
 
+        Debug.Log($"DBG cam:{Camera} player:{Player} pivots:{MovePositions?.Length} nearest:{nearest} openText:{OpenText.instance}");
 
         //プレイヤーに一番近いpivotにカメラを移動させる---------------------------------------------------------------------
         if (OpenText.instance.CanOpen&&input.Player.Interact.triggered)
