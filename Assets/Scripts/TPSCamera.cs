@@ -19,6 +19,9 @@ public class TPSCamera : MonoBehaviour
     public float prevplayerrow;//前フレームのプレイヤーの向いている角度
     public float Deadyaw = 0.5f;//無視する角度　少しの角度は回転に考慮しない
     [Range(0f,1f)]float RowAmount=1.0f;//キャラクターとカメラをどのくらい追従させるか
+
+    //このカメラ制御機能のon off切り替え
+    public bool ControlEnable = true;
     public void Awake()
     {
         input = new InputSystem_Actions();
@@ -36,6 +39,8 @@ public class TPSCamera : MonoBehaviour
     }
     void Update()
     {
+        if (!ControlEnable) return;//カメラ制御をオフにする
+
         //カメラ設定==========================================================================---
         Vector2 LookInput = input.Player.Look.ReadValue<Vector2>();
         yaw += LookInput.x * RotateSpeed * Time.deltaTime;
