@@ -6,6 +6,7 @@ public class PlayerController : MonoBehaviour
     InputSystem_Actions Input;
     [SerializeField] Transform Camera;
     [SerializeField] float MoveSpeed = 5.0f;
+    [SerializeField] float DashSpeed = 7.0f;
     [SerializeField] Animator animator;//アニメーション
      // しきい値
     [SerializeField] float deadZone = 0.12f;   // スティックの遊び

@@ -2,74 +2,53 @@ using UnityEngine;
 
 public class PeekCamera : MonoBehaviour
 {
-    public static PeekCamera Instance;
     public Transform Camera;
     public Transform Player;
     public Transform[] MovePositions;
-    private Transform Selectposition;
+    public TPSCamera tps;
+
+    [SerializeField] OpenText openText;    // ← ここにその場所の OpenText を割当て
+    public bool IsPeeking { get; private set; }
+
     InputSystem_Actions input;
-    public TPSCamera tps;//カメラ制御
-    public bool IsPeeking { get; set; }
-    private Vector3 savepos;
-    private void Awake()
-    {
-        Instance = this;
-        input = new InputSystem_Actions();
-    }
-    private void OnEnable()
-    {
-        input.Player.Enable();
-    }
-    private void Start()
-    {
-        IsPeeking = false;
+    Vector3 savepos;
 
-    }
+    void Awake() { input = new InputSystem_Actions(); }
+    void OnEnable() { input.Player.Enable(); }
+
     void Update()
-    //覗く機能　プレイヤーと近いpivotにカメラをよらせる===============================================================
-
     {
-        //プレイヤーと近いpivotを探す---------------------------------------------------------------------------------------
-        Transform nearest = Nearest(Player.transform.position, MovePositions);
+        // 近いpivotを取得
+        Transform nearest = Nearest(Player.position, MovePositions);
 
-        //プレイヤーに一番近いpivotにカメラを移動させる---------------------------------------------------------------------
-        if (IsPeeking == false && OpenText.instance.CanOpen && input.Player.Interact.triggered)
+        // ここがポイント：OpenText.instance を使わず、自分の openText を見る
+        bool canOpenHere = openText != null && openText.CanOpen;
+
+        if (!IsPeeking && canOpenHere && input.Player.Interact.triggered)
         {
-            savepos = Camera.transform.position;           // 元位置を保存
-            tps.ControlEnable = false;                      // TPS停止
-            if (nearest != null)
-            {
-                Camera.transform.position = nearest.transform.position;
-            }
-            IsPeeking = true;                               // 覗き状態にする
+            savepos = Camera.position;
+            tps.ControlEnable = false;
+            if (nearest) Camera.position = nearest.position;
+            IsPeeking = true;
         }
-        //カメラ位置戻す------------------------------------------------------------------------------------------------------
-        else if (IsPeeking == true && input.Player.Interact.triggered)
+        else if (IsPeeking && input.Player.Interact.triggered)
         {
             IsPeeking = false;
-            Camera.position = savepos;                      // 戻す
-            tps.ControlEnable = true;                       // TPS再開
+            Camera.position = savepos;
+            tps.ControlEnable = true;
         }
     }
-    //最寄りのpivotを返す
+
     Transform Nearest(Vector3 fromPos, Transform[] pivots)
     {
-        float best = float.PositiveInfinity;//距離わからないから最大化させて初期化しておく
+        float best = float.PositiveInfinity;
         Transform bestpos = null;
-
-        //配列の中の座標を取得する----------------------------------------------------------------------------------------
-        foreach (Transform transformpivot in pivots)
+        foreach (var p in pivots)
         {
-            if (!transformpivot) continue;                 //
-            Vector3 pos = transformpivot.position;
-            float distance = (transformpivot.position - fromPos).sqrMagnitude;
-            if (distance < best)
-            {
-                best = distance;
-                bestpos = transformpivot;
-            }
+            if (!p) continue;
+            float d = (p.position - fromPos).sqrMagnitude;
+            if (d < best) { best = d; bestpos = p; }
         }
         return bestpos;
-        //------------------------------------------------------------------------------------------------------------------
     }
 }
