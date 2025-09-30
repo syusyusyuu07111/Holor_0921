@@ -11496,6 +11496,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Camera: {fileID: 330585546}
   MoveSpeed: 1.5
+  DashSpeed: 3
   animator: {fileID: 956023716}
   deadZone: 0.12
   stopGrace: 0.08
