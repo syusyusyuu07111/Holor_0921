@@ -7,30 +7,20 @@ public class OpenText : MonoBehaviour
     public Transform player;
     public Transform Door;
     public float openDistance;
-    public bool CanOpen { get; set; }
-    public static OpenText instance { get; set; }
+    public bool CanOpen { get; private set; }  // ← プロパティはそのまま
+    // public static OpenText instance; ← 消す
+
     void Start()
     {
         opentext.enabled = false;
         CanOpen = false;
     }
-    private void Awake()
-    {
-        instance = this;
-    }
+
     void Update()
     {
-        // 1) 距離判定
         float dist = Vector3.Distance(player.position, Door.position);
-        if (dist >= openDistance)
-        {
-            opentext.enabled = false;
-            CanOpen = false;
-        }
-        else
-        {
-            opentext.enabled = true;
-            CanOpen = true;
-        }
+        bool can = (dist < openDistance);
+        if (opentext.enabled != can) opentext.enabled = can;
+        CanOpen = can;
     }
 }
