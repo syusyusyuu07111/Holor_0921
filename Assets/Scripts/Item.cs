@@ -11,7 +11,7 @@ public class Item : MonoBehaviour
     public GameObject Book4;
     public GameObject Book5;
     public Transform Player;
-    public float CheckDistance=1.5f;
+    public float CheckDistance = 1.5f;
     public InputSystem_Actions input;
     public TextMeshProUGUI text;
 
@@ -31,6 +31,10 @@ public class Item : MonoBehaviour
     {
         input.Player.Enable();
     }
+    private void Start()
+    {
+        TargetImage.enabled = false;
+    }
 
     void Update()
     {
@@ -42,44 +46,86 @@ public class Item : MonoBehaviour
         float disanceBook5 = Vector3.Distance(Player.transform.position, Book5.transform.position);
 
         //どれかしらのアイテムに近づいたときにテキスト表示--------------------------------------------------------------------
-        if(disanceBook1<CheckDistance||disanceBook2<CheckDistance||disanceBook3<CheckDistance||disanceBook4<CheckDistance||disanceBook5<CheckDistance)
+        if (disanceBook1 < CheckDistance || disanceBook2 < CheckDistance || disanceBook3 < CheckDistance || disanceBook4 < CheckDistance || disanceBook5 < CheckDistance)
         {
             text.gameObject.SetActive(true);
         }
         else
+
         {
+            TargetImage.enabled = false;
             text.gameObject.SetActive(false);
         }
         //--------------------------------------------------------------------------------------------------------------------
 
+        // ★追加：このフレームで「押された瞬間」だけを見る（押しっぱなしや離した瞬間を拾わない）
+        bool pressed = input.Player.Interact.WasPerformedThisFrame();
+
         //book1のアイテム確認-------------------------------------------------------------------------------------------------
-        if(disanceBook1<CheckDistance&&input.Player.Interact.triggered)
+        if (disanceBook1 < CheckDistance && pressed)
         {
-            TargetImage.sprite = Book1Sprite;
+            // ★同じ本が既に表示中なら非表示、それ以外はこの本を表示（トグル動作）
+            if (TargetImage.enabled && TargetImage.sprite == Book1Sprite)
+            {
+                TargetImage.enabled = false;
+            }
+            else
+            {
+                TargetImage.sprite = Book1Sprite;
+                TargetImage.enabled = true;
+            }
         }
         //book2のアイテム確認-------------------------------------------------------------------------------------------------
-        if (disanceBook2 < CheckDistance && input.Player.Interact.triggered)
+        else if (disanceBook2 < CheckDistance && pressed)
         {
-            TargetImage.sprite = Book2Sprite;
-
+            if (TargetImage.enabled && TargetImage.sprite == Book2Sprite)
+            {
+                TargetImage.enabled = false;
+            }
+            else
+            {
+                TargetImage.sprite = Book2Sprite;
+                TargetImage.enabled = true;
+            }
         }
         //book3のアイテム確認-------------------------------------------------------------------------------------------------
-        if (disanceBook3 < CheckDistance && input.Player.Interact.triggered)
+        else if (disanceBook3 < CheckDistance && pressed)
         {
-            TargetImage.sprite = Book3Sprite;
-
+            if (TargetImage.enabled && TargetImage.sprite == Book3Sprite)
+            {
+                TargetImage.enabled = false;
+            }
+            else
+            {
+                TargetImage.sprite = Book3Sprite;
+                TargetImage.enabled = true;
+            }
         }
         //book4のアイテム確認-------------------------------------------------------------------------------------------------
-        if (disanceBook4 < CheckDistance && input.Player.Interact.triggered)
+        else if (disanceBook4 < CheckDistance && pressed)
         {
-            TargetImage.sprite = Book4Sprite;
-
+            if (TargetImage.enabled && TargetImage.sprite == Book4Sprite)
+            {
+                TargetImage.enabled = false;
+            }
+            else
+            {
+                TargetImage.sprite = Book4Sprite;
+                TargetImage.enabled = true;
+            }
         }
         //book5のアイテム確認-------------------------------------------------------------------------------------------------
-        if (disanceBook5 < CheckDistance && input.Player.Interact.triggered)
+        else if (disanceBook5 < CheckDistance && pressed)
         {
-            TargetImage.sprite = Book5Sprite;
-
+            if (TargetImage.enabled && TargetImage.sprite == Book5Sprite)
+            {
+                TargetImage.enabled = false;
+            }
+            else
+            {
+                TargetImage.sprite = Book5Sprite;
+                TargetImage.enabled = true;
+            }
         }
     }
 }
