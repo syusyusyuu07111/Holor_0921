@@ -27,7 +27,7 @@ public class HideArie : MonoBehaviour
 
     // カメラ（Display切替は使わず、enabled の切替のみ）
     public Camera MainCamera;                // 通常時に使うカメラ
-    public Camera SubCamera;                 // 隠れている間に使うカメラ
+    public Camera SubCamera;                 // 隠れている間に使うカメラ（常に幽霊の方向を向く）
 
     // 一度起動したら二度と起動しないためのフラグ
     private bool started = false;
@@ -47,17 +47,14 @@ public class HideArie : MonoBehaviour
     public string DisappearBoolName = "IsDisappearing";           // Animator Bool
     public string DisappearStateTag = "GhostDisappearStateTag";   // 消えるステートのTag
 
-    // ★追加: 消滅エフェクト -----------------------------------------------------------
-    [Header("Disappear VFX")]
-    public GameObject DisappearEffect;     // 消える時に出すエフェクトのPrefab
-    public float DisappearEffectLife = 2f; // エフェクトを何秒後に消すか
-    // -------------------------------------------------------------------------------
-
     //  インタラクトの連打で“入って即解除”を防ぐクールダウン
     private float interactCooldownUntil = 0f; // この時刻までは解除判定を無視
 
     // 二重生成防止フラグ
     private bool isSpawningGhost = false;
+
+    // ★追加: 消え処理（VFX待ち）中フラグ
+    private bool isEnding = false;
 
     // 統合: Enemy2 の徘徊パラメータ（隠れている間の探索挙動） ==========================
     [Header("Wander (Enemy2 style)")]
@@ -73,6 +70,10 @@ public class HideArie : MonoBehaviour
     Coroutine followCo;
     Coroutine wanderCo;
     bool prevHide = false;
+
+    [Header("VFX")]
+    public GameObject GhostDisappearVfx;   // 消えるときに出すエフェクト（任意）
+    public float VfxLifetime = 1.5f;       // VFXが完全に終わるまでの目安（Particleが無ければこれで待つ）
 
     private void Awake()
     {
@@ -140,7 +141,9 @@ public class HideArie : MonoBehaviour
         // 隠れている最中
         if (Hide)
         {
-            //（徘徊の本体は WanderGhost() に実装、ここでは状態だけ扱う）
+            // サブカメラは常に幽霊の方を向く
+            if (SubCamera && currentghost) SubCamera.transform.LookAt(currentghost.transform.position);
+
             if (text && !text.gameObject.activeSelf) text.gameObject.SetActive(true);
 
             // 解除（ボタン）
@@ -222,6 +225,9 @@ public class HideArie : MonoBehaviour
     {
         if (g == null) return;
 
+        // ★消え処理（VFX待ち）中フラグON
+        isEnding = true;
+
         var anim = g.GetComponent<Animator>();
         if (anim != null && !string.IsNullOrEmpty(DisappearBoolName))
         {
@@ -233,38 +239,122 @@ public class HideArie : MonoBehaviour
 
     IEnumerator WaitDisappearAndDestroy(GameObject g, Animator anim)
     {
-        float maxWait = 3f;
+        const int layer = 0;
+        float enterSafety = 5f;       // タグのステートに入るまでの最大待機
+        float stateLen = 0f;          // 実時間のステート長（speed補正後）
+        float stateEnterTime = 0f;    // ステートに入った時刻（Time.time）
+
+        GameObject vfx = null;        // 生成したVFXを保持
 
         if (anim != null && !string.IsNullOrEmpty(DisappearStateTag))
         {
+            // 1) 消えステートに入るのを待つ
             float t = 0f;
-            while (t < maxWait)
+            while (t < enterSafety)
             {
-                var info = anim.GetCurrentAnimatorStateInfo(0);
+                var info = anim.GetCurrentAnimatorStateInfo(layer);
                 if (info.IsTag(DisappearStateTag))
                 {
-                    float waitLen = Mathf.Max(0.05f, info.length);
-                    yield return new WaitForSeconds(waitLen);
+                    // Animator.speed を考慮した実時間の長さ
+                    float speed = Mathf.Max(0.0001f, anim.speed);
+                    stateLen = info.length / speed;
+                    stateEnterTime = Time.time;
                     break;
                 }
                 t += Time.deltaTime;
                 yield return null;
             }
+
+            // 入れなかった場合はフォールバック
+            if (stateLen <= 0f)
+            {
+                stateLen = 1.0f;
+                stateEnterTime = Time.time;
+            }
+
+            // 2) 終了1秒前まで待つ
+            float untilVfx = Mathf.Max(0f, stateLen - 1f);  // 1秒前
+            float elapsed = Time.time - stateEnterTime;
+            float waitToVfx = Mathf.Max(0f, untilVfx - elapsed);
+            if (waitToVfx > 0f) yield return new WaitForSeconds(waitToVfx);
+
+            // 3) ここで VFX 再生（ゴーストの現在位置を記録して生成）
+            Vector3 vfxPos = g.transform.position;
+            Quaternion vfxRot = g.transform.rotation;
+            if (GhostDisappearVfx != null)
+            {
+                vfx = Instantiate(GhostDisappearVfx, vfxPos, vfxRot);
+                if (VfxLifetime > 0f) Destroy(vfx, VfxLifetime);
+            }
+
+            // 4) 残り時間（= 1秒）を待つ
+            float remaining = Mathf.Max(0f, (stateLen - (Time.time - stateEnterTime)));
+            if (remaining > 0f) yield return new WaitForSeconds(remaining);
         }
         else
         {
+            // Animator/Tag が設定されていない場合のフォールバック
+            // ここでは即VFX → 1秒待って削除
+            if (GhostDisappearVfx != null)
+            {
+                vfx = Instantiate(GhostDisappearVfx, g.transform.position, g.transform.rotation);
+                if (VfxLifetime > 0f) Destroy(vfx, VfxLifetime);
+            }
             yield return new WaitForSeconds(1.0f);
         }
 
-        // ★追加: 幽霊の現在位置・回転でエフェクト生成
-        if (g != null)
-        {
-            SpawnDisappearEffect(g.transform.position, g.transform.rotation);
-            Destroy(g);
-        }
+        // 5) 先にゴースト本体を消す
+        if (g != null) Destroy(g);
         currentghost = null;
 
-        OnGhostEnd(); // ※再召喚しない
+        // 6) ★VFXの終了を待ってからカメラ復帰
+        float vfxWait = GetVfxRemainTime(vfx);
+        if (vfxWait > 0f) yield return new WaitForSeconds(vfxWait);
+
+        // 7) 復帰
+        OnGhostEnd();
+        isEnding = false; // 終了
+    }
+
+    // ★VFXの「残り時間」を推定して返す（ParticleSystemがあればそれを優先、無ければVfxLifetimeを使用）
+    float GetVfxRemainTime(GameObject vfx)
+    {
+        if (vfx == null) return 0f;
+
+        var pss = vfx.GetComponentsInChildren<ParticleSystem>(true);
+        float maxDur = 0f;
+        foreach (var ps in pss)
+        {
+            var main = ps.main;
+            float dur = main.duration;
+
+            float life = 0f;
+            if (main.startLifetime.mode == ParticleSystemCurveMode.TwoConstants)
+                life = Mathf.Max(main.startLifetime.constantMin, main.startLifetime.constantMax);
+            else if (main.startLifetime.mode == ParticleSystemCurveMode.TwoCurves)
+            {
+                float max1 = (main.startLifetime.curveMax.keys.Length > 0)
+                    ? main.startLifetime.curveMax.keys[main.startLifetime.curveMax.length - 1].time : 0f;
+                float max2 = (main.startLifetime.curveMin.keys.Length > 0)
+                    ? main.startLifetime.curveMin.keys[main.startLifetime.curveMin.length - 1].time : 0f;
+                life = Mathf.Max(max1, max2);
+            }
+            else if (main.startLifetime.mode == ParticleSystemCurveMode.Curve)
+            {
+                life = (main.startLifetime.curve.keys.Length > 0)
+                    ? main.startLifetime.curve.keys[main.startLifetime.curve.length - 1].time : 0f;
+            }
+            else // Constant
+                life = main.startLifetime.constant;
+
+            float total = dur + life;
+            if (main.loop) { total = VfxLifetime > 0 ? VfxLifetime : 0f; } // ループは寿命頼り
+            if (total > maxDur) maxDur = total;
+        }
+
+        if (maxDur <= 0f) maxDur = Mathf.Max(0f, VfxLifetime);
+
+        return maxDur;
     }
 
     IEnumerator FollowGhost()
@@ -293,7 +383,11 @@ public class HideArie : MonoBehaviour
 
         if (currentghost == null)
         {
-            OnGhostEnd(); // 再召喚しない
+            // ★変更: 消え処理主導のときはここで復帰しない
+            if (!isEnding)
+            {
+                OnGhostEnd(); // 再召喚しない
+            }
         }
     }
 
@@ -302,7 +396,6 @@ public class HideArie : MonoBehaviour
     {
         if (currentghost == null) yield break;
 
-        // Enemy2 相当の内部状態
         Rigidbody rb = currentghost.GetComponent<Rigidbody>();
         float speed = _playerBaseSpeed * _enemySpeed; // 総合速度
         bool isRotating = false;
@@ -462,13 +555,5 @@ public class HideArie : MonoBehaviour
             var sl = SubCamera.GetComponent<AudioListener>();
             if (sl) sl.enabled = false;
         }
-    }
-
-    // 消滅エフェクトを生成して自動破棄
-    void SpawnDisappearEffect(Vector3 pos, Quaternion rot)
-    {
-        if (DisappearEffect == null) return;
-        var fx = Instantiate(DisappearEffect, pos, rot);
-        if (DisappearEffectLife > 0f) Destroy(fx, DisappearEffectLife);
     }
 }
