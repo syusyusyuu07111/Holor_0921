@@ -53,7 +53,7 @@ public class HideArie : MonoBehaviour
     // 二重生成防止フラグ
     private bool isSpawningGhost = false;
 
-    // ★追加: 消え処理（VFX待ち）中フラグ
+    // 消え処理（VFX待ち）中フラグ
     private bool isEnding = false;
 
     // 統合: Enemy2 の徘徊パラメータ（隠れている間の探索挙動） ==========================
@@ -225,7 +225,7 @@ public class HideArie : MonoBehaviour
     {
         if (g == null) return;
 
-        // ★消え処理（VFX待ち）中フラグON
+        // 消え処理（VFX待ち）中フラグON
         isEnding = true;
 
         var anim = g.GetComponent<Animator>();
@@ -307,7 +307,7 @@ public class HideArie : MonoBehaviour
         if (g != null) Destroy(g);
         currentghost = null;
 
-        // 6) ★VFXの終了を待ってからカメラ復帰
+        // 6) VFXの終了を待ってからカメラ復帰
         float vfxWait = GetVfxRemainTime(vfx);
         if (vfxWait > 0f) yield return new WaitForSeconds(vfxWait);
 
@@ -316,7 +316,7 @@ public class HideArie : MonoBehaviour
         isEnding = false; // 終了
     }
 
-    // ★VFXの「残り時間」を推定して返す（ParticleSystemがあればそれを優先、無ければVfxLifetimeを使用）
+    // VFXの「残り時間」返す
     float GetVfxRemainTime(GameObject vfx)
     {
         if (vfx == null) return 0f;
@@ -383,7 +383,7 @@ public class HideArie : MonoBehaviour
 
         if (currentghost == null)
         {
-            // ★変更: 消え処理主導のときはここで復帰しない
+            // 消え処理主導のときはここで復帰しない
             if (!isEnding)
             {
                 OnGhostEnd(); // 再召喚しない
