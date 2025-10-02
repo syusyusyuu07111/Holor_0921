@@ -1,57 +1,78 @@
-using System.Collections;
+ï»¿using System.Collections;
 using TMPro;
 using UnityEngine;
 
-// ƒLƒƒƒ‰ƒNƒ^[‚ª‚R‚Â–Ú‚Ì•”‰®‚É“ü‚Á‚½‚É—H—ì‚ªo‚Ä‚­‚é‚©‚ç‹}‚¢‚Å‰B‚ê‚éƒMƒ~ƒbƒN‚Å‚·============================================================================
+// ã‚­ãƒ£ãƒ©ã‚¯ã‚¿ãƒ¼ãŒï¼“ã¤ç›®ã®éƒ¨å±‹ã«å…¥ã£ãŸæ™‚ã«å¹½éœŠãŒå‡ºã¦ãã‚‹ã‹ã‚‰æ€¥ã„ã§éš ã‚Œã‚‹ã‚®ãƒŸãƒƒã‚¯ã§ã™============================================================================
 public class HideArie : MonoBehaviour
 {
     public AudioSource audioSource = null;
     public AudioClip KnockSe;
     public AudioClip KnockVoice;
 
-    public bool Hide = false;                // ‰B‚ê‚Ä‚¢‚é‚©
-    public GameObject HidePlace;             // ‰B‚ê‚éêŠ
+    public bool Hide = false;                // éš ã‚Œã¦ã„ã‚‹ã‹
+    public GameObject HidePlace;             // éš ã‚Œã‚‹å ´æ‰€
     InputSystem_Actions input;
-    public float HideDistance;               // ‰B‚ê‚é”»’è‹——£
-    public GameObject Player;                // ƒvƒŒƒCƒ„[
-    public TextMeshProUGUI text;             // u‰B‚ê‚évƒKƒCƒ_ƒ“ƒX
-    public Transform HidePosition;           // ‰B‚ê‚½‚Æ‚«‚ÉˆÚ“®‚³‚¹‚éˆÊ’u
+    public float HideDistance;               // éš ã‚Œã‚‹åˆ¤å®šè·é›¢
+    public GameObject Player;                // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼
+    public TextMeshProUGUI text;             // ã€Œéš ã‚Œã‚‹ã€ã‚¬ã‚¤ãƒ€ãƒ³ã‚¹
+    public Transform HidePosition;           // éš ã‚ŒãŸã¨ãã«ç§»å‹•ã•ã›ã‚‹ä½ç½®
 
-    public float AttackWaitTime = 10.0f;     // N“üŒãAP‚¢‚É—ˆ‚é‚Ü‚Å‚Ì‘Ò‚¿ŠÔ
-    public GameObject Ghost;                 // —H—ì‚ÌƒvƒŒƒnƒu
-    public GameObject Door;                  // oŒ»ˆÊ’u‚È‚Ç‚Ég‚¤QÆ
+    public float AttackWaitTime = 10.0f;     // ä¾µå…¥å¾Œã€è¥²ã„ã«æ¥ã‚‹ã¾ã§ã®å¾…ã¡æ™‚é–“
+    public GameObject Ghost;                 // å¹½éœŠã®ãƒ—ãƒ¬ãƒãƒ–
+    public GameObject Door;                  // å‡ºç¾ä½ç½®ãªã©ã«ä½¿ã†å‚ç…§
 
-    public float GhostSpeed = 2.0f;          // —H—ì‚ÌˆÚ“®‘¬“x
-    public float GhostStopDistance = 0.2f;   // ƒvƒŒƒCƒ„[‚É‹ß‚Ã‚«‚·‚¬‚½‚ç’â~‚·‚é‹——£
-    public float GhostLifetime = 10f;        // —H—ì‚Ìõ–½ioŒ»‚©‚ç‚±‚Ì•b”‚ÅÁ‚¦‚éj
+    public float GhostSpeed = 2.0f;          // è¿½è·¡æ™‚ã®ç§»å‹•é€Ÿåº¦
+    public float GhostStopDistance = 0.2f;   // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã«è¿‘ã¥ãã™ããŸã‚‰åœæ­¢ã™ã‚‹è·é›¢
+    public float GhostLifetime = 10f;        // å¹½éœŠã®å¯¿å‘½ï¼ˆå‡ºç¾ã‹ã‚‰ã“ã®ç§’æ•°ã§æ¶ˆãˆã‚‹ï¼‰
 
-    // ƒJƒƒ‰iDisplayØ‘Ö‚Íg‚í‚¸Aenabled ‚ÌØ‘Ö‚Ì‚İj
-    public Camera MainCamera;                // ’Êí‚Ég‚¤ƒJƒƒ‰
-    public Camera SubCamera;                 // ‰B‚ê‚Ä‚¢‚éŠÔ‚Ég‚¤ƒJƒƒ‰
+    // ã‚«ãƒ¡ãƒ©ï¼ˆDisplayåˆ‡æ›¿ã¯ä½¿ã‚ãšã€enabled ã®åˆ‡æ›¿ã®ã¿ï¼‰
+    public Camera MainCamera;                // é€šå¸¸æ™‚ã«ä½¿ã†ã‚«ãƒ¡ãƒ©
+    public Camera SubCamera;                 // éš ã‚Œã¦ã„ã‚‹é–“ã«ä½¿ã†ã‚«ãƒ¡ãƒ©
 
-    // ˆê“x‹N“®‚µ‚½‚ç“ñ“x‚Æ‹N“®‚µ‚È‚¢‚½‚ß‚Ìƒtƒ‰ƒO
+    // ä¸€åº¦èµ·å‹•ã—ãŸã‚‰äºŒåº¦ã¨èµ·å‹•ã—ãªã„ãŸã‚ã®ãƒ•ãƒ©ã‚°
     private bool started = false;
 
-    // ‰B‚ê‚é‘O‚ÌƒvƒŒƒCƒ„[ˆÊ’u/‰ñ“]‚ğ‹L˜^
+    // éš ã‚Œã‚‹å‰ã®ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ä½ç½®/å›è»¢ã‚’è¨˜éŒ²
     private Vector3 savedPlayerPos;
     private Quaternion savedPlayerRot;
     private bool savedPlayerValid = false;
 
-    // ‰B‚êˆÊ’u‚©‚ç‚±‚Ì‹——£‚ğ’´‚¦‚Ä¶‰E(•½–Ê)‚É“®‚¢‚½‚ç©“®‰ğœ
+    // éš ã‚Œä½ç½®ã‹ã‚‰ã“ã®è·é›¢ã‚’è¶…ãˆã¦å·¦å³(å¹³é¢)ã«å‹•ã„ãŸã‚‰è‡ªå‹•è§£é™¤
     public float AutoExitDistance = 0.6f;
 
-    // ¶¬‚µ‚½—H—ì‚ÌQÆ
+    // ç”Ÿæˆã—ãŸå¹½éœŠã®å‚ç…§
     private GameObject currentghost;
 
     [Header("Disappear Animation")]
     public string DisappearBoolName = "IsDisappearing";           // Animator Bool
-    public string DisappearStateTag = "GhostDisappearStateTag";   // Á‚¦‚éƒXƒe[ƒg‚ÌTag
+    public string DisappearStateTag = "GhostDisappearStateTag";   // æ¶ˆãˆã‚‹ã‚¹ãƒ†ãƒ¼ãƒˆã®Tag
 
-    //  ƒCƒ“ƒ^ƒ‰ƒNƒg‚Ì˜A‘Å‚Åg“ü‚Á‚Ä‘¦‰ğœh‚ğ–h‚®ƒN[ƒ‹ƒ_ƒEƒ“
-    private float interactCooldownUntil = 0f; // ‚±‚Ì‚Ü‚Å‚Í‰ğœ”»’è‚ğ–³‹
+    // â˜…è¿½åŠ : æ¶ˆæ»…ã‚¨ãƒ•ã‚§ã‚¯ãƒˆ -----------------------------------------------------------
+    [Header("Disappear VFX")]
+    public GameObject DisappearEffect;     // æ¶ˆãˆã‚‹æ™‚ã«å‡ºã™ã‚¨ãƒ•ã‚§ã‚¯ãƒˆã®Prefab
+    public float DisappearEffectLife = 2f; // ã‚¨ãƒ•ã‚§ã‚¯ãƒˆã‚’ä½•ç§’å¾Œã«æ¶ˆã™ã‹
+    // -------------------------------------------------------------------------------
 
-    // “ñd¶¬–h~ƒtƒ‰ƒO
+    //  ã‚¤ãƒ³ã‚¿ãƒ©ã‚¯ãƒˆã®é€£æ‰“ã§â€œå…¥ã£ã¦å³è§£é™¤â€ã‚’é˜²ãã‚¯ãƒ¼ãƒ«ãƒ€ã‚¦ãƒ³
+    private float interactCooldownUntil = 0f; // ã“ã®æ™‚åˆ»ã¾ã§ã¯è§£é™¤åˆ¤å®šã‚’ç„¡è¦–
+
+    // äºŒé‡ç”Ÿæˆé˜²æ­¢ãƒ•ãƒ©ã‚°
     private bool isSpawningGhost = false;
+
+    // çµ±åˆ: Enemy2 ã®å¾˜å¾Šãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ï¼ˆéš ã‚Œã¦ã„ã‚‹é–“ã®æ¢ç´¢æŒ™å‹•ï¼‰ ==========================
+    [Header("Wander (Enemy2 style)")]
+    [SerializeField] private float _playerBaseSpeed = 5f; // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼åŸºæº–é€Ÿåº¦
+    [SerializeField] private float _enemySpeed = 1.3f;    // é€Ÿåº¦å€ç‡ï¼ˆå¾˜å¾Šç”¨ï¼‰
+    [SerializeField] private float _rotationSpeed = 180f; // æ—‹å›é€Ÿåº¦(åº¦/ç§’)
+    [SerializeField] private float _rayDistance = 1.5f;   // å‰æ–¹ãƒ¬ã‚¤ã®è·é›¢
+    [Tooltip("å®¶å…·ãªã©éšœå®³ç‰©ã®ã‚¿ã‚°åï¼ˆEnemy2ã¯\"Furniture\"ã‚’ä½¿ç”¨ï¼‰")]
+    public string ObstacleTag = "Furniture";
+    // ================================================================================
+
+    // ã‚³ãƒ«ãƒ¼ãƒãƒ³å‚ç…§ã¨å‰å›ã®HideçŠ¶æ…‹
+    Coroutine followCo;
+    Coroutine wanderCo;
+    bool prevHide = false;
 
     private void Awake()
     {
@@ -77,7 +98,7 @@ public class HideArie : MonoBehaviour
 
     void Update()
     {
-        // ‰B‚ê‚éêŠ‚É‹ß‚Ã‚¢‚½‚çƒeƒLƒXƒg•\¦^‰B‚ê‚éˆ—
+        // éš ã‚Œã‚‹å ´æ‰€ã«è¿‘ã¥ã„ãŸã‚‰ãƒ†ã‚­ã‚¹ãƒˆè¡¨ç¤ºï¼éš ã‚Œã‚‹å‡¦ç†
         if (Player && HidePlace)
         {
             float distance = Vector3.Distance(Player.transform.position, HidePlace.transform.position);
@@ -86,10 +107,10 @@ public class HideArie : MonoBehaviour
             {
                 if (text) text.gameObject.SetActive(true);
 
-                // “ü‚é‚Æ‚«‚Í WasPressedThisFrame() ‚É
+                // å…¥ã‚‹ã¨ãã¯ WasPressedThisFrame() ã«
                 if (input.Player.Interact.WasPressedThisFrame() && !Hide)
                 {
-                    // ‰B‚ê‚é‘O‚ÌˆÊ’u/‰ñ“]‚ğ•Û‘¶iÅ‰‚Ìˆê‰ñ‚¾‚¯j
+                    // éš ã‚Œã‚‹å‰ã®ä½ç½®/å›è»¢ã‚’ä¿å­˜ï¼ˆæœ€åˆã®ä¸€å›ã ã‘ï¼‰
                     if (!savedPlayerValid)
                     {
                         savedPlayerPos = Player.transform.position;
@@ -100,13 +121,13 @@ public class HideArie : MonoBehaviour
                     if (HidePosition) Player.transform.position = HidePosition.position;
                     Hide = true;
 
-                    // ‰B‚ê‚Ä‚¢‚éŠÔ‚àƒKƒCƒ_ƒ“ƒXƒeƒLƒXƒg‚Ío‚µ‘±‚¯‚é
+                    // éš ã‚Œã¦ã„ã‚‹é–“ã‚‚ã‚¬ã‚¤ãƒ€ãƒ³ã‚¹ãƒ†ã‚­ã‚¹ãƒˆã¯å‡ºã—ç¶šã‘ã‚‹
                     if (text && !text.gameObject.activeSelf) text.gameObject.SetActive(true);
 
-                    // ƒTƒuƒJƒƒ‰‚ÖØ‘Ö
+                    // ã‚µãƒ–ã‚«ãƒ¡ãƒ©ã¸åˆ‡æ›¿
                     SwitchToSubCamera();
 
-                    // ‚±‚ÌuŠÔ‚©‚ç­‚µ‚ÌŠÔ‚Í‰ğœƒL[‚ğ–³‹
+                    // ã“ã®ç¬é–“ã‹ã‚‰å°‘ã—ã®é–“ã¯è§£é™¤ã‚­ãƒ¼ã‚’ç„¡è¦–
                     interactCooldownUntil = Time.time + 0.15f;
                 }
             }
@@ -116,30 +137,47 @@ public class HideArie : MonoBehaviour
             }
         }
 
-        // ‰B‚ê‚Ä‚¢‚éÅ’†
+        // éš ã‚Œã¦ã„ã‚‹æœ€ä¸­
         if (Hide)
         {
+            //ï¼ˆå¾˜å¾Šã®æœ¬ä½“ã¯ WanderGhost() ã«å®Ÿè£…ã€ã“ã“ã§ã¯çŠ¶æ…‹ã ã‘æ‰±ã†ï¼‰
             if (text && !text.gameObject.activeSelf) text.gameObject.SetActive(true);
 
-            // ‰ğœ‚à WasPressedThisFrame() + ƒN[ƒ‹ƒ_ƒEƒ“
+            // è§£é™¤ï¼ˆãƒœã‚¿ãƒ³ï¼‰
             if (Time.time >= interactCooldownUntil && input.Player.Interact.WasPressedThisFrame())
             {
-                ExitHide(false); // Ä¢Š«‚Í‚±‚±‚Å‚Í‚µ‚È‚¢
+                ExitHide(false);
                 interactCooldownUntil = Time.time + 0.15f;
             }
 
-            // ‰B‚êˆÊ’u‚©‚ç¶‰E(•½–Ê)‚Öˆê’è‹——£“®‚¢‚½‚ç©“®‰ğœ
+            // è‡ªå‹•è§£é™¤ï¼ˆéš ã‚Œä½ç½®ã‹ã‚‰ä¸€å®šè·é›¢ï¼‰
             if (HidePosition && Player)
             {
                 Vector3 p = Player.transform.position; p.y = 0f;
                 Vector3 h = HidePosition.position; h.y = 0f;
                 if (Vector3.Distance(p, h) > AutoExitDistance)
                 {
-                    ExitHide(false); // F‚±‚±‚Å‚àÄ¢Š«‚µ‚È‚¢
+                    ExitHide(false);
                     interactCooldownUntil = Time.time + 0.15f;
                 }
             }
         }
+
+        // Hide ã®åˆ‡æ›¿æ™‚ã« è¿½è·¡â†”å¾˜å¾Š ã‚’å…¥ã‚Œæ›¿ãˆ
+        if (currentghost != null)
+        {
+            if (Hide && !prevHide)        // ä»Šãƒ•ãƒ¬ãƒ¼ãƒ ã§ã€Œéš ã‚ŒãŸã€â†’ å¾˜å¾Šã«åˆ‡æ›¿
+            {
+                StopFollow();
+                StartWander();
+            }
+            else if (!Hide && prevHide)   // ä»Šãƒ•ãƒ¬ãƒ¼ãƒ ã§ã€Œéš ã‚Œè§£é™¤ã€â†’ è¿½è·¡ã«åˆ‡æ›¿
+            {
+                StopWander();
+                StartFollow();
+            }
+        }
+        prevHide = Hide;
     }
 
     private void OnTriggerEnter(Collider other)
@@ -161,10 +199,10 @@ public class HideArie : MonoBehaviour
 
     IEnumerator Encount()
     {
-        // KnockSe Ä¶ŒãA‰½‚ª‚ ‚Á‚Ä‚à AttackWaitTime Œã‚É•K‚¸oŒ»‚³‚¹‚é
+        // KnockSe å†ç”Ÿå¾Œã€ä½•ãŒã‚ã£ã¦ã‚‚ AttackWaitTime å¾Œã«å¿…ãšå‡ºç¾ã•ã›ã‚‹
         yield return new WaitForSeconds(AttackWaitTime);
 
-        // ¶¬“_‚Å’ÇÕ‚·‚é‚©‚ğŒˆ‚ß‚éi‚±‚ÌuŠÔ Hide ‚È‚ç’ÇÕ‚µ‚È‚¢j
+        // ç”Ÿæˆæ™‚ç‚¹ã§è¿½è·¡ã™ã‚‹ã‹ã‚’æ±ºã‚ã‚‹ï¼ˆã“ã®ç¬é–“ Hide ãªã‚‰è¿½è·¡ã—ãªã„ï¼‰
         bool chaseOnSpawn = !Hide;
 
         SpawnGhostIfNeeded(true, chaseOnSpawn);
@@ -218,10 +256,15 @@ public class HideArie : MonoBehaviour
             yield return new WaitForSeconds(1.0f);
         }
 
-        if (g != null) Destroy(g);
+        // â˜…è¿½åŠ : å¹½éœŠã®ç¾åœ¨ä½ç½®ãƒ»å›è»¢ã§ã‚¨ãƒ•ã‚§ã‚¯ãƒˆç”Ÿæˆ
+        if (g != null)
+        {
+            SpawnDisappearEffect(g.transform.position, g.transform.rotation);
+            Destroy(g);
+        }
         currentghost = null;
 
-        OnGhostEnd(); // ¦Ä¢Š«‚µ‚È‚¢
+        OnGhostEnd(); // â€»å†å¬å–šã—ãªã„
     }
 
     IEnumerator FollowGhost()
@@ -250,17 +293,95 @@ public class HideArie : MonoBehaviour
 
         if (currentghost == null)
         {
-            OnGhostEnd(); // Ä¢Š«‚µ‚È‚¢
+            OnGhostEnd(); // å†å¬å–šã—ãªã„
         }
     }
 
+    // çµ±åˆ: Enemy2 ã®å¾˜å¾Šãƒ­ã‚¸ãƒƒã‚¯ï¼ˆéš ã‚Œã¦ã„ã‚‹é–“ã ã‘å‹•ä½œï¼‰ =====================================================================================
+    IEnumerator WanderGhost()
+    {
+        if (currentghost == null) yield break;
+
+        // Enemy2 ç›¸å½“ã®å†…éƒ¨çŠ¶æ…‹
+        Rigidbody rb = currentghost.GetComponent<Rigidbody>();
+        float speed = _playerBaseSpeed * _enemySpeed; // ç·åˆé€Ÿåº¦
+        bool isRotating = false;
+        int turnDirection = 1;       // -1=å·¦, 1=å³
+        Quaternion targetRot = currentghost.transform.rotation;
+
+        while (currentghost != null && Hide)
+        {
+            // 1) æ—‹å›ä¸­ã¯ç›®æ¨™è§’åº¦ã¾ã§å›ã™ï¼ˆå‰é€²ã—ãªã„ï¼‰
+            if (isRotating)
+            {
+                currentghost.transform.rotation =
+                    Quaternion.RotateTowards(currentghost.transform.rotation, targetRot, _rotationSpeed * Time.deltaTime);
+
+                if (Quaternion.Angle(currentghost.transform.rotation, targetRot) < 1f)
+                {
+                    isRotating = false;
+                }
+
+                yield return null;
+                continue;
+            }
+
+            // 2) å‰æ–¹ãƒ¬ã‚¤ã§éšœå®³ç‰©ãƒã‚§ãƒƒã‚¯
+            RaycastHit hit;
+            if (Physics.Raycast(currentghost.transform.position,
+                                currentghost.transform.forward,
+                                out hit, _rayDistance))
+            {
+                if (hit.collider && hit.collider.CompareTag(ObstacleTag))
+                {
+                    // å·¦å³ãƒ©ãƒ³ãƒ€ãƒ ã«å›é¿
+                    turnDirection = (Random.Range(0, 2) == 0) ? 1 : -1;
+
+                    // å‰æ–¹ãƒ™ã‚¯ãƒˆãƒ«ã«å¯¾ã—ç›´è§’æ–¹å‘ï¼ˆä¸Šãƒ™ã‚¯ãƒˆãƒ«ã¨ã®ã‚¯ãƒ­ã‚¹ï¼‰ã‚’å‘ã
+                    Vector3 side = Vector3.Cross(currentghost.transform.forward, Vector3.up).normalized * turnDirection;
+                    targetRot = Quaternion.LookRotation(side, Vector3.up);
+                }
+                else
+                {
+                    // éšœå®³ç‰©ã˜ã‚ƒãªãã¦ã‚‚å½“ãŸã£ãŸã‚‰ã¨ã‚Šã‚ãˆãšæ—‹å›ã™ã‚‹ï¼ˆè¡Œãæ­¢ã¾ã‚Šå›é¿ç”¨ï¼‰
+                    Vector3 side = Vector3.Cross(currentghost.transform.forward, Vector3.up).normalized *
+                                   ((Random.Range(0, 2) == 0) ? 1 : -1);
+                    targetRot = Quaternion.LookRotation(side, Vector3.up);
+                }
+
+                isRotating = true;
+                yield return null;
+                continue;
+            }
+
+            // 3) å‰é€²ï¼ˆRigidbody ãŒã‚ã‚Œã° MovePositionã€ãªã‘ã‚Œã° Transform ã§ç§»å‹•ï¼‰
+            Vector3 nextPos = currentghost.transform.position + currentghost.transform.forward * speed * Time.deltaTime;
+            if (rb != null)
+            {
+                rb.MovePosition(nextPos);
+            }
+            else
+            {
+                currentghost.transform.position = nextPos;
+            }
+
+            yield return null;
+        }
+    }
+    // ==============================================================================
+
     void OnGhostEnd()
     {
-        ExitHide(false); // —H—ì‚ªÁ‚¦‚½‚çŒ³‚ÌˆÊ’u•ƒƒCƒ“ƒJƒƒ‰‚Ö–ß‚·
+        StopFollow();
+        StopWander();
+        ExitHide(false); // å¹½éœŠãŒæ¶ˆãˆãŸã‚‰å…ƒã®ä½ç½®ï¼†ãƒ¡ã‚¤ãƒ³ã‚«ãƒ¡ãƒ©ã¸æˆ»ã™
     }
 
     void ExitHide(bool _notUsedRespawn)
     {
+        StopFollow();
+        StopWander();
+
         Hide = false;
 
         if (Player && savedPlayerValid)
@@ -272,11 +393,11 @@ public class HideArie : MonoBehaviour
         SwitchToMainCamera();
     }
 
-    // ƒS[ƒXƒg¶¬‚ğˆêŒ³ŠÇ—B¶¬“_‚Å’ÇÕ‚³‚¹‚é‚©ichaseOnSpawnj‚ğw’è
+    // ã‚´ãƒ¼ã‚¹ãƒˆç”Ÿæˆã‚’ä¸€å…ƒç®¡ç†ã€‚ç”Ÿæˆæ™‚ç‚¹ã§è¿½è·¡ã•ã›ã‚‹ã‹ï¼ˆchaseOnSpawnï¼‰ã‚’æŒ‡å®š
     void SpawnGhostIfNeeded(bool fromEncount, bool chaseOnSpawn)
     {
-        if (currentghost != null) return;     // Šù‚É‚¢‚é
-        if (isSpawningGhost) return;          // ¶¬’†
+        if (currentghost != null) return;     // æ—¢ã«ã„ã‚‹
+        if (isSpawningGhost) return;          // ç”Ÿæˆä¸­
         if (!Ghost || !Door) return;
 
         StartCoroutine(SpawnGhostRoutine(fromEncount, chaseOnSpawn));
@@ -284,8 +405,8 @@ public class HideArie : MonoBehaviour
 
     IEnumerator SpawnGhostRoutine(bool fromEncount, bool chaseOnSpawn)
     {
-        isSpawningGhost = true;               // ¶¬’†ƒtƒ‰ƒOON
-        yield return null;                    // 1ƒtƒŒ[ƒ€‘Ò‚Á‚ÄÕ“Ë“I‚È“¯ŒÄ‚Ño‚µ‚ğ‰ñ”ğ
+        isSpawningGhost = true;               // ç”Ÿæˆä¸­ãƒ•ãƒ©ã‚°ON
+        yield return null;                    // 1ãƒ•ãƒ¬ãƒ¼ãƒ å¾…ã£ã¦è¡çªçš„ãªåŒæ™‚å‘¼ã³å‡ºã—ã‚’å›é¿
 
         if (currentghost == null && Ghost && Door)
         {
@@ -293,21 +414,24 @@ public class HideArie : MonoBehaviour
 
             if (audioSource && KnockVoice && !fromEncount)
             {
-                audioSource.PlayOneShot(KnockVoice); // ‰ğœ‚Å‚ÌÄoŒ»‚¾‚¯–Â‚ç‚·“™A•K—v‚È‚ç
+                audioSource.PlayOneShot(KnockVoice); // è§£é™¤ã§ã®å†å‡ºç¾æ™‚ã ã‘é³´ã‚‰ã™ç­‰ã€å¿…è¦ãªã‚‰
             }
 
-            // í‚Éõ–½ƒRƒ‹[ƒ`ƒ“‚ÍŠJni‰B‚ê‚Ä‚¢‚Ä‚àˆê’èŠÔ‚ÅÁ‚¦‚éj
+            // å¯¿å‘½ç®¡ç†é–‹å§‹
             StartCoroutine(GhostLifetimeRoutine());
 
-            //’ÇÕ‚Íu¶¬‚µ‚½uŠÔ‚É‰B‚ê‚Ä‚¢‚È‚©‚Á‚½ê‡‚Ì‚İvŠJn
-            if (chaseOnSpawn)
-            {
-                StartCoroutine(FollowGhost());
-            }
+            // è¿½è·¡ or å¾˜å¾Šã‚’é–‹å§‹
+            if (chaseOnSpawn) { StartFollow(); } else { StartWander(); }
         }
 
-        isSpawningGhost = false;              // ¶¬’†ƒtƒ‰ƒOOFF
+        isSpawningGhost = false;              // ç”Ÿæˆä¸­ãƒ•ãƒ©ã‚°OFF
     }
+
+    // è¿½è·¡/å¾˜å¾Šã®é–‹å§‹ãƒ»åœæ­¢
+    void StartFollow() { StopFollow(); followCo = StartCoroutine(FollowGhost()); }
+    void StopFollow() { if (followCo != null) { StopCoroutine(followCo); followCo = null; } }
+    void StartWander() { StopWander(); wanderCo = StartCoroutine(WanderGhost()); }
+    void StopWander() { if (wanderCo != null) { StopCoroutine(wanderCo); wanderCo = null; } }
 
     void SwitchToSubCamera()
     {
@@ -338,5 +462,13 @@ public class HideArie : MonoBehaviour
             var sl = SubCamera.GetComponent<AudioListener>();
             if (sl) sl.enabled = false;
         }
+    }
+
+    // æ¶ˆæ»…ã‚¨ãƒ•ã‚§ã‚¯ãƒˆã‚’ç”Ÿæˆã—ã¦è‡ªå‹•ç ´æ£„
+    void SpawnDisappearEffect(Vector3 pos, Quaternion rot)
+    {
+        if (DisappearEffect == null) return;
+        var fx = Instantiate(DisappearEffect, pos, rot);
+        if (DisappearEffectLife > 0f) Destroy(fx, DisappearEffectLife);
     }
 }
