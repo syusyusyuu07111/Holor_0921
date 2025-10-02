@@ -35,9 +35,9 @@ public class PlayerController : MonoBehaviour
         Right.y = 0;
         Right.Normalize();
 
-        // ★追加: このフレームで使う実速度（MoveSpeedは上書きしない）
+        //  このフレームで使う実速度（MoveSpeedは上書きしない）
         float currentSpeed = MoveSpeed;
-        // ★追加: ダッシュは「押してる間」かつ後退以外のときのみ有効
+        // ダッシュは「押してる間」かつ後退以外のときのみ有効
         bool isDashing = Input.Player.Dash.IsPressed() && MoveInput.y >= 0f;
         if (isDashing)
         {
