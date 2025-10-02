@@ -5,13 +5,18 @@ using UnityEngine;
 public class PictureGhostEncount : MonoBehaviour
 {
     public Transform NorthPicture;
-    public GameObject EastPicture;
-    public GameObject WestPicture;
+    public Transform EastPicture;
+    public Transform WestPicture;
     public Transform Player;
     InputSystem_Actions input;
-    public float TouchDistance;
-    TextMeshProUGUI text;
+    public float TouchDistance=1.0f;
+    public TextMeshProUGUI text;
     public GameObject Ghost;
+    public GameObject DestroyWall;//‚ ‚½‚è‚Ì‚¦‚ğ‚Ğ‚¢‚½‚Æ‚«‚É‰ó‚·•Ç
+    public float GhostSpeed;
+
+    private GameObject currentghost;//¶¬‚µ‚½—H—ì‚ğQÆ‚·‚é‚æ‚¤
+    public float GhostStopDistance = 0.2f; // ’Ç‰ÁF‹ß‚Ã‚«‚·‚¬‚½‚ç~‚ß‚é‹——£i”CˆÓ’²®j
 
     public void Awake()
     {
@@ -23,11 +28,34 @@ public class PictureGhostEncount : MonoBehaviour
     }
     private void Start()
     {
-        text.gameObject.SetActive(false);
+        if (text) text.gameObject.SetActive(false);
     }
-
     void Update()
     {
+        //currentghost ‚ª‚¢‚ê‚Î–ˆƒtƒŒ[ƒ€ƒvƒŒƒCƒ„[‚ÉŒü‚©‚Á‚ÄˆÚ“®iTransform’Ç”öj
+        if (currentghost != null && Player != null)
+        {
+            Vector3 to = Player.transform.position - currentghost.transform.position;
+            to.y = 0f; // ã‰º‚ğ–³‹‚·‚éê‡i•K—v‚È‚¯‚ê‚ÎÁ‚µ‚ÄOKj
+
+            float dist = to.magnitude;
+            if (dist > GhostStopDistance) // ‹ß‚·‚¬‚é‚È‚ç~‚ß‚é
+            {
+                Vector3 dir = to.normalized;
+                currentghost.transform.position += dir * Time.deltaTime * GhostSpeed;
+
+                //Œü‚«‚ğƒvƒŒƒCƒ„[‘¤‚Ö
+                if (dir.sqrMagnitude > 0.0001f)
+                {
+                    currentghost.transform.rotation = Quaternion.Slerp(
+                        currentghost.transform.rotation,
+                        Quaternion.LookRotation(dir, Vector3.up),
+                        10f * Time.deltaTime
+                    );
+                }
+            }
+        }
+
         //ŠG‚ÌˆÊ’u‚Æ‹——£æ“¾--------------------------------------------------------------------------------------------------------------
         float NorthPictureDistance;
         NorthPictureDistance = Vector3.Distance(Player.transform.position, NorthPicture.transform.position);
@@ -39,34 +67,39 @@ public class PictureGhostEncount : MonoBehaviour
         WestPictureDistance = Vector3.Distance(Player.transform.position, WestPicture.transform.position);
 
         //‚Ç‚ê‚©‚µ‚ç‚ÌŠG‚ÉG‚ê‚é‹——£‚É‚¢‚é‚Æ‚«‚Ìˆ— ƒeƒLƒXƒg•\¦
-        if(NorthPictureDistance<TouchDistance||EastPictureDistance<TouchDistance||WestPictureDistance<TouchDistance)
+        if (NorthPictureDistance < TouchDistance || EastPictureDistance < TouchDistance || WestPictureDistance < TouchDistance)
         {
-            text.gameObject.SetActive(true);
+            if (text) text.gameObject.SetActive(true);
         }
         else
         {
-            text.gameObject.SetActive(false);
+            if (text) text.gameObject.SetActive(false);
         }
 
-
-        //northpicture‚ÌŠG‚Æ‹ß‚¢‚Æ‚«‚Ìˆ—--------------------------------------------------------------------------------------------
-
-        if (NorthPictureDistance < TouchDistance)//northpicture‚ªG‚ê‚é‹——£‚É‚ ‚é‚Æ‚«‚Ì‹““®
+        //northpicture‚ÌŠG‚Æ‹ß‚¢‚Æ‚«‚Ìˆ— “–‚½‚è‚ÌŠG--------------------------------------------------------------------------------------------
+        if (NorthPictureDistance < TouchDistance && input.Player.Interact.WasPerformedThisFrame())//northpicture‚ªG‚ê‚é‹——£‚É‚ ‚é‚Æ‚«‚Ì‹““®
         {
-
-        }
-        //Eastpicture‚ÌŠG‚Æ‹ß‚¢‚Æ‚«‚Ìˆ—---------------------------------------------------------------------------------------------
-
-        if (EastPictureDistance < TouchDistance)//eastpicture‚ªG‚ê‚é‹——£‚É‚ ‚é‚Æ‚«‚Ì‹““®
-        {
-
+            Destroy(DestroyWall);
         }
 
-        //Westpicture‚ÌŠG‚Æ‹ß‚¢‚Æ‚«‚Ìˆ—---------------------------------------------------------------------------------------------
-
-        if (WestPictureDistance < TouchDistance)//Westpicture‚ªG‚ê‚é‹——£‚É‚ ‚é‚Æ‚«‚Ì‹““®
+        //Eastpicture‚ÌŠG‚Æ‹ß‚¢‚Æ‚«‚Ìˆ—@ŠO‚ê‚ÌŠG---------------------------------------------------------------------------------------------
+        if (EastPictureDistance < TouchDistance && input.Player.Interact.WasPerformedThisFrame())//eastpicture‚ªG‚ê‚é‹——£‚É‚ ‚é‚Æ‚«‚Ì‹““®
         {
+             if (currentghost == null)
+            {
+                currentghost = Instantiate(Ghost, EastPicture.transform.position, Quaternion.identity);
+            }
 
+        }
+
+        //Westpicture‚ÌŠG‚Æ‹ß‚¢‚Æ‚«‚Ìˆ—@ŠO‚ê‚ÌŠG--------------------------------------------------------------------------------------------
+        if (WestPictureDistance < TouchDistance && input.Player.Interact.WasPerformedThisFrame())//Westpicture‚ªG‚ê‚é‹——£‚É‚ ‚é‚Æ‚«‚Ì‹““®
+        {
+             if (currentghost == null)
+            {
+                currentghost = Instantiate(Ghost, WestPicture.transform.position, Quaternion.identity);
+
+            }
         }
     }
 }
