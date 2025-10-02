@@ -36,7 +36,7 @@ public class PictureGhostEncount : MonoBehaviour
         if (currentghost != null && Player != null)
         {
             Vector3 to = Player.transform.position - currentghost.transform.position;
-            to.y = 0f; // 上下を無視する場合（必要なければ消してOK）
+            to.y = 0f; // 上下を無視する場合（必要なければ消してOK
 
             float dist = to.magnitude;
             if (dist > GhostStopDistance) // 近すぎるなら止める
