@@ -124,7 +124,7 @@ public class HideArie : MonoBehaviour
             // 解除も WasPressedThisFrame() + クールダウン
             if (Time.time >= interactCooldownUntil && input.Player.Interact.WasPressedThisFrame())
             {
-                ExitHide(false); // ★変更: 再召喚はここではしない（要求に合わせてシンプルに）
+                ExitHide(false); // 再召喚はここではしない
                 interactCooldownUntil = Time.time + 0.15f;
             }
 
