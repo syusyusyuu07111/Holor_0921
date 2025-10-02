@@ -50,7 +50,7 @@ public class HideArie : MonoBehaviour
     //  インタラクトの連打で“入って即解除”を防ぐクールダウン
     private float interactCooldownUntil = 0f; // この時刻までは解除判定を無視
 
-    // ★追加: 二重生成防止フラグ
+    // 二重生成防止フラグ
     private bool isSpawningGhost = false;
 
     private void Awake()
@@ -124,18 +124,18 @@ public class HideArie : MonoBehaviour
             // 解除も WasPressedThisFrame() + クールダウン
             if (Time.time >= interactCooldownUntil && input.Player.Interact.WasPressedThisFrame())
             {
-                ExitHide(true); // プレイヤー操作の解除 → 再召喚OK
+                ExitHide(false); // ★変更: 再召喚はここではしない（要求に合わせてシンプルに）
                 interactCooldownUntil = Time.time + 0.15f;
             }
 
-            // 隠れ位置から左右(平面)へ一定距離動いたら自動解除 → 再召喚OK
+            // 隠れ位置から左右(平面)へ一定距離動いたら自動解除
             if (HidePosition && Player)
             {
                 Vector3 p = Player.transform.position; p.y = 0f;
                 Vector3 h = HidePosition.position; h.y = 0f;
                 if (Vector3.Distance(p, h) > AutoExitDistance)
                 {
-                    ExitHide(true);
+                    ExitHide(false); // ★同上：ここでも再召喚しない
                     interactCooldownUntil = Time.time + 0.15f;
                 }
             }
@@ -161,13 +161,14 @@ public class HideArie : MonoBehaviour
 
     IEnumerator Encount()
     {
+        // ★KnockSe 再生後、何があっても AttackWaitTime 後に必ず出現させる
         yield return new WaitForSeconds(AttackWaitTime);
 
-        if (!Hide)
-        {
-            // ★修正: 生成は共通関数経由に統一
-            SpawnGhostIfNeeded(true);
-        }
+        // 生成時点で追跡するかを決める（この瞬間 Hide なら追跡しない）
+        bool chaseOnSpawn = !Hide;
+
+        // 二重生成防止も含め共通関数で生成
+        SpawnGhostIfNeeded(true, chaseOnSpawn);
     }
 
     IEnumerator GhostLifetimeRoutine()
@@ -256,10 +257,10 @@ public class HideArie : MonoBehaviour
 
     void OnGhostEnd()
     {
-        ExitHide(false); // 幽霊寿命で消えた → 再召喚しない
+        ExitHide(false); // ★以前の仕様を維持：幽霊が消えたら元の位置＆メインカメラへ戻す
     }
 
-    void ExitHide(bool respawn)
+    void ExitHide(bool _notUsedRespawn)
     {
         Hide = false;
 
@@ -270,25 +271,19 @@ public class HideArie : MonoBehaviour
         }
 
         SwitchToMainCamera();
-
-        // ★修正: 再出現要求があっても「重複生成防止」を厳密化
-        if (respawn)
-        {
-            SpawnGhostIfNeeded(false);
-        }
     }
 
-    // ★追加: ゴースト生成を一元管理（同時生成/二重生成を防ぐ）
-    void SpawnGhostIfNeeded(bool fromEncount)
+    // ★変更：ゴースト生成を一元管理。生成時点で追跡させるか（chaseOnSpawn）を指定
+    void SpawnGhostIfNeeded(bool fromEncount, bool chaseOnSpawn)
     {
         if (currentghost != null) return;     // 既にいる
         if (isSpawningGhost) return;          // 生成中
         if (!Ghost || !Door) return;
 
-        StartCoroutine(SpawnGhostRoutine(fromEncount));
+        StartCoroutine(SpawnGhostRoutine(fromEncount, chaseOnSpawn));
     }
 
-    IEnumerator SpawnGhostRoutine(bool fromEncount)
+    IEnumerator SpawnGhostRoutine(bool fromEncount, bool chaseOnSpawn)
     {
         isSpawningGhost = true;               // 生成中フラグON
         yield return null;                    // 1フレーム待って衝突的な同時呼び出しを回避
@@ -299,11 +294,17 @@ public class HideArie : MonoBehaviour
 
             if (audioSource && KnockVoice && !fromEncount)
             {
-                audioSource.PlayOneShot(KnockVoice); // 解除での再出現時だけ鳴らす等、区別したいなら
+                audioSource.PlayOneShot(KnockVoice); // 解除での再出現時だけ鳴らす等、必要なら
             }
 
+            // 常に寿命コルーチンは開始（隠れていても一定時間で消える）
             StartCoroutine(GhostLifetimeRoutine());
-            StartCoroutine(FollowGhost());
+
+            // ★追跡は「生成した瞬間に隠れていなかった場合のみ」開始
+            if (chaseOnSpawn)
+            {
+                StartCoroutine(FollowGhost());
+            }
         }
 
         isSpawningGhost = false;              // 生成中フラグOFF
