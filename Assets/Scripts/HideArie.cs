@@ -167,7 +167,6 @@ public class HideArie : MonoBehaviour
         // 生成時点で追跡するかを決める（この瞬間 Hide なら追跡しない）
         bool chaseOnSpawn = !Hide;
 
-        // 二重生成防止も含め共通関数で生成
         SpawnGhostIfNeeded(true, chaseOnSpawn);
     }
 
