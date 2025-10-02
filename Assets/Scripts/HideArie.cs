@@ -135,7 +135,7 @@ public class HideArie : MonoBehaviour
                 Vector3 h = HidePosition.position; h.y = 0f;
                 if (Vector3.Distance(p, h) > AutoExitDistance)
                 {
-                    ExitHide(false); // ★同上：ここでも再召喚しない
+                    ExitHide(false); // ：ここでも再召喚しない
                     interactCooldownUntil = Time.time + 0.15f;
                 }
             }
@@ -161,7 +161,7 @@ public class HideArie : MonoBehaviour
 
     IEnumerator Encount()
     {
-        // ★KnockSe 再生後、何があっても AttackWaitTime 後に必ず出現させる
+        // KnockSe 再生後、何があっても AttackWaitTime 後に必ず出現させる
         yield return new WaitForSeconds(AttackWaitTime);
 
         // 生成時点で追跡するかを決める（この瞬間 Hide なら追跡しない）
@@ -257,7 +257,7 @@ public class HideArie : MonoBehaviour
 
     void OnGhostEnd()
     {
-        ExitHide(false); // ★以前の仕様を維持：幽霊が消えたら元の位置＆メインカメラへ戻す
+        ExitHide(false); // 幽霊が消えたら元の位置＆メインカメラへ戻す
     }
 
     void ExitHide(bool _notUsedRespawn)
@@ -273,7 +273,7 @@ public class HideArie : MonoBehaviour
         SwitchToMainCamera();
     }
 
-    // ★変更：ゴースト生成を一元管理。生成時点で追跡させるか（chaseOnSpawn）を指定
+    // ゴースト生成を一元管理。生成時点で追跡させるか（chaseOnSpawn）を指定
     void SpawnGhostIfNeeded(bool fromEncount, bool chaseOnSpawn)
     {
         if (currentghost != null) return;     // 既にいる
@@ -300,7 +300,7 @@ public class HideArie : MonoBehaviour
             // 常に寿命コルーチンは開始（隠れていても一定時間で消える）
             StartCoroutine(GhostLifetimeRoutine());
 
-            // ★追跡は「生成した瞬間に隠れていなかった場合のみ」開始
+            //追跡は「生成した瞬間に隠れていなかった場合のみ」開始
             if (chaseOnSpawn)
             {
                 StartCoroutine(FollowGhost());
