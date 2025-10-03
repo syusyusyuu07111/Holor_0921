@@ -578,7 +578,7 @@ public class HideArie : MonoBehaviour
     }
 
     // --------------------------------------------------------------------
-    // ここから【追加：怒りエフェクト制御】
+    // ここから【怒りエフェクト制御】
     void EnsureAngryFxAttached()
     {
         if (angryFx || !AngryEffectPrefab || !currentghost) return;
