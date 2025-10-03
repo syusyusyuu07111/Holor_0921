@@ -98,3 +98,10 @@ InitTestScene*.unity*
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
 Assets/TextMesh Pro/Resources/Fonts & Materials/AkazukiPOP SDF.asset
+Build_Windows/Build/Build.data.gz
+Build_Windows/Build/Build.framework.js.gz
+Build_Windows/Build/Build.loader.js
+Build_Windows/Build/Build.wasm.gz
+Build_Windows/Holor_0921_Data/sharedassets0.assets
+Build_Windows/Holor_0921_Data/sharedassets0.assets.resS
+Build_Windows/UnityPlayer.dll
