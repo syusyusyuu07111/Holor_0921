@@ -687,6 +687,10 @@ MonoBehaviour:
   ObstacleTag: Furniture
   GhostDisappearVfx: {fileID: 2797927776944752618, guid: 4139219aaff00f440b4f8bbb35b408ab, type: 3}
   VfxLifetime: 1.5
+  AngryEffectPrefab: {fileID: 8451559395783662054, guid: da958dc292349784dab0657ebb62dd66, type: 3}
+  AngryEffectLocalOffset: {x: 0, y: 0, z: 0}
+  ParentEffectToGhost: 1
+  ShowOnlyWhileChasing: 1
 --- !u!4 &21173390 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 5708617845948022434, guid: 3178174d33f17479ab045df3a167e064, type: 3}
@@ -3775,7 +3779,7 @@ MeshRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 241853388}
-  m_Enabled: 0
+  m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
@@ -3852,6 +3856,10 @@ MonoBehaviour:
   Ghost: {fileID: 604898727}
   moveSpeed: 3
   stopDistance: 0
+  angryEffectPrefab: {fileID: 8451559395783662054, guid: da958dc292349784dab0657ebb62dd66, type: 3}
+  effectLocalOffset: {x: 0, y: 0, z: 0}
+  parentEffectToGhost: 0
+  effectGraceSecondsOnStop: 0
 --- !u!1 &243210809
 GameObject:
   m_ObjectHideFlags: 0
@@ -9392,12 +9400,13 @@ MonoBehaviour:
   Ghost: {fileID: 625494750}
   nearDistance: 1.5
   farDistance: 8
-  unreadableGate: 0.35
+  maskAppearGate: 0.25
+  revealGate: 0.55
   maskChar: 9632
-  progressiveReveal: 1
   randomReveal: 1
   useAlphaFade: 1
-  alphaFar: 0
+  alphaHidden: 0
+  alphaMask: 0.9
   alphaNear: 1
   revealCurve:
     serializedVersion: 2
@@ -9436,7 +9445,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 0
-  m_Volume: 1
+  m_Volume: 0.5
   m_Pitch: 1
   Loop: 0
   Mute: 0

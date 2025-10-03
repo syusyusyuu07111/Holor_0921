@@ -24,30 +24,31 @@ public class RandomAudio : MonoBehaviour
     public Transform Ghost;
 
     // -----------------------------------------
-    // ここから【追加：距離→可読度の設定（伏字方式）】
+    // ここから【追加：距離→段階表示の設定】
     [Header("距離レンジ（m）")]
-    [Tooltip("これ以下で全文表示（くっきり）")]
+    [Tooltip("これ以下で近い判定（最大開示）。これ以上で遠い判定（非表示側）。")]
     [SerializeField] private float nearDistance = 1.5f;
-    [Tooltip("これ以上で完全に読めない（全文伏字）")]
     [SerializeField] private float farDistance = 8.0f;
 
-    [Header("不可読化（伏字）設定")]
-    [Tooltip("0~1の正規化値。これ未満は全文伏字、以上で段階的に開示")]
-    [Range(0f, 1f)] public float unreadableGate = 0.35f;
-    [Tooltip("伏字に使う文字")]
+    [Header("段階ゲート（0〜1：遠い=0 / 近い=1 の正規化後）")]
+    [Tooltip("この値未満：何も表示しない（完全非表示）")]
+    [Range(0f, 1f)] public float maskAppearGate = 0.25f;
+    [Tooltip("この値以上：伏字が外れ始める（段階開示開始）。その手前は全文伏字だけ表示。")]
+    [Range(0f, 1f)] public float revealGate = 0.55f;
+
+    [Header("伏字設定")]
     [SerializeField] private char maskChar = '■';
-    [Tooltip("段階的に徐々に読める（falseならゲート越えで一気に全文）")]
-    [SerializeField] private bool progressiveReveal = true;
-    [Tooltip("開示位置をランダムにする（falseなら左から順に開示）")]
+    [Tooltip("伏字解除の順序。true=ランダム / false=左から順")]
     [SerializeField] private bool randomReveal = true;
 
-    [Header("表示演出（任意）")]
-    [Tooltip("遠い時に薄く、近い時に不透明にする（視認度の補助）")]
+    [Header("見え方（任意）")]
+    [Tooltip("透明度演出を使うか。使わない場合は文字の有無のみで切替。")]
     [SerializeField] private bool useAlphaFade = true;
-    [Range(0f, 1f)] public float alphaFar = 0.0f;
-    [Range(0f, 1f)] public float alphaNear = 1.0f;
+    [Range(0f, 1f)] public float alphaHidden = 0.0f; // 非表示ゾーン
+    [Range(0f, 1f)] public float alphaMask = 0.9f; // 全文伏字ゾーン
+    [Range(0f, 1f)] public float alphaNear = 1.0f; // 開示ゾーン
 
-    [Tooltip("立ち上がりカーブ（0=遠い,1=近い）")]
+    [Tooltip("立ち上がりカーブ（0=遠い, 1=近い）")]
     [SerializeField]
     private AnimationCurve revealCurve =
         AnimationCurve.EaseInOut(0, 0, 1, 1);
@@ -55,7 +56,7 @@ public class RandomAudio : MonoBehaviour
     // -----------------------------------------
 
     private string _currentLine = "";      // 元テキスト
-    private int[] _revealOrder;            // ランダム開示用のインデックス並び
+    private int[] _revealOrder;            // ランダム開示用のインデックス
     private System.Random _rng = new System.Random();
 
     private void Awake()
@@ -78,41 +79,47 @@ public class RandomAudio : MonoBehaviour
         if (!Player || !Ghost || !textUI) return;
         if (string.IsNullOrEmpty(_currentLine)) return;
 
-        // ２人の距離 → 0~1正規化（近いほど1）
+        // 距離 → 0~1 正規化（近いほど 1）
         float d = Vector3.Distance(Player.position, Ghost.position);
         float t = Mathf.InverseLerp(farDistance, nearDistance, d);
         t = Mathf.Clamp01(t);
-        float k = revealCurve.Evaluate(t); // カーブで調整後の“近さ”
 
-        // α演出（任意）
-        if (useAlphaFade)
+        // カーブ適用後の“近さ”
+        float k = revealCurve.Evaluate(t);
+
+        // -----------------------------------------
+        // ここから【段階表示の本体ロジック】
+        if (k < maskAppearGate)
         {
-            var c = textUI.color;
-            c.a = Mathf.Lerp(alphaFar, alphaNear, k);
-            textUI.color = c;
+            // 段階1：完全非表示
+            if (useAlphaFade)
+            {
+                var c = textUI.color; c.a = alphaHidden; textUI.color = c;
+            }
+            textUI.text = ""; // 文字自体出さない（読み取り防止）
         }
-
-        // ===== 可読テキストを生成（伏字ロジック） =====
-        if (k < unreadableGate)
+        else if (k < revealGate)
         {
-            // ゲート未満：全文伏字
+            // 段階2：全文伏字だけ見える
+            if (useAlphaFade)
+            {
+                var c = textUI.color; c.a = alphaMask; textUI.color = c;
+            }
             textUI.text = MakeMask(_currentLine.Length, maskChar);
         }
         else
         {
-            if (!progressiveReveal)
+            // 段階3：伏字が少しずつ外れる
+            if (useAlphaFade)
             {
-                // 一気に全文開示
-                textUI.text = _currentLine;
+                var c = textUI.color; c.a = alphaNear; textUI.color = c;
             }
-            else
-            {
-                // 段階的開示：ゲートから1.0までを0~1に再正規化
-                float local01 = Mathf.InverseLerp(unreadableGate, 1f, k);
-                textUI.text = Obfuscate(_currentLine, local01, maskChar, randomReveal);
-            }
+            // revealGate〜1.0 を 0〜1 に再正規化して開示割合に
+            float local01 = Mathf.InverseLerp(revealGate, 1f, k);
+            textUI.text = Obfuscate(_currentLine, local01, maskChar, randomReveal);
         }
-        // ============================================
+        // ここまで【段階表示の本体ロジック】
+        // -----------------------------------------
     }
 
     private IEnumerator PlayBack()
@@ -129,32 +136,28 @@ public class RandomAudio : MonoBehaviour
                 continue;
             }
 
-            // 表示する元文を更新（未入力ならファイル名を採用）
+            // 元文更新（未入力ならファイル名）
             _currentLine = string.IsNullOrEmpty(entry.transcript) ? entry.clip.name : entry.transcript;
-
-            // ランダム開示用の並びを更新
             BuildRevealOrder(_currentLine.Length);
 
             // 再生
             audioSource.clip = entry.clip;
             audioSource.Play();
 
-            // 1クリップ分＋余白だけ待機
             float wait = entry.clip.length + Mathf.Max(0f, gapSeconds);
             yield return new WaitForSeconds(wait);
         }
     }
 
     // -----------------------------------------
-    // ここから【追加：伏字ユーティリティ】
+    // ここから【伏字ユーティリティ】
     private string MakeMask(int length, char ch)
     {
         if (length <= 0) return "";
         return new string(ch, length);
     }
 
-    // revealRatio（0~1）に応じて一部だけ本来の文字を見せ、残りを伏字
-    // random=true なら開示位置はランダム、false なら左から順
+    // revealRatio（0~1）に応じて一部だけ本来の文字を見せる
     private string Obfuscate(string src, float revealRatio, char ch, bool random)
     {
         if (string.IsNullOrEmpty(src)) return "";
@@ -169,7 +172,6 @@ public class RandomAudio : MonoBehaviour
 
         if (random)
         {
-            // 事前に作ったランダム順で最初の revealCount 個を開示
             for (int i = 0; i < revealCount && i < _revealOrder.Length; i++)
             {
                 int idx = _revealOrder[i];
@@ -178,7 +180,6 @@ public class RandomAudio : MonoBehaviour
         }
         else
         {
-            // 左から順に開示
             for (int i = 0; i < revealCount; i++)
                 buff[i] = src[i];
         }
@@ -190,15 +191,12 @@ public class RandomAudio : MonoBehaviour
         _revealOrder = new int[length];
         for (int i = 0; i < length; i++) _revealOrder[i] = i;
 
-        // フィッシャー–イェーツでランダム化
+        // フィッシャー–イェーツ
         for (int i = length - 1; i > 0; i--)
         {
             int j = _rng.Next(i + 1);
-            int tmp = _revealOrder[i];
-            _revealOrder[i] = _revealOrder[j];
-            _revealOrder[j] = tmp;
+            (_revealOrder[i], _revealOrder[j]) = (_revealOrder[j], _revealOrder[i]);
         }
     }
-    // ここまで【追加】
     // -----------------------------------------
 }
