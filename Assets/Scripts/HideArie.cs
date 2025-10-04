@@ -22,7 +22,7 @@ public class HideArie : MonoBehaviour
     public GameObject Door;                  // 出現位置などに使う参照
 
     public float GhostSpeed = 2.0f;          // 追跡時の移動速度
-    public float GhostStopDistance = 0.2f;   // プレイヤーに近づきすぎたら停止する距離
+    public float GhostStopDistance = 0f;   // プレイヤーに近づきすぎたら停止する距離
     public float GhostLifetime = 10f;        // 幽霊の寿命（出現からこの秒数で消える）
 
     // カメラ（Display切替は使わず、enabled の切替のみ）
