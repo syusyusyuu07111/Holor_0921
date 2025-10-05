@@ -1,8 +1,7 @@
 ﻿using UnityEngine;
-
-using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+
 public class PlayerController : MonoBehaviour
 {
     InputSystem_Actions Input;
@@ -17,7 +16,12 @@ public class PlayerController : MonoBehaviour
 
     float noInputTimer = 0f;
 
-
+    // 登り用のパラメータ
+    [SerializeField] float stepHeight = 0.4f;          // 上りたい最大段差
+    [SerializeField] float stepCheckDistance = 0.3f;   // 前方チェック距離
+    [SerializeField] float stepSnapUpSpeed = 4.0f;     // 持ち上げ速度（1フレーム上限）
+    [SerializeField] LayerMask stepMask = ~0;          // 当たり判定レイヤー（地形など）
+    [SerializeField] CapsuleCollider col;              // カプセル。当たりから実寸を取る（任意）
 
     private void Awake()
     {
@@ -67,6 +71,10 @@ public class PlayerController : MonoBehaviour
             if (Movedir.sqrMagnitude > 0.0001f && MoveInput.y >= 0)
             {
                 Vector3 dir = Movedir.normalized; // 斜めの暴走防止
+
+                // 前進時：段差登りを試行）
+                TryStepUp(dir, Time.deltaTime);
+
                 transform.position += dir * Time.deltaTime * currentSpeed; //currentSpeed を使用
                 //移動する方向にキャラクターの向きを変える------------------------------------------------------------
                 transform.rotation = Quaternion.LookRotation(Movedir, Vector3.up);
@@ -75,6 +83,10 @@ public class PlayerController : MonoBehaviour
             else if (Movedir.magnitude > 0.00001f && MoveInput.y < 0)
             {
                 Vector3 dir = Movedir.normalized;
+
+                // （後退時：段差登りを試行）
+                TryStepUp(dir, Time.deltaTime);
+
                 //  後退時も「そーっと歩く」ならSlowSpeed、そうでなければ元の通常速度
                 if (isSlowWalking)
                 {
@@ -119,5 +131,88 @@ public class PlayerController : MonoBehaviour
                 if (animator) animator.SetBool("IsSlowWalking", false);
             }
         }
+    }
+
+    // （段差登り本体。transform移動のまま“少し持ち上げてから進む”）
+    void TryStepUp(Vector3 moveDir, float dt)
+    {
+        if (moveDir.sqrMagnitude < 0.0001f) return;
+
+        // カプセルの実寸を取得（col が未設定なら緊急値で動作）
+        float radius = 0.3f;
+        float halfHeight = 0.9f;
+        Vector3 center = transform.position;
+
+        if (col)
+        {
+            radius = col.radius * Mathf.Max(transform.localScale.x, transform.localScale.z);
+            halfHeight = Mathf.Max(col.height * 0.5f * transform.localScale.y, radius + 0.01f);
+            center = col.bounds.center;
+        }
+
+        // カプセル上下端（縦カプセル想定）
+        Vector3 pTop = center + Vector3.up * (halfHeight - radius);
+        Vector3 pBot = center - Vector3.up * (halfHeight - radius);
+
+        Vector3 dir = moveDir.normalized;
+        float checkDist = Mathf.Max(stepCheckDistance, radius + 0.05f);
+
+        // 足元側でヒット、段差高さぶん上ではヒットなし → 段差と判定
+        bool lowHit = Physics.CapsuleCast(
+            pTop, pBot, radius, dir, out _, checkDist, stepMask, QueryTriggerInteraction.Ignore);
+
+        if (!lowHit) return;
+
+        // このフレーム分だけ上に持ち上げ（スナップではなく連続）
+        float lift = Mathf.Min(stepSnapUpSpeed * dt, stepHeight);
+        if (lift <= 0f) return;
+
+        Vector3 up = Vector3.up * lift;
+
+        bool upBlocked = Physics.CapsuleCast(
+            pTop + up, pBot + up, radius, dir, out _, checkDist, stepMask, QueryTriggerInteraction.Ignore);
+
+        if (upBlocked) return;
+
+        // 頭上クリア確認（天井や庇に当たらないか）
+        bool ceiling = Physics.CheckCapsule(
+            pTop + up, pBot + up, radius, stepMask, QueryTriggerInteraction.Ignore);
+
+        if (ceiling) return;
+
+        // 実際に少し持ち上げる
+        transform.position += up;
+    }
+
+    // 可視化
+    void OnDrawGizmosSelected()
+    {
+        if (!Application.isPlaying) return;
+        if (!Camera) return;
+
+        // 前方ベクトル（水平化）
+        Vector3 forward = Camera.transform.forward;
+        forward.y = 0; forward.Normalize();
+
+        // カプセル寸法（実行時の最新値）
+        float radius = 0.3f;
+        float halfHeight = 0.9f;
+        Vector3 center = transform.position;
+
+        if (col)
+        {
+            radius = col.radius * Mathf.Max(transform.localScale.x, transform.localScale.z);
+            halfHeight = Mathf.Max(col.height * 0.5f * transform.localScale.y, radius + 0.01f);
+            center = col.bounds.center;
+        }
+
+        Vector3 pTop = center + Vector3.up * (halfHeight - radius);
+        Vector3 pBot = center - Vector3.up * (halfHeight - radius);
+
+        float d = Mathf.Max(stepCheckDistance, radius + 0.05f);
+
+        Gizmos.color = Color.yellow; Gizmos.DrawLine(pTop, pBot);
+        Gizmos.color = Color.red; Gizmos.DrawLine(pBot, pBot + forward * d);
+        Gizmos.color = Color.green; Gizmos.DrawLine(pBot + Vector3.up * stepHeight, pBot + Vector3.up * stepHeight + forward * d);
     }
 }
