@@ -6,6 +6,7 @@ TagManager:
   tags:
   - Ghost
   - Furniture
+  - stairsTag
   layers:
   - Default
   - TransparentFX
