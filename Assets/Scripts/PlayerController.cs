@@ -1,4 +1,6 @@
 ﻿using UnityEngine;
+
+using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 public class PlayerController : MonoBehaviour
@@ -83,6 +85,9 @@ public class PlayerController : MonoBehaviour
                     transform.position += dir * Time.deltaTime * MoveSpeed; // ダッシュ無効（通常速度）
                 }
                 isDashing = false; //  後退中は常にダッシュOFF
+
+                //段差も上れる機能を追加--------------------------------------------------------------------------------
+
             }
 
             //アニメーション更新=========================================================================================
