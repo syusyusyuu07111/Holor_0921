@@ -1,77 +1,83 @@
-using TMPro;
-using Unity.VisualScripting;
-using UnityEngine;
+ï»¿using UnityEngine;
 
 public class OpenDoor : MonoBehaviour
 {
+    [System.Serializable]
+    public class DoorLeaf
+    {
+        [Header("Pivot")]
+        public Transform pivot;
+
+        [Header("Rotate (+Î”)")]
+        [Tooltip("ä»Šã®å›è»¢ã‹ã‚‰å„è»¸ã§ã©ã‚Œã ã‘å›ã™ã‹ï¼ˆä¾‹: Y=90ã§æ¨ªé–‹ãï¼‰")]
+        public Vector3 openDeltaEuler = new Vector3(0f, 90f, 0f);
+        [Tooltip("1 = æŒ‡å®šÎ”ãã®ã¾ã¾ã€-1 = æŒ‡å®šÎ”ã‚’åè»¢ï¼ˆå·¦å³ã®é–‹ãæ–¹å‘åè»¢ï¼‰")]
+        public int direction = 1;
+
+        [HideInInspector] public Quaternion closedLocalRot; // åŸºæº–
+        [HideInInspector] public Quaternion openLocalRot;   // åŸºæº– Ã— Î”
+    }
+
     [Header("Refs")]
     [SerializeField] Transform player;
-    [SerializeField] Transform doorPivot;
+
+    [Header("Door Leaves (max 2)")]
+    [Tooltip("ä¸¡é–‹ãã«ã—ãŸã„å ´åˆã¯ã‚µã‚¤ã‚ºã‚’2ã«ã—ã¦å„ãƒ”ãƒœãƒƒãƒˆã‚’å‰²ã‚Šå½“ã¦")]
+    [SerializeField] DoorLeaf[] leaves = new DoorLeaf[1];
 
     [Header("Trigger")]
     [SerializeField] float openDistance = 1.5f;
-
-    [Header("Rotate (+ƒ¢)")]
-    // ¡‚Ì‰ñ“]‚©‚çu+‚Ç‚Ì‚­‚ç‚¢‰ñ‚·‚©v‚ğŠe²‚²‚Æ‚Éw’è
-    [SerializeField] Vector3 openDeltaEuler = new Vector3(0f, 90f, 0f);
-    [Tooltip("1 = w’èƒ¢‚»‚Ì‚Ü‚ÜA-1 = w’èƒ¢‚ğ”½“]i¶ŠJ‚«/‰EŠJ‚«‚ÌØ‘Ö‚È‚Çj")]
-    [SerializeField] int direction = 1;
 
     [Header("Speed")]
     [SerializeField] float rotateSpeedDegPerSec = 180f;
 
     [Header("Options")]
-    [Tooltip("ƒvƒŒƒCƒ„[‚ªgƒhƒA‚Ì•\‘¤h‚É‚¢‚é•K—v‚ª‚ ‚é‚©")]
+    [Tooltip("ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ãŒâ€œãƒ‰ã‚¢ã®è¡¨å´â€ã«ã„ã‚‹å¿…è¦ãŒã‚ã‚‹ã‹ï¼ˆè¡¨å´åˆ¤å®šã¯0ç•ªãƒªãƒ¼ãƒ•ã®forwardåŸºæº–ï¼‰")]
     [SerializeField] bool requireFacingSide = false;
-    [Tooltip("•\‘¤”»’è‚Ì‚µ‚«‚¢’lidoorPivot.forward ‚Æ ƒvƒŒƒCƒ„[•ûŒü‚Ì“àÏjB0‚Å‘O•û”¼‹…B")]
+    [Tooltip("è¡¨å´åˆ¤å®šã®ã—ãã„å€¤ï¼ˆleaf[0].pivot.forward ã¨ ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼æ–¹å‘ã®å†…ç©ï¼‰ã€‚0ã§å‰æ–¹åŠçƒã€‚")]
     [SerializeField, Range(-1f, 1f)] float facingDotThreshold = 0f;
 
-    [Tooltip("©“®‚Å•Â‚¶‚é‚©i”ÍˆÍŠOE— ‘¤‚É‰ñ‚Á‚½“™‚Åj")]
+    [Tooltip("è‡ªå‹•ã§é–‰ã˜ã‚‹ã‹ï¼ˆç¯„å›²å¤–ãƒ»è£å´ã«å›ã£ãŸç­‰ã§ï¼‰")]
     [SerializeField] bool autoClose = true;
 
-    [Tooltip("ŠJ‚­‚Ì‚É‘€ì“ü—Í‚ª•K—v‚©itrue‚È‚çEƒL[‚È‚Ç‚ÅƒgƒOƒ‹“I‚ÉŠJ‚­j")]
-    [SerializeField] bool requireInteractInput = true;
-    [SerializeField] KeyCode interactKey = KeyCode.E;
-
-    [Tooltip("{ù’†‚ÍŠJ‚©‚È‚¢")]
+    [Tooltip("æ–½éŒ ä¸­ã¯é–‹ã‹ãªã„")]
     [SerializeField] bool isLocked = false;
 
-    [Tooltip("‹N“®‚Ìp¨‚ğg•Âh‚Æ‚µ‚ÄÌ—p‚·‚éi= Œ»İ‚Ì‰ñ“]‚ğQÆj")]
+    [Tooltip("èµ·å‹•æ™‚ã®å§¿å‹¢ã‚’â€œé–‰â€ã¨ã—ã¦æ¡ç”¨ã™ã‚‹ï¼ˆ= ç¾åœ¨ã®å›è»¢ã‚’å‚ç…§ï¼‰")]
     [SerializeField] bool captureClosedOnStart = true;
 
-    Quaternion closedLocalRot;  // Œ»İ‚Ì‰ñ“]iŠî€j
-    Quaternion openLocalRot;    // Šî€ ~ ƒ¢‰ñ“]
+    // å…¥åŠ›ï¼ˆæ–°Input Systemã®è‡ªå‹•ç”Ÿæˆã‚¯ãƒ©ã‚¹ã‚’æƒ³å®šï¼‰
+    InputSystem_Actions input;
     bool isOpen;
 
-
-    InputSystem_Actions input;
-
-    void Start()
-    {
-        if (!doorPivot) doorPivot = transform;
-
-        // Šî€p¨i•Âj
-        closedLocalRot = doorPivot.localRotation;
-        if (!captureClosedOnStart)
-        {
-            // d—l‚ª•Ï‚í‚é—]’n‚ª‚ ‚é‚È‚ç‚±‚±‚Å•Ê‚Ìg•Âhp¨‚ğ—^‚¦‚é
-            closedLocalRot = doorPivot.localRotation;
-        }
-
-        RebuildOpenRotation();
-    }
-    private void Awake()
+    void Awake()
     {
         input = new InputSystem_Actions();
     }
-    private void OnEnable()
+
+    void OnEnable()
     {
         input.Player.Enable();
     }
 
+    void Start()
+    {
+        // ãƒ”ãƒœãƒƒãƒˆæœªæŒ‡å®šã®ãƒªãƒ¼ãƒ•ãŒã‚ã‚‹å ´åˆã¯ã€è‡ªèº«ã‚’ä»£å…¥ï¼ˆå®‰å…¨ç­–ï¼‰
+        if (leaves != null)
+        {
+            for (int i = 0; i < leaves.Length; i++)
+            {
+                if (leaves[i] == null) continue;
+                if (!leaves[i].pivot) leaves[i].pivot = transform;
+            }
+        }
+
+        CaptureClosedFromCurrentIfNeeded();
+        RebuildOpenRotations();
+    }
+
     void Update()
     {
-        // uŠJ‚¯‚Ä‚æ‚¢v‚©‚Ì”»’è
         bool shouldOpen = CanOpen();
 
         if (shouldOpen)
@@ -82,88 +88,125 @@ public class OpenDoor : MonoBehaviour
         {
             isOpen = false;
         }
-        // ŠJ‚¢‚Ä‚¢‚é‚È‚çuŠJ‚«p¨v‚ğA•Â‚¶‚Ä‚¢‚é‚È‚çu•Â‚¶p¨v‚ğ–Ú•W‚É‚·‚é
-        Quaternion target;
-        if (isOpen)
-        {
-            target = openLocalRot;    // Šî€ ~ ƒ¢iŠJ‚«j
-        }
-        else
-        {
-            target = closedLocalRot;  // Šî€i•Âj
-        }
 
-
-        // ¡‚Ì‰ñ“]‚©‚ç–Ú•W‚Ü‚Åˆê’èŠp‘¬“x‚Å‰ñ‚·
+        // ç›®æ¨™å›è»¢ã¸å„ãƒªãƒ¼ãƒ•ã‚’å›ã™
         float step = rotateSpeedDegPerSec * Time.deltaTime;
-        doorPivot.localRotation = Quaternion.RotateTowards(doorPivot.localRotation, target, step);
+        for (int i = 0; i < leaves.Length; i++)
+        {
+            var leaf = leaves[i];
+            if (leaf == null || leaf.pivot == null) continue;
+
+            Quaternion target = isOpen ? leaf.openLocalRot : leaf.closedLocalRot;
+            leaf.pivot.localRotation = Quaternion.RotateTowards(leaf.pivot.localRotation, target, step);
+        }
     }
 
-    //ƒhƒA‚ğopen‚É‚·‚éğŒ=================================================================================
+    //================== é–‹é–‰æ¡ä»¶ ==================//
     bool CanOpen()
     {
-        if (isLocked)
-        {
-            return false;
-        }
+        if (isLocked) return false;
+        if (!player || leaves == null || leaves.Length == 0) return false;
 
-        // 1) ‹——£”»’è
-        float dist = Vector3.Distance(player.position, doorPivot.position);
-        if (dist >= openDistance)
-        {
-            return false;
-        }
+        // 1) è·é›¢ï¼šæœ€ã‚‚è¿‘ã„ãƒ”ãƒœãƒƒãƒˆã¨ã®è·é›¢ã§åˆ¤å®š
+        if (NearestDistanceToAnyLeaf() >= openDistance) return false;
 
+        // 2) å…¥åŠ›ï¼šä»Šãƒ•ãƒ¬ãƒ¼ãƒ æŠ¼ã•ã‚ŒãŸã‚‰OK
+        if (!input.Player.DoorOpen.WasPressedThisFrame()) return false;
 
-        // 2) “ü—Í
-        // u¡ƒtƒŒ[ƒ€‚Å‰Ÿ‚³‚ê‚½‚çŠJ‚¯‚Ä‚æ‚¢v
-        if (!input.Player.DoorOpen.WasPressedThisFrame())
-        {
-            return false;
-        }
-        // ‚±‚±‚Ü‚Å’Ê‚ê‚ÎŠJ‚¯‚Ä‚æ‚¢
+        // 3) è¡¨å´å¿…é ˆãªã‚‰0ç•ªãƒªãƒ¼ãƒ•åŸºæº–ã§ãƒã‚§ãƒƒã‚¯
+        if (requireFacingSide && !IsPlayerOnFacingSide()) return false;
+
         return true;
     }
-    /// ©“®‚Å•Â‚¶‚Ä‚æ‚¢‚©BŠî–{‚ÍuŠJ‚¯ğŒ‚ğ–‚½‚µ‚Ä‚¢‚È‚¢v‚É•Â‚¶‚éB
+
     bool ShouldAutoClose()
     {
-        if (!player || !doorPivot) return false;
+        if (!player || leaves == null || leaves.Length == 0) return false;
 
-        // ‹——£ŠO‚È‚ç•Â‚¶‚é
-        float dist = Vector3.Distance(player.position, doorPivot.position);
-        if (dist >= openDistance)
-        {
-            return true;
-        }
+        // è·é›¢å¤–ãªã‚‰é–‰ã˜ã‚‹
+        if (NearestDistanceToAnyLeaf() >= openDistance) return true;
 
-        // •\‘¤•K{‚È‚çA— ‘¤‚É‰ñ‚Á‚½‚ç•Â‚¶‚é
-        if (requireFacingSide)
-        {
-            Vector3 toPlayer = (player.position - doorPivot.position).normalized;
-            float dot = Vector3.Dot(doorPivot.forward, toPlayer);
-            if (dot < facingDotThreshold) return true;
-        }
+        // è¡¨å´å¿…é ˆãªã‚‰ã€è£å´ã«å›ã£ãŸã‚‰é–‰ã˜ã‚‹ï¼ˆ0ç•ªãƒªãƒ¼ãƒ•åŸºæº–ï¼‰
+        if (requireFacingSide && !IsPlayerOnFacingSide()) return true;
 
-        // {ù‚³‚ê‚½‚ç•Â‚¶‚é
-        if (isLocked)
-        {
-            return true;
-        }
+        // æ–½éŒ ã•ã‚ŒãŸã‚‰é–‰ã˜ã‚‹
+        if (isLocked) return true;
+
         return false;
     }
 
+    //================== ãƒ¦ãƒ¼ãƒ†ã‚£ãƒªãƒ†ã‚£ ==================//
+    float NearestDistanceToAnyLeaf()
+    {
+        float minDist = float.PositiveInfinity;
+        for (int i = 0; i < leaves.Length; i++)
+        {
+            var leaf = leaves[i];
+            if (leaf == null || leaf.pivot == null) continue;
+            float d = Vector3.Distance(player.position, leaf.pivot.position);
+            if (d < minDist) minDist = d;
+        }
+        return minDist;
+    }
+
+    bool IsPlayerOnFacingSide()
+    {
+        var leaf0 = (leaves.Length > 0) ? leaves[0] : null;
+        if (leaf0 == null || leaf0.pivot == null) return true; // åˆ¤æ–­ä¸èƒ½ãªã‚‰è¨±å®¹
+
+        Vector3 toPlayer = (player.position - leaf0.pivot.position).normalized;
+        float dot = Vector3.Dot(leaf0.pivot.forward, toPlayer);
+        return dot >= facingDotThreshold;
+    }
+
+    void CaptureClosedFromCurrentIfNeeded()
+    {
+        if (leaves == null) return;
+
+        for (int i = 0; i < leaves.Length; i++)
+        {
+            var leaf = leaves[i];
+            if (leaf == null || leaf.pivot == null) continue;
+
+            // èµ·å‹•æ™‚ã®å§¿å‹¢ã‚’ã€Œé–‰ã€ã¨ã—ã¦æ¡ç”¨
+            if (captureClosedOnStart)
+            {
+                leaf.closedLocalRot = leaf.pivot.localRotation;
+            }
+            else
+            {
+                // å¿…è¦ãªã‚‰åˆ¥ã®æ–¹æ³•ã§ã€Œé–‰ã€ã‚’æ±ºã‚ã‚‹ä½™åœ°
+                leaf.closedLocalRot = leaf.pivot.localRotation;
+            }
+        }
+    }
+
+    void RebuildOpenRotations()
+    {
+        if (leaves == null) return;
+
+        for (int i = 0; i < leaves.Length; i++)
+        {
+            var leaf = leaves[i];
+            if (leaf == null || leaf.pivot == null) continue;
+
+            // ã€ŒåŸºæº–ï¼ˆé–‰ï¼‰ã€Ã—ã€ŒÎ”å›è»¢ï¼ˆæ–¹å‘Â±ï¼‰ã€ã§é–‹ãå§¿å‹¢ã‚’åˆæˆ
+            var delta = Quaternion.Euler(leaf.openDeltaEuler * Mathf.Sign(leaf.direction));
+            leaf.openLocalRot = leaf.closedLocalRot * delta;
+        }
+    }
+
+    // ã‚¨ãƒ‡ã‚£ã‚¿ã‹ã‚‰å‘¼ã¹ã‚‹ã‚ˆã†ã«æ®‹ã—ã¦ãŠãï¼ˆ0ã€œå…¨ãƒªãƒ¼ãƒ•åŒæ™‚ã«é–‰åŸºæº–ã‚’å†ã‚­ãƒ£ãƒ—ãƒãƒ£ï¼‰
     public void SetClosedFromCurrent()
     {
-        // ¡‚ÌŠî€(=•Â)‚ğAÀÛ‚É‰ñ‚µ‚Ä‚¢‚é‘ÎÛ‚ÌŒ»İ‰ñ“]‚Å‹L˜^
-        if (doorPivot != null)
+        if (leaves == null) return;
+
+        for (int i = 0; i < leaves.Length; i++)
         {
-            closedLocalRot = doorPivot.localRotation;
+            var leaf = leaves[i];
+            if (leaf == null || leaf.pivot == null) continue;
+            leaf.closedLocalRot = leaf.pivot.localRotation;
         }
-        RebuildOpenRotation(); // Šî€‚ğ•Ï‚¦‚½‚Ì‚ÅŠJ‚«p¨‚àì‚è’¼‚·
-    }
-    void RebuildOpenRotation()
-    {
-        var delta = Quaternion.Euler(openDeltaEuler * Mathf.Sign(direction));
-        openLocalRot = closedLocalRot * delta;  // uŠî€iŒ»İj{ƒ¢v‚ğƒNƒH[ƒ^ƒjƒIƒ“‚Å‡¬
+        RebuildOpenRotations();
     }
 }

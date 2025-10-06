@@ -1,6 +1,7 @@
 using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
+using System.Collections; // ★追加：コルーチン用
 
 public class PictureGhostEncount : MonoBehaviour
 {
@@ -9,7 +10,7 @@ public class PictureGhostEncount : MonoBehaviour
     public Transform WestPicture;
     public Transform Player;
     InputSystem_Actions input;
-    public float TouchDistance=1.0f;
+    public float TouchDistance = 1.0f;
     public TextMeshProUGUI text;
     public GameObject Ghost;
     public GameObject DestroyWall;//あたりのえをひいたときに壊す壁
@@ -18,9 +19,21 @@ public class PictureGhostEncount : MonoBehaviour
     private GameObject currentghost;//生成した幽霊を参照するよう
     public float GhostStopDistance = 0.2f; // 追加：近づきすぎたら止める距離（任意調整）
 
+    // カメラ関連
+    public Camera MainCamera;            // ふだん使うカメラ
+    public Camera WallCamera;            // ふさがれている道の床に配置済みのカメラ
+    public float PreDestroyDelay = 1.0f; // カメラ切替から破壊までの待ち時間（秒）
+    public float AfterDestroyDelay = 1.0f; // 破壊後に戻すまでの待ち時間（秒）
+    bool isShowingWall = false;          // 多重起動防止
+
     public void Awake()
     {
         input = new InputSystem_Actions();
+
+        // 初期カメラ状態の安全設定
+        if (MainCamera == null && Camera.main != null) MainCamera = Camera.main;
+        SafeSetCamActive(MainCamera, true);
+        SafeSetCamActive(WallCamera, false);
     }
     public void OnEnable()
     {
@@ -79,13 +92,14 @@ public class PictureGhostEncount : MonoBehaviour
         //northpictureの絵と近いときの処理 当たりの絵--------------------------------------------------------------------------------------------
         if (NorthPictureDistance < TouchDistance && input.Player.Interact.WasPerformedThisFrame())//northpictureが触れる距離にあるときの挙動
         {
-            Destroy(DestroyWall);
+            // Destroy(DestroyWall);
+            StartCoroutine(ShowWallThenDestroy()); // ★変更：カメラ切替→待ち→破壊→さらに待ち→戻す
         }
 
         //Eastpictureの絵と近いときの処理　外れの絵---------------------------------------------------------------------------------------------
         if (EastPictureDistance < TouchDistance && input.Player.Interact.WasPerformedThisFrame())//eastpictureが触れる距離にあるときの挙動
         {
-             if (currentghost == null)
+            if (currentghost == null)
             {
                 currentghost = Instantiate(Ghost, EastPicture.transform.position, Quaternion.identity);
             }
@@ -95,11 +109,46 @@ public class PictureGhostEncount : MonoBehaviour
         //Westpictureの絵と近いときの処理　外れの絵--------------------------------------------------------------------------------------------
         if (WestPictureDistance < TouchDistance && input.Player.Interact.WasPerformedThisFrame())//Westpictureが触れる距離にあるときの挙動
         {
-             if (currentghost == null)
+            if (currentghost == null)
             {
                 currentghost = Instantiate(Ghost, WestPicture.transform.position, Quaternion.identity);
 
             }
         }
+    }
+
+    // 演出本体（カメラ切替→待機→破壊→さらに待機→戻す）
+    IEnumerator ShowWallThenDestroy()
+    {
+        if (isShowingWall) yield break;
+        isShowingWall = true;
+
+        SwitchCamera(true); // 壁を見せるカメラへ
+
+        yield return new WaitForSeconds(PreDestroyDelay); // 1秒
+
+        if (DestroyWall != null)
+        {
+            Destroy(DestroyWall);
+        }
+
+        yield return new WaitForSeconds(AfterDestroyDelay); // 破壊後の見せ時間
+
+        SwitchCamera(false); // その後、元のカメラへ戻す
+        isShowingWall = false;
+    }
+
+    // カメラON/OFF切替
+    void SwitchCamera(bool toWall)
+    {
+        SafeSetCamActive(MainCamera, !toWall);
+        SafeSetCamActive(WallCamera, toWall);
+    }
+
+    // null安全に有効/無効
+    void SafeSetCamActive(Camera cam, bool active)
+    {
+        if (cam == null) return;
+        cam.gameObject.SetActive(active);
     }
 }
