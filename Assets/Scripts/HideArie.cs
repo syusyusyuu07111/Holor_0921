@@ -1,57 +1,99 @@
-using System.Collections;
+ï»¿using System.Collections;
 using TMPro;
 using UnityEngine;
 
-// ƒLƒƒƒ‰ƒNƒ^[‚ª‚R‚Â–Ú‚Ì•”‰®‚É“ü‚Á‚½‚É—H—ì‚ªo‚Ä‚­‚é‚©‚ç‹}‚¢‚Å‰B‚ê‚éƒMƒ~ƒbƒN‚Å‚·============================================================================
+// ã‚­ãƒ£ãƒ©ã‚¯ã‚¿ãƒ¼ãŒï¼“ã¤ç›®ã®éƒ¨å±‹ã«å…¥ã£ãŸæ™‚ã«å¹½éœŠãŒå‡ºã¦ãã‚‹ã‹ã‚‰æ€¥ã„ã§éš ã‚Œã‚‹ã‚®ãƒŸãƒƒã‚¯ã§ã™============================================================================
 public class HideArie : MonoBehaviour
 {
     public AudioSource audioSource = null;
     public AudioClip KnockSe;
     public AudioClip KnockVoice;
 
-    public bool Hide = false;                // ‰B‚ê‚Ä‚¢‚é‚©
-    public GameObject HidePlace;             // ‰B‚ê‚éêŠ
+    public bool Hide = false;                // éš ã‚Œã¦ã„ã‚‹ã‹
+    public GameObject HidePlace;             // éš ã‚Œã‚‹å ´æ‰€
     InputSystem_Actions input;
-    public float HideDistance;               // ‰B‚ê‚é”»’è‹——£
-    public GameObject Player;                // ƒvƒŒƒCƒ„[
-    public TextMeshProUGUI text;             // u‰B‚ê‚évƒKƒCƒ_ƒ“ƒX
-    public Transform HidePosition;           // ‰B‚ê‚½‚Æ‚«‚ÉˆÚ“®‚³‚¹‚éˆÊ’u
+    public float HideDistance;               // éš ã‚Œã‚‹åˆ¤å®šè·é›¢
+    public GameObject Player;                // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼
+    public TextMeshProUGUI text;             // ã€Œéš ã‚Œã‚‹ã€ã‚¬ã‚¤ãƒ€ãƒ³ã‚¹
+    public Transform HidePosition;           // éš ã‚ŒãŸã¨ãã«ç§»å‹•ã•ã›ã‚‹ä½ç½®
 
-    public float AttackWaitTime = 10.0f;     // N“üŒãAP‚¢‚É—ˆ‚é‚Ü‚Å‚Ì‘Ò‚¿ŠÔ
-    public GameObject Ghost;                 // —H—ì‚ÌƒvƒŒƒnƒu
-    public GameObject Door;                  // oŒ»ˆÊ’u‚È‚Ç‚Ég‚¤QÆ
+    public float AttackWaitTime = 10.0f;     // ä¾µå…¥å¾Œã€è¥²ã„ã«æ¥ã‚‹ã¾ã§ã®å¾…ã¡æ™‚é–“
+    public GameObject Ghost;                 // å¹½éœŠã®ãƒ—ãƒ¬ãƒãƒ–
+    public GameObject Door;                  // å‡ºç¾ä½ç½®ãªã©ã«ä½¿ã†å‚ç…§
 
-    public float GhostSpeed = 2.0f;          // —H—ì‚ÌˆÚ“®‘¬“x
-    public float GhostStopDistance = 0.2f;   // ƒvƒŒƒCƒ„[‚É‹ß‚Ã‚«‚·‚¬‚½‚ç’â~‚·‚é‹——£
-    public float GhostLifetime = 10f;        // —H—ì‚Ìõ–½ioŒ»‚©‚ç‚±‚Ì•b”‚ÅÁ‚¦‚éj
+    public float GhostSpeed = 2.0f;          // è¿½è·¡æ™‚ã®ç§»å‹•é€Ÿåº¦
+    public float GhostStopDistance = 0f;   // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã«è¿‘ã¥ãã™ããŸã‚‰åœæ­¢ã™ã‚‹è·é›¢
+    public float GhostLifetime = 10f;        // å¹½éœŠã®å¯¿å‘½ï¼ˆå‡ºç¾ã‹ã‚‰ã“ã®ç§’æ•°ã§æ¶ˆãˆã‚‹ï¼‰
 
-    // ƒJƒƒ‰iDisplayØ‘Ö‚Íg‚í‚¸Aenabled ‚ÌØ‘Ö‚Ì‚İj
-    public Camera MainCamera;                // ’Êí‚Ég‚¤ƒJƒƒ‰
-    public Camera SubCamera;                 // ‰B‚ê‚Ä‚¢‚éŠÔ‚Ég‚¤ƒJƒƒ‰
+    // ã‚«ãƒ¡ãƒ©ï¼ˆDisplayåˆ‡æ›¿ã¯ä½¿ã‚ãšã€enabled ã®åˆ‡æ›¿ã®ã¿ï¼‰
+    public Camera MainCamera;                // é€šå¸¸æ™‚ã«ä½¿ã†ã‚«ãƒ¡ãƒ©
+    public Camera SubCamera;                 // éš ã‚Œã¦ã„ã‚‹é–“ã«ä½¿ã†ã‚«ãƒ¡ãƒ©ï¼ˆå¸¸ã«å¹½éœŠã®æ–¹å‘ã‚’å‘ãï¼‰
 
-    // ˆê“x‹N“®‚µ‚½‚ç“ñ“x‚Æ‹N“®‚µ‚È‚¢‚½‚ß‚Ìƒtƒ‰ƒO
+    // ä¸€åº¦èµ·å‹•ã—ãŸã‚‰äºŒåº¦ã¨èµ·å‹•ã—ãªã„ãŸã‚ã®ãƒ•ãƒ©ã‚°
     private bool started = false;
 
-    // ‰B‚ê‚é‘O‚ÌƒvƒŒƒCƒ„[ˆÊ’u/‰ñ“]‚ğ‹L˜^
+    // éš ã‚Œã‚‹å‰ã®ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ä½ç½®/å›è»¢ã‚’è¨˜éŒ²
     private Vector3 savedPlayerPos;
     private Quaternion savedPlayerRot;
     private bool savedPlayerValid = false;
 
-    // ‰B‚êˆÊ’u‚©‚ç‚±‚Ì‹——£‚ğ’´‚¦‚Ä¶‰E(•½–Ê)‚É“®‚¢‚½‚ç©“®‰ğœ
+    // éš ã‚Œä½ç½®ã‹ã‚‰ã“ã®è·é›¢ã‚’è¶…ãˆã¦å·¦å³(å¹³é¢)ã«å‹•ã„ãŸã‚‰è‡ªå‹•è§£é™¤
     public float AutoExitDistance = 0.6f;
 
-    // ¶¬‚µ‚½—H—ì‚ÌQÆ
+    // ç”Ÿæˆã—ãŸå¹½éœŠã®å‚ç…§
     private GameObject currentghost;
 
     [Header("Disappear Animation")]
     public string DisappearBoolName = "IsDisappearing";           // Animator Bool
-    public string DisappearStateTag = "GhostDisappearStateTag";   // Á‚¦‚éƒXƒe[ƒg‚ÌTag
+    public string DisappearStateTag = "GhostDisappearStateTag";   // æ¶ˆãˆã‚‹ã‚¹ãƒ†ãƒ¼ãƒˆã®Tag
 
-    //  ƒCƒ“ƒ^ƒ‰ƒNƒg‚Ì˜A‘Å‚Åg“ü‚Á‚Ä‘¦‰ğœh‚ğ–h‚®ƒN[ƒ‹ƒ_ƒEƒ“
-    private float interactCooldownUntil = 0f; // ‚±‚Ì‚Ü‚Å‚Í‰ğœ”»’è‚ğ–³‹
+    //  ã‚¤ãƒ³ã‚¿ãƒ©ã‚¯ãƒˆã®é€£æ‰“ã§â€œå…¥ã£ã¦å³è§£é™¤â€ã‚’é˜²ãã‚¯ãƒ¼ãƒ«ãƒ€ã‚¦ãƒ³
+    private float interactCooldownUntil = 0f; // ã“ã®æ™‚åˆ»ã¾ã§ã¯è§£é™¤åˆ¤å®šã‚’ç„¡è¦–
 
-    // “ñd¶¬–h~ƒtƒ‰ƒO
+    // äºŒé‡ç”Ÿæˆé˜²æ­¢ãƒ•ãƒ©ã‚°
     private bool isSpawningGhost = false;
+
+    // æ¶ˆãˆå‡¦ç†ï¼ˆVFXå¾…ã¡ï¼‰ä¸­ãƒ•ãƒ©ã‚°
+    private bool isEnding = false;
+
+    // çµ±åˆ: Enemy2 ã®å¾˜å¾Šãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ï¼ˆéš ã‚Œã¦ã„ã‚‹é–“ã®æ¢ç´¢æŒ™å‹•ï¼‰ ==========================
+    [Header("Wander (Enemy2 style)")]
+    [SerializeField] private float _playerBaseSpeed = 5f; // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼åŸºæº–é€Ÿåº¦
+    [SerializeField] private float _enemySpeed = 1.3f;    // é€Ÿåº¦å€ç‡ï¼ˆå¾˜å¾Šç”¨ï¼‰
+    [SerializeField] private float _rotationSpeed = 180f; // æ—‹å›é€Ÿåº¦(åº¦/ç§’)
+    [SerializeField] private float _rayDistance = 1.5f;   // å‰æ–¹ãƒ¬ã‚¤ã®è·é›¢
+    [Tooltip("å®¶å…·ãªã©éšœå®³ç‰©ã®ã‚¿ã‚°åï¼ˆEnemy2ã¯\"Furniture\"ã‚’ä½¿ç”¨ï¼‰")]
+    public string ObstacleTag = "Furniture";
+    // ================================================================================
+
+    // ã‚³ãƒ«ãƒ¼ãƒãƒ³å‚ç…§ã¨å‰å›ã®HideçŠ¶æ…‹
+    Coroutine followCo;
+    Coroutine wanderCo;
+    bool prevHide = false;
+
+    [Header("VFX")]
+    public GameObject GhostDisappearVfx;   // æ¶ˆãˆã‚‹ã¨ãã«å‡ºã™ã‚¨ãƒ•ã‚§ã‚¯ãƒˆï¼ˆä»»æ„ï¼‰
+    public float VfxLifetime = 1.5f;       // VFXãŒå®Œå…¨ã«çµ‚ã‚ã‚‹ã¾ã§ã®ç›®å®‰ï¼ˆParticleãŒç„¡ã‘ã‚Œã°ã“ã‚Œã§å¾…ã¤ï¼‰
+
+    // --------------------------------------------------------------------------------
+    // ã“ã“ã‹ã‚‰ã€è¿½åŠ ï¼šæ€’ã‚Šï¼ˆè¿½è·¡ï¼‰ã‚¨ãƒ•ã‚§ã‚¯ãƒˆã€‘
+    [Header("Angry (Chasing) Effect")]
+    [Tooltip("è¿½è·¡ä¸­ã«ã‚´ãƒ¼ã‚¹ãƒˆã®é ­ä¸Šãªã©ã«å‡ºã™ã‚¨ãƒ•ã‚§ã‚¯ãƒˆã®Prefabï¼ˆParticleSystemæ¨å¥¨ï¼‰")]
+    public GameObject AngryEffectPrefab;
+
+    [Tooltip("æ€’ã‚Šã‚¨ãƒ•ã‚§ã‚¯ãƒˆã®ã‚ªãƒ•ã‚»ãƒƒãƒˆï¼ˆã‚´ãƒ¼ã‚¹ãƒˆã®ãƒ­ãƒ¼ã‚«ãƒ«åº§æ¨™ï¼‰")]
+    public Vector3 AngryEffectLocalOffset = new Vector3(0f, 1.6f, 0f);
+
+    [Tooltip("true=ã‚´ãƒ¼ã‚¹ãƒˆã®å­ã«ã—ã¦è¿½å¾“ï¼ˆè»½ã„ï¼‰ / false=Updateã§æ¯ãƒ•ãƒ¬ãƒ¼ãƒ è¿½å¾“ï¼ˆæŒ‡ç¤ºé€šã‚Šï¼‰")]
+    public bool ParentEffectToGhost = true;
+
+    [Tooltip("è¿½è·¡ä¸­ã®ã¿è¡¨ç¤ºã€‚å¾˜å¾Šä¸­ã¯éè¡¨ç¤ºã«ã™ã‚‹")]
+    public bool ShowOnlyWhileChasing = true;
+
+    private Transform angryFx;             // ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹
+    private ParticleSystem angryFxPs;      // ã‚­ãƒ£ãƒƒã‚·ãƒ¥
+    // ã“ã“ã¾ã§ã€è¿½åŠ ã€‘
+    // --------------------------------------------------------------------------------
 
     private void Awake()
     {
@@ -77,7 +119,7 @@ public class HideArie : MonoBehaviour
 
     void Update()
     {
-        // ‰B‚ê‚éêŠ‚É‹ß‚Ã‚¢‚½‚çƒeƒLƒXƒg•\¦^‰B‚ê‚éˆ—
+        // éš ã‚Œã‚‹å ´æ‰€ã«è¿‘ã¥ã„ãŸã‚‰ãƒ†ã‚­ã‚¹ãƒˆè¡¨ç¤ºï¼éš ã‚Œã‚‹å‡¦ç†
         if (Player && HidePlace)
         {
             float distance = Vector3.Distance(Player.transform.position, HidePlace.transform.position);
@@ -86,10 +128,8 @@ public class HideArie : MonoBehaviour
             {
                 if (text) text.gameObject.SetActive(true);
 
-                // “ü‚é‚Æ‚«‚Í WasPressedThisFrame() ‚É
                 if (input.Player.Interact.WasPressedThisFrame() && !Hide)
                 {
-                    // ‰B‚ê‚é‘O‚ÌˆÊ’u/‰ñ“]‚ğ•Û‘¶iÅ‰‚Ìˆê‰ñ‚¾‚¯j
                     if (!savedPlayerValid)
                     {
                         savedPlayerPos = Player.transform.position;
@@ -100,13 +140,10 @@ public class HideArie : MonoBehaviour
                     if (HidePosition) Player.transform.position = HidePosition.position;
                     Hide = true;
 
-                    // ‰B‚ê‚Ä‚¢‚éŠÔ‚àƒKƒCƒ_ƒ“ƒXƒeƒLƒXƒg‚Ío‚µ‘±‚¯‚é
                     if (text && !text.gameObject.activeSelf) text.gameObject.SetActive(true);
 
-                    // ƒTƒuƒJƒƒ‰‚ÖØ‘Ö
                     SwitchToSubCamera();
 
-                    // ‚±‚ÌuŠÔ‚©‚ç­‚µ‚ÌŠÔ‚Í‰ğœƒL[‚ğ–³‹
                     interactCooldownUntil = Time.time + 0.15f;
                 }
             }
@@ -116,30 +153,68 @@ public class HideArie : MonoBehaviour
             }
         }
 
-        // ‰B‚ê‚Ä‚¢‚éÅ’†
+        // éš ã‚Œã¦ã„ã‚‹æœ€ä¸­
         if (Hide)
         {
+            if (SubCamera && currentghost) SubCamera.transform.LookAt(currentghost.transform.position);
+
             if (text && !text.gameObject.activeSelf) text.gameObject.SetActive(true);
 
-            // ‰ğœ‚à WasPressedThisFrame() + ƒN[ƒ‹ƒ_ƒEƒ“
             if (Time.time >= interactCooldownUntil && input.Player.Interact.WasPressedThisFrame())
             {
-                ExitHide(false); // š•ÏX: Ä¢Š«‚Í‚±‚±‚Å‚Í‚µ‚È‚¢i—v‹‚É‡‚í‚¹‚ÄƒVƒ“ƒvƒ‹‚Éj
+                ExitHide(false);
                 interactCooldownUntil = Time.time + 0.15f;
             }
 
-            // ‰B‚êˆÊ’u‚©‚ç¶‰E(•½–Ê)‚Öˆê’è‹——£“®‚¢‚½‚ç©“®‰ğœ
             if (HidePosition && Player)
             {
                 Vector3 p = Player.transform.position; p.y = 0f;
                 Vector3 h = HidePosition.position; h.y = 0f;
                 if (Vector3.Distance(p, h) > AutoExitDistance)
                 {
-                    ExitHide(false); // š“¯ãF‚±‚±‚Å‚àÄ¢Š«‚µ‚È‚¢
+                    ExitHide(false);
                     interactCooldownUntil = Time.time + 0.15f;
                 }
             }
         }
+
+        // Hide ã®åˆ‡æ›¿æ™‚ã« è¿½è·¡â†”å¾˜å¾Š ã‚’å…¥ã‚Œæ›¿ãˆ
+        if (currentghost != null)
+        {
+            if (Hide && !prevHide)
+            {
+                StopFollow();
+                StartWander();
+                // è¿½è·¡ã‚¨ãƒ•ã‚§ã‚¯ãƒˆã¯æ¶ˆã™/æ­¢ã‚ã‚‹
+                if (ShowOnlyWhileChasing) HideAngryFx();
+            }
+            else if (!Hide && prevHide)
+            {
+                StopWander();
+                StartFollow();
+                // è¿½è·¡ã‚¨ãƒ•ã‚§ã‚¯ãƒˆã‚’å†é–‹
+                ShowAngryFx();
+            }
+        }
+        prevHide = Hide;
+
+        // -----------------------------------------
+        // ã“ã“ã‹ã‚‰ã€è¿½åŠ ï¼šã‚¨ãƒ•ã‚§ã‚¯ãƒˆè¿½å¾“ï¼ˆéè¦ªå­ã®å ´åˆï¼‰ï¼†å¯¿å‘½ç›£è¦–ã€‘
+        if (angryFx)
+        {
+            if (!ParentEffectToGhost && currentghost)
+            {
+                angryFx.position = currentghost.transform.TransformPoint(AngryEffectLocalOffset);
+                angryFx.rotation = currentghost.transform.rotation;
+            }
+        }
+        else
+        {
+            // ã‚´ãƒ¼ã‚¹ãƒˆæ¶ˆæ»…ã«ä¼´ã†å¾Œå§‹æœ«ã®å–ã‚Šã“ã¼ã—é˜²æ­¢
+            angryFxPs = null;
+        }
+        // ã“ã“ã¾ã§ã€è¿½åŠ ã€‘
+        // -----------------------------------------
     }
 
     private void OnTriggerEnter(Collider other)
@@ -161,13 +236,12 @@ public class HideArie : MonoBehaviour
 
     IEnumerator Encount()
     {
-        // šKnockSe Ä¶ŒãA‰½‚ª‚ ‚Á‚Ä‚à AttackWaitTime Œã‚É•K‚¸oŒ»‚³‚¹‚é
+        // KnockSe å†ç”Ÿå¾Œã€ä½•ãŒã‚ã£ã¦ã‚‚ AttackWaitTime å¾Œã«å¿…ãšå‡ºç¾ã•ã›ã‚‹
         yield return new WaitForSeconds(AttackWaitTime);
 
-        // ¶¬“_‚Å’ÇÕ‚·‚é‚©‚ğŒˆ‚ß‚éi‚±‚ÌuŠÔ Hide ‚È‚ç’ÇÕ‚µ‚È‚¢j
+        // ç”Ÿæˆæ™‚ç‚¹ã§è¿½è·¡ã™ã‚‹ã‹ã‚’æ±ºã‚ã‚‹ï¼ˆã“ã®ç¬é–“ Hide ãªã‚‰è¿½è·¡ã—ãªã„ï¼‰
         bool chaseOnSpawn = !Hide;
 
-        // “ñd¶¬–h~‚àŠÜ‚ß‹¤’ÊŠÖ”‚Å¶¬
         SpawnGhostIfNeeded(true, chaseOnSpawn);
     }
 
@@ -185,44 +259,125 @@ public class HideArie : MonoBehaviour
     {
         if (g == null) return;
 
+        isEnding = true;
+
         var anim = g.GetComponent<Animator>();
         if (anim != null && !string.IsNullOrEmpty(DisappearBoolName))
         {
             anim.SetBool(DisappearBoolName, true);
         }
 
+        // æ¶ˆãˆå§‹ã‚ãŸã‚‰æ€’ã‚Šã‚¨ãƒ•ã‚§ã‚¯ãƒˆã¯æ¶ˆã™
+        HideAngryFx(true);
+
         StartCoroutine(WaitDisappearAndDestroy(g, anim));
     }
 
     IEnumerator WaitDisappearAndDestroy(GameObject g, Animator anim)
     {
-        float maxWait = 3f;
+        const int layer = 0;
+        float enterSafety = 5f;       // ã‚¿ã‚°ã®ã‚¹ãƒ†ãƒ¼ãƒˆã«å…¥ã‚‹ã¾ã§ã®æœ€å¤§å¾…æ©Ÿ
+        float stateLen = 0f;          // å®Ÿæ™‚é–“ã®ã‚¹ãƒ†ãƒ¼ãƒˆé•·ï¼ˆspeedè£œæ­£å¾Œï¼‰
+        float stateEnterTime = 0f;    // ã‚¹ãƒ†ãƒ¼ãƒˆã«å…¥ã£ãŸæ™‚åˆ»ï¼ˆTime.timeï¼‰
+
+        GameObject vfx = null;        // ç”Ÿæˆã—ãŸVFXã‚’ä¿æŒ
 
         if (anim != null && !string.IsNullOrEmpty(DisappearStateTag))
         {
             float t = 0f;
-            while (t < maxWait)
+            while (t < enterSafety)
             {
-                var info = anim.GetCurrentAnimatorStateInfo(0);
+                var info = anim.GetCurrentAnimatorStateInfo(layer);
                 if (info.IsTag(DisappearStateTag))
                 {
-                    float waitLen = Mathf.Max(0.05f, info.length);
-                    yield return new WaitForSeconds(waitLen);
+                    float speed = Mathf.Max(0.0001f, anim.speed);
+                    stateLen = info.length / speed;
+                    stateEnterTime = Time.time;
                     break;
                 }
                 t += Time.deltaTime;
                 yield return null;
             }
+
+            if (stateLen <= 0f)
+            {
+                stateLen = 1.0f;
+                stateEnterTime = Time.time;
+            }
+
+            float untilVfx = Mathf.Max(0f, stateLen - 1f);
+            float elapsed = Time.time - stateEnterTime;
+            float waitToVfx = Mathf.Max(0f, untilVfx - elapsed);
+            if (waitToVfx > 0f) yield return new WaitForSeconds(waitToVfx);
+
+            Vector3 vfxPos = g.transform.position;
+            Quaternion vfxRot = g.transform.rotation;
+            if (GhostDisappearVfx != null)
+            {
+                vfx = Instantiate(GhostDisappearVfx, vfxPos, vfxRot);
+                if (VfxLifetime > 0f) Destroy(vfx, VfxLifetime);
+            }
+
+            float remaining = Mathf.Max(0f, (stateLen - (Time.time - stateEnterTime)));
+            if (remaining > 0f) yield return new WaitForSeconds(remaining);
         }
         else
         {
+            if (GhostDisappearVfx != null)
+            {
+                vfx = Instantiate(GhostDisappearVfx, g.transform.position, g.transform.rotation);
+                if (VfxLifetime > 0f) Destroy(vfx, VfxLifetime);
+            }
             yield return new WaitForSeconds(1.0f);
         }
 
         if (g != null) Destroy(g);
         currentghost = null;
 
-        OnGhostEnd(); // ¦Ä¢Š«‚µ‚È‚¢
+        float vfxWait = GetVfxRemainTime(vfx);
+        if (vfxWait > 0f) yield return new WaitForSeconds(vfxWait);
+
+        OnGhostEnd();
+        isEnding = false;
+    }
+
+    float GetVfxRemainTime(GameObject vfx)
+    {
+        if (vfx == null) return 0f;
+
+        var pss = vfx.GetComponentsInChildren<ParticleSystem>(true);
+        float maxDur = 0f;
+        foreach (var ps in pss)
+        {
+            var main = ps.main;
+            float dur = main.duration;
+
+            float life = 0f;
+            if (main.startLifetime.mode == ParticleSystemCurveMode.TwoConstants)
+                life = Mathf.Max(main.startLifetime.constantMin, main.startLifetime.constantMax);
+            else if (main.startLifetime.mode == ParticleSystemCurveMode.TwoCurves)
+            {
+                float max1 = (main.startLifetime.curveMax.keys.Length > 0)
+                    ? main.startLifetime.curveMax.keys[main.startLifetime.curveMax.length - 1].time : 0f;
+                float max2 = (main.startLifetime.curveMin.keys.Length > 0)
+                    ? main.startLifetime.curveMin.keys[main.startLifetime.curveMin.length - 1].time : 0f;
+                life = Mathf.Max(max1, max2);
+            }
+            else if (main.startLifetime.mode == ParticleSystemCurveMode.Curve)
+            {
+                life = (main.startLifetime.curve.keys.Length > 0)
+                    ? main.startLifetime.curve.keys[main.startLifetime.curve.length - 1].time : 0f;
+            }
+            else
+                life = main.startLifetime.constant;
+
+            float total = dur + life;
+            if (main.loop) { total = VfxLifetime > 0 ? VfxLifetime : 0f; }
+            if (total > maxDur) maxDur = total;
+        }
+
+        if (maxDur <= 0f) maxDur = Mathf.Max(0f, VfxLifetime);
+        return maxDur;
     }
 
     IEnumerator FollowGhost()
@@ -251,17 +406,92 @@ public class HideArie : MonoBehaviour
 
         if (currentghost == null)
         {
-            OnGhostEnd(); // Ä¢Š«‚µ‚È‚¢
+            if (!isEnding)
+            {
+                OnGhostEnd();
+            }
         }
     }
 
+    // çµ±åˆ: Enemy2 ã®å¾˜å¾Šãƒ­ã‚¸ãƒƒã‚¯ï¼ˆéš ã‚Œã¦ã„ã‚‹é–“ã ã‘å‹•ä½œï¼‰ =====================================================================================
+    IEnumerator WanderGhost()
+    {
+        if (currentghost == null) yield break;
+
+        Rigidbody rb = currentghost.GetComponent<Rigidbody>();
+        float speed = _playerBaseSpeed * _enemySpeed;
+        bool isRotating = false;
+        int turnDirection = 1;
+        Quaternion targetRot = currentghost.transform.rotation;
+
+        while (currentghost != null && Hide)
+        {
+            if (isRotating)
+            {
+                currentghost.transform.rotation =
+                    Quaternion.RotateTowards(currentghost.transform.rotation, targetRot, _rotationSpeed * Time.deltaTime);
+
+                if (Quaternion.Angle(currentghost.transform.rotation, targetRot) < 1f)
+                {
+                    isRotating = false;
+                }
+
+                yield return null;
+                continue;
+            }
+
+            RaycastHit hit;
+            if (Physics.Raycast(currentghost.transform.position,
+                                currentghost.transform.forward,
+                                out hit, _rayDistance))
+            {
+                if (hit.collider && hit.collider.CompareTag(ObstacleTag))
+                {
+                    turnDirection = (Random.Range(0, 2) == 0) ? 1 : -1;
+                    Vector3 side = Vector3.Cross(currentghost.transform.forward, Vector3.up).normalized * turnDirection;
+                    targetRot = Quaternion.LookRotation(side, Vector3.up);
+                }
+                else
+                {
+                    Vector3 side = Vector3.Cross(currentghost.transform.forward, Vector3.up).normalized *
+                                   ((Random.Range(0, 2) == 0) ? 1 : -1);
+                    targetRot = Quaternion.LookRotation(side, Vector3.up);
+                }
+
+                isRotating = true;
+                yield return null;
+                continue;
+            }
+
+            Vector3 nextPos = currentghost.transform.position + currentghost.transform.forward * speed * Time.deltaTime;
+            if (rb != null)
+            {
+                rb.MovePosition(nextPos);
+            }
+            else
+            {
+                currentghost.transform.position = nextPos;
+            }
+
+            yield return null;
+        }
+    }
+    // ==============================================================================
+
     void OnGhostEnd()
     {
-        ExitHide(false); // šˆÈ‘O‚Ìd—l‚ğˆÛF—H—ì‚ªÁ‚¦‚½‚çŒ³‚ÌˆÊ’u•ƒƒCƒ“ƒJƒƒ‰‚Ö–ß‚·
+        StopFollow();
+        StopWander();
+        HideAngryFx(true);    // å¿µã®ãŸã‚æ¶ˆã™
+        ExitHide(false);
     }
 
     void ExitHide(bool _notUsedRespawn)
     {
+        StopFollow();
+        StopWander();
+        HideAngryFx(true);
+
         Hide = false;
 
         if (Player && savedPlayerValid)
@@ -273,11 +503,11 @@ public class HideArie : MonoBehaviour
         SwitchToMainCamera();
     }
 
-    // š•ÏXFƒS[ƒXƒg¶¬‚ğˆêŒ³ŠÇ—B¶¬“_‚Å’ÇÕ‚³‚¹‚é‚©ichaseOnSpawnj‚ğw’è
+    // ã‚´ãƒ¼ã‚¹ãƒˆç”Ÿæˆã‚’ä¸€å…ƒç®¡ç†ã€‚ç”Ÿæˆæ™‚ç‚¹ã§è¿½è·¡ã•ã›ã‚‹ã‹ï¼ˆchaseOnSpawnï¼‰ã‚’æŒ‡å®š
     void SpawnGhostIfNeeded(bool fromEncount, bool chaseOnSpawn)
     {
-        if (currentghost != null) return;     // Šù‚É‚¢‚é
-        if (isSpawningGhost) return;          // ¶¬’†
+        if (currentghost != null) return;
+        if (isSpawningGhost) return;
         if (!Ghost || !Door) return;
 
         StartCoroutine(SpawnGhostRoutine(fromEncount, chaseOnSpawn));
@@ -285,8 +515,8 @@ public class HideArie : MonoBehaviour
 
     IEnumerator SpawnGhostRoutine(bool fromEncount, bool chaseOnSpawn)
     {
-        isSpawningGhost = true;               // ¶¬’†ƒtƒ‰ƒOON
-        yield return null;                    // 1ƒtƒŒ[ƒ€‘Ò‚Á‚ÄÕ“Ë“I‚È“¯ŒÄ‚Ño‚µ‚ğ‰ñ”ğ
+        isSpawningGhost = true;
+        yield return null;
 
         if (currentghost == null && Ghost && Door)
         {
@@ -294,21 +524,27 @@ public class HideArie : MonoBehaviour
 
             if (audioSource && KnockVoice && !fromEncount)
             {
-                audioSource.PlayOneShot(KnockVoice); // ‰ğœ‚Å‚ÌÄoŒ»‚¾‚¯–Â‚ç‚·“™A•K—v‚È‚ç
+                audioSource.PlayOneShot(KnockVoice);
             }
 
-            // í‚Éõ–½ƒRƒ‹[ƒ`ƒ“‚ÍŠJni‰B‚ê‚Ä‚¢‚Ä‚àˆê’èŠÔ‚ÅÁ‚¦‚éj
+            // ç”Ÿæˆç›´å¾Œã«æ€’ã‚Šã‚¨ãƒ•ã‚§ã‚¯ãƒˆã‚’æ¥ç¶šï¼ˆè¿½è·¡ãªã‚‰è¡¨ç¤ºã€å¾˜å¾Šãªã‚‰éš ã™ï¼‰
+            EnsureAngryFxAttached();
+            if (chaseOnSpawn) ShowAngryFx();
+            else HideAngryFx();
+
             StartCoroutine(GhostLifetimeRoutine());
 
-            // š’ÇÕ‚Íu¶¬‚µ‚½uŠÔ‚É‰B‚ê‚Ä‚¢‚È‚©‚Á‚½ê‡‚Ì‚İvŠJn
-            if (chaseOnSpawn)
-            {
-                StartCoroutine(FollowGhost());
-            }
+            if (chaseOnSpawn) { StartFollow(); } else { StartWander(); }
         }
 
-        isSpawningGhost = false;              // ¶¬’†ƒtƒ‰ƒOOFF
+        isSpawningGhost = false;
     }
+
+    // è¿½è·¡/å¾˜å¾Šã®é–‹å§‹ãƒ»åœæ­¢
+    void StartFollow() { StopFollow(); followCo = StartCoroutine(FollowGhost()); }
+    void StopFollow() { if (followCo != null) { StopCoroutine(followCo); followCo = null; } }
+    void StartWander() { StopWander(); wanderCo = StartCoroutine(WanderGhost()); }
+    void StopWander() { if (wanderCo != null) { StopCoroutine(wanderCo); wanderCo = null; } }
 
     void SwitchToSubCamera()
     {
@@ -340,4 +576,68 @@ public class HideArie : MonoBehaviour
             if (sl) sl.enabled = false;
         }
     }
+
+    // --------------------------------------------------------------------
+    // ã“ã“ã‹ã‚‰ã€æ€’ã‚Šã‚¨ãƒ•ã‚§ã‚¯ãƒˆåˆ¶å¾¡ã€‘
+    void EnsureAngryFxAttached()
+    {
+        if (angryFx || !AngryEffectPrefab || !currentghost) return;
+
+        // ã€ŒHeadã€ç­‰ã®ã‚¢ãƒ³ã‚«ãƒ¼ãŒã‚ã‚Œã°ä½¿ã†ï¼ˆä»»æ„ï¼‰
+        Transform anchor = currentghost.transform.Find("Head");
+        Vector3 spawnPos = (anchor ? anchor.position : currentghost.transform.TransformPoint(AngryEffectLocalOffset));
+
+        var go = Instantiate(AngryEffectPrefab, spawnPos, currentghost.transform.rotation);
+        angryFx = go.transform;
+        angryFxPs = go.GetComponent<ParticleSystem>();
+
+        if (ParentEffectToGhost)
+        {
+            angryFx.SetParent(anchor ? anchor : currentghost.transform, worldPositionStays: false);
+            angryFx.localPosition = anchor ? Vector3.zero : AngryEffectLocalOffset;
+            angryFx.localRotation = Quaternion.identity;
+        }
+    }
+
+    void ShowAngryFx()
+    {
+        EnsureAngryFxAttached();
+        if (!angryFx) return;
+
+        angryFx.gameObject.SetActive(true);
+
+        if (angryFxPs)
+        {
+            var emission = angryFxPs.emission;
+            emission.enabled = true;
+            angryFxPs.Clear();
+            angryFxPs.Play();
+        }
+    }
+
+    void HideAngryFx(bool destroy = false)
+    {
+        if (!angryFx) return;
+
+        if (destroy)
+        {
+            Destroy(angryFx.gameObject);
+            angryFx = null;
+            angryFxPs = null;
+            return;
+        }
+
+        if (ShowOnlyWhileChasing)
+        {
+            if (angryFxPs)
+            {
+                var emission = angryFxPs.emission;
+                emission.enabled = false;
+                angryFxPs.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            }
+            angryFx.gameObject.SetActive(false);
+        }
+    }
+    // ã“ã“ã¾ã§ã€è¿½åŠ ï¼šæ€’ã‚Šã‚¨ãƒ•ã‚§ã‚¯ãƒˆåˆ¶å¾¡ã€‘
+    // --------------------------------------------------------------------
 }
