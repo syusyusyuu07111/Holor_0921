@@ -11,7 +11,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] float SlowSpeed = 2.0f;
     [SerializeField] Animator animator;//アニメーション
                                        // しきい値
-    [SerializeField] float deadZone = 0.12f;   // スティックの遊び
+    [SerializeField] float deadZone = 0.12f;   // スティック
     [SerializeField] float stopGrace = 0.08f;  // 離してからIdleに落とす遅延（ビビり防止）
 
     float noInputTimer = 0f;
