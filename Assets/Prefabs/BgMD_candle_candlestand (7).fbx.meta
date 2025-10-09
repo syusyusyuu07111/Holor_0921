@@ -1,14 +1,9 @@
 fileFormatVersion: 2
-guid: d5a508069f2797b4fa6ed4e91ff9af1e
+guid: ec2aa8380cc6a004fab5096e3a7fa8d4
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
-  externalObjects:
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: M_closet_curve
-    second: {fileID: 2100000, guid: 0ffd3147dcb74274c98dfecf7bfc33cb, type: 2}
+  externalObjects: {}
   materials:
     materialImportMode: 2
     materialName: 0

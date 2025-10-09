@@ -7,7 +7,7 @@ public class TPSCamera : MonoBehaviour
     InputSystem_Actions input;
     //ƒJƒƒ‰“ü—Íİ’è==============================================================================--
     public float yaw=90;//Œü‚¢‚Ä‚¢‚éŠp“x
-    public float RotateSpeed=3.0f;
+    public float RotateSpeed=1.0f;
     public Transform Camera;
     public Transform Pivot;
     public float Distance=3.0f;

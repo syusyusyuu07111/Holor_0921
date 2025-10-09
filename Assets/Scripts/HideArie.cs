@@ -17,7 +17,7 @@ public class HideArie : MonoBehaviour
     public TextMeshProUGUI text;             // 「隠れる」ガイダンス
     public Transform HidePosition;           // 隠れたときに移動させる位置
 
-    public float AttackWaitTime = 10.0f;     // 侵入後、襲いに来るまでの待ち時間
+    public float AttackWaitTime = 5.0f;     // 侵入後、襲いに来るまでの待ち時間
     public GameObject Ghost;                 // 幽霊のプレハブ
     public GameObject Door;                  // 出現位置などに使う参照
 
@@ -92,7 +92,6 @@ public class HideArie : MonoBehaviour
 
     private Transform angryFx;             // インスタンス
     private ParticleSystem angryFxPs;      // キャッシュ
-    // ここまで【追加】
     // --------------------------------------------------------------------------------
 
     private void Awake()
@@ -199,7 +198,7 @@ public class HideArie : MonoBehaviour
         prevHide = Hide;
 
         // -----------------------------------------
-        // ここから【追加：エフェクト追従（非親子の場合）＆寿命監視】
+        // エフェクト追従（非親子の場合）＆寿命監視
         if (angryFx)
         {
             if (!ParentEffectToGhost && currentghost)
@@ -213,7 +212,6 @@ public class HideArie : MonoBehaviour
             // ゴースト消滅に伴う後始末の取りこぼし防止
             angryFxPs = null;
         }
-        // ここまで【追加】
         // -----------------------------------------
     }
 
@@ -477,7 +475,6 @@ public class HideArie : MonoBehaviour
         }
     }
     // ==============================================================================
-
     void OnGhostEnd()
     {
         StopFollow();

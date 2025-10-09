@@ -11,7 +11,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] float SlowSpeed = 2.0f;
     [SerializeField] Animator animator;//アニメーション
                                        // しきい値
-    [SerializeField] float deadZone = 0.12f;   // スティックの遊び
+    [SerializeField] float deadZone = 0.12f;   // スティック
     [SerializeField] float stopGrace = 0.08f;  // 離してからIdleに落とす遅延（ビビり防止）
 
     float noInputTimer = 0f;
@@ -184,35 +184,4 @@ public class PlayerController : MonoBehaviour
         transform.position += up;
     }
 
-    // 可視化
-    void OnDrawGizmosSelected()
-    {
-        if (!Application.isPlaying) return;
-        if (!Camera) return;
-
-        // 前方ベクトル（水平化）
-        Vector3 forward = Camera.transform.forward;
-        forward.y = 0; forward.Normalize();
-
-        // カプセル寸法（実行時の最新値）
-        float radius = 0.3f;
-        float halfHeight = 0.9f;
-        Vector3 center = transform.position;
-
-        if (col)
-        {
-            radius = col.radius * Mathf.Max(transform.localScale.x, transform.localScale.z);
-            halfHeight = Mathf.Max(col.height * 0.5f * transform.localScale.y, radius + 0.01f);
-            center = col.bounds.center;
-        }
-
-        Vector3 pTop = center + Vector3.up * (halfHeight - radius);
-        Vector3 pBot = center - Vector3.up * (halfHeight - radius);
-
-        float d = Mathf.Max(stepCheckDistance, radius + 0.05f);
-
-        Gizmos.color = Color.yellow; Gizmos.DrawLine(pTop, pBot);
-        Gizmos.color = Color.red; Gizmos.DrawLine(pBot, pBot + forward * d);
-        Gizmos.color = Color.green; Gizmos.DrawLine(pBot + Vector3.up * stepHeight, pBot + Vector3.up * stepHeight + forward * d);
-    }
 }
