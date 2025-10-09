@@ -15,16 +15,16 @@ MonoBehaviour:
   active: 1
   shadows:
     m_OverrideState: 1
-    m_Value: {x: 0.6602008, y: 0.81483746, z: 1, w: 0}
+    m_Value: {x: 0.68306917, y: 0.80439454, z: 1, w: -0.22032084}
   midtones:
     m_OverrideState: 1
-    m_Value: {x: 0.7509233, y: 1, z: 0.8159262, w: 0}
+    m_Value: {x: 0.6548054, y: 0.7218129, z: 1, w: -0.18181816}
   highlights:
-    m_OverrideState: 1
+    m_OverrideState: 0
     m_Value: {x: 0.6248802, y: 0.78186315, z: 1, w: 0}
   shadowsStart:
-    m_OverrideState: 1
-    m_Value: 0
+    m_OverrideState: 0
+    m_Value: 0.18
   shadowsEnd:
     m_OverrideState: 1
     m_Value: 0.25
@@ -49,10 +49,10 @@ MonoBehaviour:
   active: 1
   postExposure:
     m_OverrideState: 1
-    m_Value: 0.42
+    m_Value: 0.45
   contrast:
     m_OverrideState: 1
-    m_Value: -7
+    m_Value: -3
   colorFilter:
     m_OverrideState: 0
     m_Value: {r: 1, g: 1, b: 1, a: 1}
@@ -61,7 +61,7 @@ MonoBehaviour:
     m_Value: 0
   saturation:
     m_OverrideState: 1
-    m_Value: 6
+    m_Value: -10
 --- !u!114 &-4451600655871258105
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -74,7 +74,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 29fa0085f50d5e54f8144f766051a691, type: 3}
   m_Name: FilmGrain
   m_EditorClassIdentifier: 
-  active: 1
+  active: 0
   type:
     m_OverrideState: 1
     m_Value: 0
@@ -139,7 +139,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 70afe9e12c7a7ed47911bb608a23a8ff, type: 3}
   m_Name: SplitToning
   m_EditorClassIdentifier: 
-  active: 1
+  active: 0
   shadows:
     m_OverrideState: 1
     m_Value: {r: 0.7056604, g: 0.7056604, b: 0.7056604, a: 1}
@@ -185,7 +185,7 @@ MonoBehaviour:
     m_Value: 4
   focalLength:
     m_OverrideState: 1
-    m_Value: 29
+    m_Value: 1
   bladeCount:
     m_OverrideState: 1
     m_Value: 5
@@ -210,16 +210,16 @@ MonoBehaviour:
   active: 1
   color:
     m_OverrideState: 1
-    m_Value: {r: 0, g: 0, b: 0, a: 1}
+    m_Value: {r: 1, g: 1, b: 1, a: 1}
   center:
     m_OverrideState: 1
-    m_Value: {x: 0, y: 0}
+    m_Value: {x: 0.5, y: 0.5}
   intensity:
     m_OverrideState: 1
-    m_Value: 1
+    m_Value: 0.6
   smoothness:
     m_OverrideState: 1
-    m_Value: 0.874
+    m_Value: 0.65
   rounded:
     m_OverrideState: 0
     m_Value: 0
@@ -256,25 +256,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0b2db86121404754db890f4c8dfe81b2, type: 3}
   m_Name: Bloom
   m_EditorClassIdentifier: 
-  active: 1
+  active: 0
   skipIterations:
     m_OverrideState: 1
     m_Value: 1
   threshold:
     m_OverrideState: 1
-    m_Value: 0
+    m_Value: 1.2
   intensity:
     m_OverrideState: 1
-    m_Value: 0
+    m_Value: 0.8
   scatter:
     m_OverrideState: 1
-    m_Value: 1
+    m_Value: 0
   clamp:
     m_OverrideState: 1
     m_Value: 1.9
   tint:
     m_OverrideState: 1
-    m_Value: {r: 1, g: 0.9111057, b: 0.082352936, a: 1}
+    m_Value: {r: 0, g: 0, b: 0, a: 1}
   highQualityFiltering:
     m_OverrideState: 1
     m_Value: 0
