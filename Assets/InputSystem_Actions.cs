@@ -198,6 +198,15 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""push"",
+                    ""type"": ""Button"",
+                    ""id"": ""f6a948e0-079d-4ae2-81ef-93698f31c684"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -649,6 +658,17 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""groups"": "";Gamepad"",
                     ""action"": ""SlowWalk"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""1ca62f7e-165d-4182-a10f-43c287b09dde"",
+                    ""path"": ""<Keyboard>/f"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""push"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 }
@@ -1248,6 +1268,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         m_Player_DoorOpen = m_Player.FindAction("DoorOpen", throwIfNotFound: true);
         m_Player_Dash = m_Player.FindAction("Dash", throwIfNotFound: true);
         m_Player_SlowWalk = m_Player.FindAction("SlowWalk", throwIfNotFound: true);
+        m_Player_push = m_Player.FindAction("push", throwIfNotFound: true);
         // UI
         m_UI = asset.FindActionMap("UI", throwIfNotFound: true);
         m_UI_Navigate = m_UI.FindAction("Navigate", throwIfNotFound: true);
@@ -1353,6 +1374,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
     private readonly InputAction m_Player_DoorOpen;
     private readonly InputAction m_Player_Dash;
     private readonly InputAction m_Player_SlowWalk;
+    private readonly InputAction m_Player_push;
     /// <summary>
     /// Provides access to input actions defined in input action map "Player".
     /// </summary>
@@ -1412,6 +1434,10 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "Player/SlowWalk".
         /// </summary>
         public InputAction @SlowWalk => m_Wrapper.m_Player_SlowWalk;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/push".
+        /// </summary>
+        public InputAction @push => m_Wrapper.m_Player_push;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -1474,6 +1500,9 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @SlowWalk.started += instance.OnSlowWalk;
             @SlowWalk.performed += instance.OnSlowWalk;
             @SlowWalk.canceled += instance.OnSlowWalk;
+            @push.started += instance.OnPush;
+            @push.performed += instance.OnPush;
+            @push.canceled += instance.OnPush;
         }
 
         /// <summary>
@@ -1521,6 +1550,9 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @SlowWalk.started -= instance.OnSlowWalk;
             @SlowWalk.performed -= instance.OnSlowWalk;
             @SlowWalk.canceled -= instance.OnSlowWalk;
+            @push.started -= instance.OnPush;
+            @push.performed -= instance.OnPush;
+            @push.canceled -= instance.OnPush;
         }
 
         /// <summary>
@@ -1905,6 +1937,13 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnSlowWalk(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "push" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnPush(InputAction.CallbackContext context);
     }
     /// <summary>
     /// Interface to implement callback methods for all input action callbacks associated with input actions defined by "UI" which allows adding and removing callbacks.
