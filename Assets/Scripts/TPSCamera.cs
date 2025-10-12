@@ -54,6 +54,7 @@ public class TPSCamera : MonoBehaviour
     public LayerMask CollisionMask = ~0;        // ぶつかり判定の対象
     public float CollisionBuffer = 0.05f;       // 壁から少し離す
     public float MinCameraDistance = 0.1f;      // 最短距離
+    public bool KeepFixedDistance = true;       // ← 追記：距離固定（奥に寄らない）
 
     [Header("スムージング")]
     public float PositionSmoothTime = 0.08f;    // カメラ位置スムーズ
@@ -127,6 +128,7 @@ public class TPSCamera : MonoBehaviour
 
         // 視点回転==========================================================================---
         // ※ マウスのLookは既にフレーム積分されているため deltaTime は掛けない
+        float dx = LookInput.x;
         float ly = InvertY ? -LookInput.y : LookInput.y;
         if (Mathf.Abs(ly) < MouseYDeadZone) ly = 0f; // 微小入力カット
 
@@ -136,7 +138,7 @@ public class TPSCamera : MonoBehaviour
         PitchClamp.x = -PitchDownLimit;
         PitchClamp.y = PitchUpLimit;
 
-        yaw += LookInput.x * RotateSpeed * deviceSense;
+        yaw += dx * RotateSpeed * deviceSense;
 
         // 縦は抑えめ（VerticalAmount）で目標角に反映 → 目標をClamp
         _pitchTarget = Mathf.Clamp(
@@ -148,16 +150,19 @@ public class TPSCamera : MonoBehaviour
 
         Quaternion rot = Quaternion.Euler(pitch, yaw, 0);
 
-        // 距離・衝突補正
+        // 距離・衝突補正（距離固定なら短縮しない）
         float d = Distance;
-        Vector3 backDir = rot * Vector3.back; // rot * (0,0,-1)
-        if (Physics.Raycast(Pivot.position, backDir, out RaycastHit hit, Distance, CollisionMask, QueryTriggerInteraction.Ignore))
+        if (!KeepFixedDistance)
         {
-            d = Mathf.Max(MinCameraDistance, hit.distance - CollisionBuffer);
+            Vector3 backDir = rot * Vector3.back; // rot * (0,0,-1)
+            if (Physics.Raycast(Pivot.position, backDir, out RaycastHit hit, Distance, CollisionMask, QueryTriggerInteraction.Ignore))
+            {
+                d = Mathf.Max(MinCameraDistance, hit.distance - CollisionBuffer);
+            }
         }
 
-        // 目標カメラ位置（ショルダーオフセット込み）
-        Vector3 desiredPos = Pivot.transform.position + rot * new Vector3(0, 0, -d) + Pivot.TransformVector(ShoulderOffset);
+        // 目標カメラ位置（ショルダーオフセットも rot 空間で適用：半径一定）
+        Vector3 desiredPos = Pivot.transform.position + rot * new Vector3(ShoulderOffset.x, ShoulderOffset.y, -d);
 
         // 位置反映（スムージング）
         cam.position = Vector3.SmoothDamp(cam.position, desiredPos, ref _camVel, Mathf.Max(0f, PositionSmoothTime));
