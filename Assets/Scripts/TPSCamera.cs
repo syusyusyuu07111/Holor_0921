@@ -48,13 +48,13 @@ public class TPSCamera : MonoBehaviour
     [Header("ショルダー/カメラ配置")]
     public Vector3 ShoulderOffset = new Vector3(0.4f, 0.0f, 0f); // 右肩
     public KeyCode ShoulderSwapKey = KeyCode.E;                   // 左右切替（任意）
-    public KeyCode QuickTurnKey = KeyCode.Q;                      // クイックターン（任意）
+    public KeyCode QuickTurnKey = KeyCode.None;                   // クイックターンは使わない（None）
 
     [Header("カメラ衝突処理")]
     public LayerMask CollisionMask = ~0;        // ぶつかり判定の対象
     public float CollisionBuffer = 0.05f;       // 壁から少し離す
     public float MinCameraDistance = 0.1f;      // 最短距離
-    public bool KeepFixedDistance = true;       // ← 追記：距離固定（奥に寄らない）
+    public bool KeepFixedDistance = true;       // 距離固定（奥に寄らない）
 
     [Header("スムージング")]
     public float PositionSmoothTime = 0.08f;    // カメラ位置スムーズ
@@ -71,14 +71,18 @@ public class TPSCamera : MonoBehaviour
     [Header("UI")]
     public bool ShowBar = true;
     public Vector2 UIPos = new Vector2(20f, 40f);
-    public Vector2 UISize = new Vector2(240f, 20f);
+    public Vector2 UISize = new Vector2(320f, 24f);
     public float MinRotateSpeed = 0.1f;
     public float MaxRotateSpeed = 10f;
-    public int UIFontSize = 14;
+    public int UIFontSize = 18;
     public float SliderHeight = 28f;   // バーの高さ
     public float ThumbWidth = 22f;     // つまみの幅
     public float ThumbHeight = 28f;    // つまみの高さ
+    public Font UIFont;                // ← 日本語対応フォント（NotoSansCJK 等を割当て）
     // ===== 追記ここまで =====
+
+    [Header("プレイヤー追従")]
+    public bool RotatePlayerWithCamera = false; // ← デフォルトで回さない
 
     public void Awake()
     {
@@ -122,8 +126,7 @@ public class TPSCamera : MonoBehaviour
         bool usingGamepad = (Gamepad.current != null && Gamepad.current.wasUpdatedThisFrame);
         float deviceSense = usingGamepad ? GamepadSense : MouseSense;
 
-        // クイックターン/ショルダー切替（任意：キーで制御）
-        if (QuickTurnKey != KeyCode.None && Input.GetKeyDown(QuickTurnKey)) yaw += 180f;
+        // ショルダー切替（任意）
         if (ShoulderSwapKey != KeyCode.None && Input.GetKeyDown(ShoulderSwapKey)) ShoulderOffset.x *= -1f;
 
         // 視点回転==========================================================================---
@@ -169,7 +172,7 @@ public class TPSCamera : MonoBehaviour
         cam.LookAt(Pivot.transform.position, Vector3.up);
 
         //カメラを回転させたらキャラも回転させる--------------------------------------------------
-        if (Player != null)
+        if (RotatePlayerWithCamera && Player != null) // ← デフォルトOFF（回さない）
         {
             float diff = Mathf.Abs(Mathf.DeltaAngle(Player.eulerAngles.y, cam.eulerAngles.y));
             if (diff > Mathf.Max(Deadyaw, 3f)) // 微小揺れを抑える
@@ -194,17 +197,22 @@ public class TPSCamera : MonoBehaviour
 
         Rect r = new Rect(UIPos.x, UIPos.y, UISize.x, UISize.y);
 
-        float labelH = UIFontSize + 6f;
+        // ラベル用スタイルを日本語フォント＆適正高さで設定
+        if (_labelStyle == null || _labelStyle.fontSize != UIFontSize || _labelStyle.font != UIFont)
+        {
+            _labelStyle = new GUIStyle(GUI.skin.label);
+            _labelStyle.font = (UIFont != null) ? UIFont : GUI.skin.label.font; // 日本語対応フォント
+            _labelStyle.fontSize = Mathf.RoundToInt(UIFontSize);
+            _labelStyle.alignment = TextAnchor.UpperLeft;
+            _labelStyle.richText = false;
+        }
+
         float pad = 4f;
+        float labelH = Mathf.Ceil(_labelStyle.lineHeight) + 4f;  // 行高ベースで潰れ防止
 
         Rect labelRect = new Rect(r.x, r.y, r.width, labelH);
         Rect sliderRect = new Rect(r.x, r.y + labelH + pad, r.width, Mathf.Max(UISize.y, SliderHeight));
 
-        if (_labelStyle == null || _labelStyle.fontSize != UIFontSize)
-        {
-            _labelStyle = new GUIStyle(GUI.skin.label);
-            _labelStyle.fontSize = UIFontSize;
-        }
         GUI.Label(labelRect, $"Sensitivity : {RotateSpeed:0.00}", _labelStyle);
 
         // ===== ここから一時的にサイズを上書き =====
@@ -232,30 +240,26 @@ public class TPSCamera : MonoBehaviour
         GUI.skin.horizontalSliderThumb.fixedHeight = prevTH;
         GUI.skin.horizontalSliderThumb.stretchWidth = prevTsw;
 
-        // ---- ここから（上下可動域の調整UI・任意。実行中に上限/下限をいじれる）----
+        // ---- （任意）上下可動域と縦係数の調整UI ----
         float y = sliderRect.yMax + 10f;
 
-        Rect upLbl = new Rect(r.x, y, 140f, 20f);
-        Rect upSld = new Rect(r.x + 140f, y, r.width - 140f, 20f);
+        Rect upLbl = new Rect(r.x, y, 160f, labelH);
+        Rect upSld = new Rect(r.x + 160f, y, r.width - 160f, 20f);
         GUI.Label(upLbl, "Pitch UpLimit", _labelStyle);
         PitchUpLimit = GUI.HorizontalSlider(upSld, PitchUpLimit, 0f, 80f);
 
-        y += 24f;
-        Rect dnLbl = new Rect(r.x, y, 140f, 20f);
-        Rect dnSld = new Rect(r.x + 140f, y, r.width - 140f, 20f);
+        y += labelH + 4f;
+        Rect dnLbl = new Rect(r.x, y, 160f, labelH);
+        Rect dnSld = new Rect(r.x + 160f, y, r.width - 160f, 20f);
         GUI.Label(dnLbl, "Pitch DownLimit", _labelStyle);
         PitchDownLimit = GUI.HorizontalSlider(dnSld, PitchDownLimit, 0f, 80f);
 
-        y += 24f;
-        Rect vaLbl = new Rect(r.x, y, 140f, 20f);
-        Rect vaSld = new Rect(r.x + 140f, y, r.width - 140f, 20f);
+        y += labelH + 4f;
+        Rect vaLbl = new Rect(r.x, y, 160f, labelH);
+        Rect vaSld = new Rect(r.x + 160f, y, r.width - 160f, 20f);
         GUI.Label(vaLbl, "Vertical Amount", _labelStyle);
         VerticalAmount = GUI.HorizontalSlider(vaSld, VerticalAmount, 0.1f, 1.0f);
         // ---- 調整UIここまで ----
     }
     GUIStyle _labelStyle; // 既にあるなら不要
-
-
-
-    // ===== 追記ここまで =====
 }
