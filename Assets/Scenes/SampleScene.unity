@@ -3103,6 +3103,12 @@ MonoBehaviour:
   MsgTurnedOff: "\u30E9\u30A4\u30C8\u304C\u6D88\u3048\u305F\u3088\u3046\u3060"
   MsgTurnedOn: "\u30E9\u30A4\u30C8\u304C\u70B9\u3044\u305F\u3088\u3046\u3060"
   EventMsgDuration: 2
+  HintRef: {fileID: 0}
+  AutoFindHintRef: 1
+  AdvanceAmountOnOff: 1
+  DecreaseAmountOnOn: 1
+  CountOnlyOncePerThisLight: 0
+  ToggleDebounceSeconds: 0.25
 --- !u!65 &240894970
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -23161,12 +23167,29 @@ MonoBehaviour:
     - "\u30DE\u30D6\u30B7\u30A4\u30CE\u30B3\u30EF\u3044"
     - "\u30D2\u30AB\u30EA\u30AD\u30E9\u30A4"
     - "\u30BF\u30B9\u30B1\u30C6"
+  - State1:
+    - aaaaaaaaaaa
+    - aaaaaaaaaaa
+    - aaaaaaaaa
+    - aaaaaaaaa
+    - aaaaaaaaaaa
+    State2:
+    - aaaaaaaaaaaaa
+    - aaaaaaaaaaaaa
+    - aaaaaaaaaaa
+    - aaaaaaaaaaa
+    - aaaaaaaaaaaa
   ProgressStage: 0
+  OnProgressChanged:
+    m_PersistentCalls:
+      m_Calls: []
   VisibleDistance: 10
   RevealDistance: 7
   RevealCharsPerSecond: 6
   MaskChar: 9632
   NextHintCooldown: 1
+  AutoAdvanceWhenAllRevealed: 1
+  AutoAdvanceDelay: 1
   RingRadius: 1.8
   OrbitSpeed: 20
   BobAmplitude: 0.15
