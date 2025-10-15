@@ -32,6 +32,10 @@ public class SearchChase : MonoBehaviour
     [SerializeField] private int fixedState = 1;          // 常に1か2のどちらか（Startで決定）
     public int GetState() => fixedState;                  // 値を返す
 
+    // --------------- ここから実装を追加（外部固定フラグ） ---------------
+    private bool _stateLocked = false;                    // EnemyAI など外部から状態を固定されたら true
+    // --------------- ここまで実装を追加 ---------------
+
     // --------------- 隠れ状態参照 ---------------
     public HideCroset HideRef;                            // プレイヤーに付いている HideCroset をアタッチ
 
@@ -47,7 +51,10 @@ public class SearchChase : MonoBehaviour
         surface.AddData();
         surface.collectObjects = CollectObjects.All;
 
-        fixedState = Random.Range(1, 3);                  // 1 or 2（上限は排他的）
+        // --------------- ここから実装を追加（外部固定が無ければここでランダム） ---------------
+        if (!_stateLocked) fixedState = Random.Range(1, 3);  // 1 or 2（上限は排他的）
+        // --------------- ここまで実装を追加 ---------------
+
         UpdateStateLabel();                               // 画面テキストを更新
 
         // --------------- ここから実装を追加（Agentの停止設定） ---------------
@@ -179,4 +186,13 @@ public class SearchChase : MonoBehaviour
         if (StateLabelTMP) StateLabelTMP.text = msg;                // TMPがあれば優先
         if (StateLabelLegacy) StateLabelLegacy.text = msg;          // 旧Textがあればこちらにも
     }
+
+    // --------------- ここから実装を追加（外部から状態を固定するAPI） ---------------
+    public void SetStateFromTutorial(int state)             // EnemyAI からスポーン直後に呼ぶ
+    {
+        fixedState = Mathf.Clamp(state, 1, 2);
+        _stateLocked = true;                                // → Start() でランダムに上書きしない
+        UpdateStateLabel();                                 // デバッグ表記も即更新
+    }
+    // --------------- ここまで実装を追加 ---------------
 }
