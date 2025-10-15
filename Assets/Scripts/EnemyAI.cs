@@ -1,106 +1,208 @@
 ﻿using System.Collections;
-using Unity.VisualScripting;
 using UnityEngine;
-// --------------- ここから実装を追加（イベント用 using） ---------------
-using UnityEngine.Events;                                  // Tutorial から購読できるように
-// --------------- ここまで実装を追加 ---------------
+using UnityEngine.Events;
 
 public class EnemyAI : MonoBehaviour
 {
-    bool GhostSpawn = false;                               // 抽選に当たったか
-    public Transform Player;                               // プレイヤー
-    public GameObject Ghost;                               // 敵プレハブ
-    public Vector3 GhostPosition;                          // 次に湧く座標
-    public int GhostEncountChance;                         // 抽選値
+    // ===== 基本 =====
+    public Transform Player;
+    public GameObject Ghost;                  // 生成プレハブ
+    public Vector3 GhostPosition;             // 次に湧く座標
+    public int GhostEncountChance;            // 抽選値（ログ用）
 
-    // --------------- 生成エリア（座標直指定） ---------------
-    public float MinX;                                     // Xの最小値
-    public float MaxX;                                     // Xの最大値
-    public float MinZ;                                     // Zの最小値
-    public float MaxZ;                                     // Zの最大値
-    public float SpawnYOffset = 0f;                        // 高さ微調整
+    // ===== 範囲 =====
+    public float MinX, MaxX, MinZ, MaxZ;
+    public float SpawnYOffset = 0f;
 
-    // --------------- 距離と試行回数 ---------------
-    public float MinSpawnDistance = 8f;                    // プレイヤーからの最小距離
-    public int MaxPickTrials = 16;                         // ランダム試行回数
+    // ===== 距離/試行 =====
+    public float MinSpawnDistance = 8f;
+    public int MaxPickTrials = 16;
 
-    // --------------- 生成制御：1体制限＆寿命 ---------------
-    public GameObject CurrentGhost;                        // いま存在している幽霊（nullなら不在）
-    public float GhostLifetime = 30f;                      // 生成から消滅までの寿命（秒）
-    public float RespawnDelayAfterDespawn = 5f;            // 消滅後に抽選を再開するまでの待機（秒）
-    public float RetryIntervalWhileAlive = 0.25f;          // 存在中のチェック間隔（軽め）
-    private bool _cooldown;                                // 消滅後の待機中フラグ
+    // ===== 制御 =====
+    public GameObject CurrentGhost;
+    public float GhostLifetime = 30f;
+    public float RespawnDelayAfterDespawn = 5f;
+    public float RetryIntervalWhileAlive = 0.25f;
+    private bool _cooldown;
 
-    // --------------- 生成通知（サウンド/エフェクト） ---------------
-    public AudioClip SpawnSE;                              // 生成時に鳴らすSE
-    public float SpawnSEVolume = 1.0f;                     // 再生音量
-    public Vector2 SpawnSEPitchRange = new Vector2(0.98f, 1.02f); // ピッチゆらぎ
-    public bool UsePlayClipAtPoint = true;                 // true: 位置で鳴らす（推奨）
-    public GameObject SpawnVfxPrefab;                      // 生成VFX（任意）
-    public float SpawnVfxLifetime = 2f;                    // VFX寿命
-    AudioSource audioSource;                               // このオブジェクトのAudioSource（あれば使用）
+    // ===== 通知 =====
+    public AudioClip SpawnSE;
+    public float SpawnSEVolume = 1.0f;
+    public Vector2 SpawnSEPitchRange = new Vector2(0.98f, 1.02f);
+    public bool UsePlayClipAtPoint = true;
+    public GameObject SpawnVfxPrefab;
+    public float SpawnVfxLifetime = 2f;
 
-    // --------------- ここから実装を追加（スポーン順制御） ---------------
-    private int _spawnIndex = 0;                           // 何体目か（0始まり）
-    // --------------- ここまで実装を追加 ---------------
+    AudioSource audioSource;
 
-    // （スポーン通知イベント） ---------------
-    public UnityEvent OnGhostSpawned = new UnityEvent();   // 幽霊が湧いた瞬間に発火
-    // --------------- ここまで実装を追加 ---------------
+    // ===== イベント：湧いた瞬間 =====
+    public UnityEvent OnGhostSpawned = new UnityEvent();
+
+    // ===== 抽選制御（外部操作） =====
+    [Header("抽選制御")]
+    public bool AutoStart = false;            // チュートリアルでは false 推奨
+    private Coroutine _spawnLoop;
+    public bool IsSpawning => _spawnLoop != null;
 
     void Start()
     {
-        StartCoroutine("Spawn");                           // 生成ループ開始
-        audioSource = GetComponent<AudioSource>();         // 取得（無くてもOK）
+        audioSource = GetComponent<AudioSource>();
+        if (AutoStart) _spawnLoop = StartCoroutine(SpawnLoop());
     }
 
     void Update()
     {
-        GhostPosition = PickSpawnPointInRect();            // 次の候補を更新
+        GhostPosition = PickSpawnPointInRect();  // 次の候補は常に更新
     }
 
-    // --------------- 矩形内ランダム（近すぎは除外） ---------------
+    // ===== 外部公開：抽選開始/停止 =====
+    public void BeginSpawning()
+    {
+        if (_spawnLoop == null) _spawnLoop = StartCoroutine(SpawnLoop());
+    }
+
+    public void StopSpawning()
+    {
+        if (_spawnLoop != null) { StopCoroutine(_spawnLoop); _spawnLoop = null; }
+    }
+
+    // ===== 外部公開：確定で1体出す（抽選スキップ） =====
+    public bool ForceSpawnOnce()
+    {
+        if (_cooldown) return false;
+        if (CurrentGhost) return false;                    // すでに1体いるなら出さない
+        if (!Ghost)
+        {
+            Debug.LogWarning("[EnemyAI] Ghost prefab 未設定。ForceSpawnOnce をスキップします。");
+            return false;
+        }
+
+        // 生成
+        CurrentGhost = Instantiate(Ghost, GhostPosition, Quaternion.identity);
+
+        // 通知
+        OnGhostSpawned?.Invoke();
+
+        // SE/VFX
+        PlaySpawnSoundAt(GhostPosition);
+        if (SpawnVfxPrefab)
+        {
+            var vfx = Instantiate(SpawnVfxPrefab, GhostPosition, Quaternion.identity);
+            if (SpawnVfxLifetime > 0f) Destroy(vfx, SpawnVfxLifetime);
+        }
+
+        // 寿命管理
+        StartCoroutine(GhostLifecycle(CurrentGhost));
+        return true;
+    }
+
+    IEnumerator SpawnLoop()
+    {
+        while (true)
+        {
+            // 1体制限／クールダウン中は軽く待つ
+            if (CurrentGhost || _cooldown)
+            {
+                yield return new WaitForSeconds(RetryIntervalWhileAlive);
+                continue;
+            }
+
+            // 抽選
+            GhostEncountChance = Random.Range(0, 50);   // 0〜49
+            bool spawn = (GhostEncountChance > 30);
+
+            if (spawn && !CurrentGhost)
+            {
+                if (!Ghost)
+                {
+                    Debug.LogWarning("[EnemyAI] Ghost prefab 未設定。生成スキップ。");
+                    yield return new WaitForSeconds(5f);
+                    continue;
+                }
+
+                CurrentGhost = Instantiate(Ghost, GhostPosition, Quaternion.identity);
+                OnGhostSpawned?.Invoke();
+
+                PlaySpawnSoundAt(GhostPosition);
+                if (SpawnVfxPrefab)
+                {
+                    var vfx = Instantiate(SpawnVfxPrefab, GhostPosition, Quaternion.identity);
+                    if (SpawnVfxLifetime > 0f) Destroy(vfx, SpawnVfxLifetime);
+                }
+
+                StartCoroutine(GhostLifecycle(CurrentGhost));
+            }
+
+            yield return new WaitForSeconds(5f);  // 次回抽選
+        }
+    }
+
+    private IEnumerator GhostLifecycle(GameObject ghost)
+    {
+        yield return new WaitForSeconds(GhostLifetime);
+        if (ghost) Destroy(ghost);
+        if (CurrentGhost == ghost) CurrentGhost = null;
+
+        _cooldown = true;
+        yield return new WaitForSeconds(RespawnDelayAfterDespawn);
+        _cooldown = false;
+    }
+
+    private void PlaySpawnSoundAt(Vector3 pos)
+    {
+        if (!SpawnSE) return;
+        float pitch = Mathf.Clamp(Random.Range(SpawnSEPitchRange.x, SpawnSEPitchRange.y), 0.5f, 2f);
+
+        if (UsePlayClipAtPoint)
+        {
+            AudioSource.PlayClipAtPoint(SpawnSE, pos, Mathf.Clamp01(SpawnSEVolume));
+        }
+        else
+        {
+            if (!audioSource) audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.spatialBlend = 1f;
+            audioSource.transform.position = pos;
+            audioSource.pitch = pitch;
+            audioSource.PlayOneShot(SpawnSE, Mathf.Clamp01(SpawnSEVolume));
+        }
+    }
+
     private Vector3 PickSpawnPointInRect()
     {
-        // --------------- ここから実装を追加（安全ガード） ---------------
         if (!Player)
         {
-            // Player未割り当てでも落ちないように（範囲中心）
             return new Vector3(
                 Mathf.Lerp(MinX, MaxX, 0.5f),
                 SpawnYOffset,
                 Mathf.Lerp(MinZ, MaxZ, 0.5f)
             );
         }
-        // --------------- ここまで実装を追加 ---------------
 
-        Vector3 pick = Player.position;                    // 初期値
+        Vector3 pick = Player.position;
 
-        float x0 = Mathf.Min(MinX, MaxX);                  // 正規化した最小X
-        float x1 = Mathf.Max(MinX, MaxX);                  // 正規化した最大X
-        float z0 = Mathf.Min(MinZ, MaxZ);                  // 正規化した最小Z
-        float z1 = Mathf.Max(MinZ, MaxZ);                  // 正規化した最大Z
+        float x0 = Mathf.Min(MinX, MaxX);
+        float x1 = Mathf.Max(MinX, MaxX);
+        float z0 = Mathf.Min(MinZ, MaxZ);
+        float z1 = Mathf.Max(MinZ, MaxZ);
 
         for (int i = 0; i < MaxPickTrials; i++)
         {
-            float x = Random.Range(x0, x1);                // 矩形内X
-            float z = Random.Range(z0, z1);                // 矩形内Z
+            float x = Random.Range(x0, x1);
+            float z = Random.Range(z0, z1);
             pick = new Vector3(x, Player.position.y + SpawnYOffset, z);
 
             Vector2 d2 = new Vector2(pick.x - Player.position.x, pick.z - Player.position.z);
-            if (d2.sqrMagnitude >= MinSpawnDistance * MinSpawnDistance) return pick; // 採用
+            if (d2.sqrMagnitude >= MinSpawnDistance * MinSpawnDistance) return pick;
         }
 
-        // 最遠の隅をフォールバックにする（必ず矩形内）
         Vector3 far = FarthestPointFromPlayerInRect(new Vector2(x0, z0), new Vector2(x1, z1));
         return new Vector3(far.x, Player.position.y + SpawnYOffset, far.z);
     }
 
-    // --------------- 矩形の4隅のうち最遠点 ---------------
     private Vector3 FarthestPointFromPlayerInRect(Vector2 min, Vector2 max)
     {
         Vector2 p = Player ? new Vector2(Player.position.x, Player.position.z) : Vector2.zero;
-        Vector2[] corners = new Vector2[]
+        Vector2[] corners =
         {
             new Vector2(min.x, min.y),
             new Vector2(min.x, max.y),
@@ -111,115 +213,12 @@ public class EnemyAI : MonoBehaviour
         float best = -1f; Vector2 bestPt = corners[0];
         for (int i = 0; i < corners.Length; i++)
         {
-            float d = (corners[i] - p).sqrMagnitude;       // 2D距離
+            float d = (corners[i] - p).sqrMagnitude;
             if (d > best) { best = d; bestPt = corners[i]; }
         }
-        return new Vector3(bestPt.x, 0f, bestPt.y);        // YはあとでSpawnYOffsetを足す
+        return new Vector3(bestPt.x, 0f, bestPt.y);
     }
 
-    IEnumerator Spawn()
-    {
-        while (true)
-        {
-            // 1体制限：存在中 or クールダウン中は待機 -------------------------------------
-            if (CurrentGhost || _cooldown)
-            {
-                yield return new WaitForSeconds(RetryIntervalWhileAlive);
-                continue;
-            }
-
-            // 抽選（既存ロジック） -------------------------------------------------------
-            GhostEncountChance = Random.Range(0, 50);      // 0〜49
-            if (GhostEncountChance > 30) GhostSpawn = true;
-
-            if (GhostSpawn)
-            {
-                if (!CurrentGhost)                         // 念のため二重ガード
-                {
-                    // --------------- ここから実装を追加（プレハブ安全チェック） ---------------
-                    if (!Ghost)
-                    {
-                        Debug.LogWarning("[EnemyAI] Ghost prefab 未設定。生成スキップ。");
-                        GhostSpawn = false;
-                        yield return new WaitForSeconds(5.0f);
-                        continue;
-                    }
-                    // --------------- ここまで実装を追加 ---------------
-
-                    // 生成
-                    CurrentGhost = Instantiate(Ghost, GhostPosition, Quaternion.identity); // 参照保持
-
-                    // --------------- ここから実装を追加（1体目=1／2体目=2／以降はランダム） ---------------
-                    int forcedState =
-                        (_spawnIndex == 0) ? 1 :
-                        (_spawnIndex == 1) ? 2 :
-                        Random.Range(1, 3);                // 3は排他的 → 1 or 2
-                    _spawnIndex++;                         // 次のスポーンに備えてインクリメント
-
-                    if (CurrentGhost.TryGetComponent<SearchChase>(out var sc))
-                    {
-                        sc.SetStateFromTutorial(forcedState);   // ← ここがポイント（Startより前にロック）
-                    }
-                    else
-                    {
-                        Debug.LogWarning("[EnemyAI] 生成したGhostに SearchChase が見つかりません。");
-                    }
-                    // --------------- ここまで実装を追加 ---------------
-
-                    // 生成通知：イベント/SE/VFX -----------------------------------------
-                    OnGhostSpawned?.Invoke();              // Tutorial が Step3 開始に使う
-                    PlaySpawnSoundAt(GhostPosition);
-
-                    if (SpawnVfxPrefab)
-                    {
-                        var vfx = Instantiate(SpawnVfxPrefab, GhostPosition, Quaternion.identity);
-                        if (SpawnVfxLifetime > 0f) Destroy(vfx, SpawnVfxLifetime);
-                    }
-
-                    // 寿命管理コルーチン
-                    StartCoroutine(GhostLifecycle(CurrentGhost)); // 30秒で消滅→5秒後抽選再開
-                }
-                GhostSpawn = false;                        // 抽選リセット
-            }
-
-            yield return new WaitForSeconds(5.0f);         // 次回抽選まで（通常サイクル）
-        }
-    }
-
-    // --------------- 幽霊の寿命：30秒で消滅→5秒後に抽選再開 ---------------
-    private IEnumerator GhostLifecycle(GameObject ghost)
-    {
-        yield return new WaitForSeconds(GhostLifetime);    // 寿命
-        if (ghost) Destroy(ghost);                         // 消滅
-        if (CurrentGhost == ghost) CurrentGhost = null;    // 参照クリア
-
-        _cooldown = true;                                  // クールダウン
-        yield return new WaitForSeconds(RespawnDelayAfterDespawn); // 5秒待機
-        _cooldown = false;                                 // 抽選再開OK
-    }
-
-    // --------------- サウンド再生（確実に聞こえるよう二系統用意） ---------------
-    private void PlaySpawnSoundAt(Vector3 pos)
-    {
-        if (!SpawnSE) return;                              // クリップ未設定なら何もしない
-
-        float pitch = Mathf.Clamp(Random.Range(SpawnSEPitchRange.x, SpawnSEPitchRange.y), 0.5f, 2f); // 安全な範囲
-
-        if (UsePlayClipAtPoint)
-        {
-            AudioSource.PlayClipAtPoint(SpawnSE, pos, Mathf.Clamp01(SpawnSEVolume)); // 3D位置で鳴らす
-        }
-        else
-        {
-            if (!audioSource) audioSource = gameObject.AddComponent<AudioSource>(); // 無ければ付ける
-            audioSource.spatialBlend = 1f;                // 3D化
-            audioSource.transform.position = pos;         // 再生位置
-            audioSource.pitch = pitch;                    // ピッチ
-            audioSource.PlayOneShot(SpawnSE, Mathf.Clamp01(SpawnSEVolume)); // 再生
-        }
-    }
-
-    // --------------- デバッグ可視化 ---------------
     private void OnDrawGizmosSelected()
     {
         float x0 = Mathf.Min(MinX, MaxX);
@@ -228,8 +227,8 @@ public class EnemyAI : MonoBehaviour
         float z1 = Mathf.Max(MinZ, MaxZ);
         Vector3 center = new Vector3((x0 + x1) * 0.5f, (Player ? Player.position.y : 0f) + SpawnYOffset, (z0 + z1) * 0.5f);
         Vector3 size = new Vector3(Mathf.Abs(x1 - x0), 0.05f, Mathf.Abs(z1 - z0));
-        Gizmos.color = Color.yellow; Gizmos.DrawWireCube(center, size);   // 生成範囲
-        Gizmos.color = Color.red; Gizmos.DrawWireSphere(GhostPosition, 0.25f); // 候補点
-        if (Player) { Gizmos.color = Color.cyan; Gizmos.DrawWireSphere(Player.position, MinSpawnDistance); } // 最小距離
+        Gizmos.color = Color.yellow; Gizmos.DrawWireCube(center, size);
+        Gizmos.color = Color.red; Gizmos.DrawWireSphere(GhostPosition, 0.25f);
+        if (Player) { Gizmos.color = Color.cyan; Gizmos.DrawWireSphere(Player.position, MinSpawnDistance); }
     }
 }
