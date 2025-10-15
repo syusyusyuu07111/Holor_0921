@@ -1,4 +1,4 @@
-//巡回しながら探して見つけたら追いかけるスクリプトです==========================================================================
+// 巡回しながら探して見つけたら追いかけるスクリプトです==============================================================
 
 using UnityEngine;
 using System.Collections;
@@ -49,6 +49,11 @@ public class SearchChase : MonoBehaviour
 
         fixedState = Random.Range(1, 3);                  // 1 or 2（上限は排他的）
         UpdateStateLabel();                               // 画面テキストを更新
+
+        // --------------- ここから実装を追加（Agentの停止設定） ---------------
+        agent.stoppingDistance = 0f;                      // 追跡時に手前で止まらない
+        agent.autoBraking = false;                        // 経路終端での減速を抑制
+        // --------------- ここまで実装を追加 ---------------
     }
 
     void Update()
@@ -74,14 +79,23 @@ public class SearchChase : MonoBehaviour
         }
         EnsureAgentOnNavMesh();
 
+        // --------------- ここから実装を追加（停止条件の見直し） ---------------
         if (agent.hasPath && !agent.pathPending)
         {
-            if (agent.remainingDistance <= StopDistance)
+            if (isDiscovery)
             {
-                agent.isStopped = true;
-                if (!isDiscovery) Invoke("TargetChange", WaitCount);
+                agent.isStopped = false;                  // 追跡中は止めない（距離を詰め続ける）
+            }
+            else
+            {
+                if (agent.remainingDistance <= StopDistance)
+                {
+                    agent.isStopped = true;               // パトロール時のみ停止
+                    Invoke("TargetChange", WaitCount);
+                }
             }
         }
+        // --------------- ここまで実装を追加 ---------------
     }
 
     void Chase()

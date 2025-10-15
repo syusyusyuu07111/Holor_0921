@@ -1,58 +1,61 @@
 using UnityEngine;
 using System.Collections.Generic;
-using TMPro;                                             // TMP_Text 用
+using TMPro;
 using UnityEngine.UI;
 
 public class HintText : MonoBehaviour
 {
-    public Transform Player;                             // プレイヤー
-    public Transform Ghost;                              // ゴースト中心
-    public SearchChase ChaseRef;                         // ゴースト状態(1/2)参照
-    public HideCroset HideRef;                           // 隠れ状態（必要なら）
+    public Transform Player;                               // プレイヤー
+    public Transform Ghost;                                // ゴースト中心
+    public SearchChase ChaseRef;                           // ゴースト状態(1/2)
+    public HideCroset HideRef;                             // 隠れ状態（任意）
 
     // --------------- 表示（UI/3D 両対応） ---------------
-    public TMP_Text[] HintLabels = new TMP_Text[5];      // 5つのテキスト（UIでも3DでもOK）
-    public Canvas UICanvas;                               // Screen Space の Canvas（UI使用時）
-    public bool ScreenSpaceUI = true;                     // true: Screen Space UI / false: 3Dテキスト
+    public TMP_Text[] HintLabels = new TMP_Text[5];        // UIでも3DでもOK
+    public Canvas UICanvas;                                 // Screen Space の Canvas
+    public bool ScreenSpaceUI = true;                       // trueならUI座標で配置
 
     // --------------- 進行管理 ---------------
-    [System.Serializable]
-    public class HintSet                                   // ステージごとの文言セット
-    {
-        [TextArea] public string[] State1 = new string[5]; // 状態1用 5本
-        [TextArea] public string[] State2 = new string[5]; // 状態2用 5本
-    }
-    public List<HintSet> Stages = new List<HintSet>();     // 進行段階ごとのヒント
-    public int ProgressStage = 0;                           // 初期0（インスペクタで上書き可）
+    [System.Serializable] public class HintSet { [TextArea] public string[] State1 = new string[5]; [TextArea] public string[] State2 = new string[5]; }
+    public List<HintSet> Stages = new List<HintSet>();     // ステージごとのヒント
+    public int ProgressStage = 0;                           // 初期0
 
     // --------------- 距離/開示 ---------------
-    public float VisibleDistance = 10f;                    // ここより近いと伏字で出現
-    public float RevealDistance = 7f;                      // ここより近いと開示が進む
-    public float RevealCharsPerSecond = 6f;                // 秒あたり開示文字数
-    public char MaskChar = '■';                            // 伏字文字
+    public float VisibleDistance = 10f;                     // 伏字で見え始める距離
+    public float RevealDistance = 7f;                       // 開示が進む距離
+    public float RevealCharsPerSecond = 6f;                 // 秒あたり開示文字数
+    public char MaskChar = '■';                             // 伏字文字
+
+    // --------------- ヒント間クールタイム（追加） ---------------
+    public float NextHintCooldown = 1.0f;                   // 次の行が開示を開始するまでの待機（秒）
 
     // --------------- 配置演出 ---------------
-    public float RingRadius = 1.8f;                        // ゴースト周りの半径
-    public float OrbitSpeed = 20f;                         // 周回スピード（度/秒）
-    public float BobAmplitude = 0.15f;                     // 縦ゆらぎ
-    public float BobSpeed = 2.0f;                          // 縦ゆらぎ速度
-    public float HeightOffset = 1.6f;                      // ベース高さ
+    public float RingRadius = 1.8f;
+    public float OrbitSpeed = 20f;
+    public float BobAmplitude = 0.15f;
+    public float BobSpeed = 2.0f;
+    public float HeightOffset = 1.6f;
+
+    // --------------- 画面に映っている時だけ表示する設定 ---------------
+    public bool OnlyWhenGhostOnScreen = true;
+    public float OnScreenMargin = 0.05f;
+    public bool CheckOcclusion = false;
+    public LayerMask Occluders;
+    public float CameraEyeHeight = 0.0f;
 
     // --------------- 内部 ---------------
-    private string[] activeLines = new string[5];          // 現在のステージ/状態の5行
-    private int currentIndex = 0;                          // 今開示中の行（0→4）
-    private float revealProgressChars = 0f;                // 現行の開示文字数
-    private int cachedState = -1;                          // 前フレームの状態キャッシュ
-    private int cachedStage = -1;                          // 前フレームのステージキャッシュ
+    private string[] activeLines = new string[5];
+    private int currentIndex = 0;                           // 今開示中の行
+    private float revealProgressChars = 0f;                 // 現行の開示文字数
+    private bool waitingCooldown = false;                   // クールタイム中か
+    private float cooldownTimer = 0f;                       // 残りクールタイム
+    private int cachedState = -1, cachedStage = -1;
 
     void Start()
     {
-        // 進行状態の初期確認（初期は0に寄せる） -----------------------------------
-        ProgressStage = Mathf.Max(0, ProgressStage);       // 初期0固定
-        SelectLinesByStageAndState();                      // ステージ&状態から5行を決定
+        ProgressStage = Mathf.Max(0, ProgressStage);       // 初期は0
+        SelectLinesByStageAndState();                      // 文言選択
         ApplyMaskedAll();                                  // 全伏字で初期化
-
-        // 距離外は非表示 -----------------------------------------------------------
         for (int i = 0; i < HintLabels.Length; i++)
             if (HintLabels[i]) HintLabels[i].gameObject.SetActive(false);
     }
@@ -61,71 +64,95 @@ public class HintText : MonoBehaviour
     {
         if (!Player || !Ghost) return;
 
-        // 進行状態が進む条件の確認（フック／中身は空白） ---------------------------
-        CheckAndMaybeAdvanceProgress();                    // ここに進行条件を書く（今は空）
-
-        // 状態/ステージが変わっていればラインを再選択 -----------------------------
-        SelectLinesByStageAndState();
+        CheckAndMaybeAdvanceProgress();                    // 進行条件（空フック）
+        SelectLinesByStageAndState();                      // 状態/ステージ変化に追随
 
         float dist = Vector3.Distance(Player.position, Ghost.position);
-        bool visibleNow = dist <= VisibleDistance;
+        bool visibleByDistance = dist <= VisibleDistance;
+        bool visibleByCamera = !OnlyWhenGhostOnScreen || IsGhostOnScreen();
+        bool show = visibleByDistance && visibleByCamera;
 
-        // 可視/不可視切替 ---------------------------------------------------------
         for (int i = 0; i < HintLabels.Length; i++)
-            if (HintLabels[i]) HintLabels[i].gameObject.SetActive(visibleNow);
-        if (!visibleNow) return;
+            if (HintLabels[i]) HintLabels[i].gameObject.SetActive(show);
+        if (!show) return;
 
-        // リング配置の更新 ---------------------------------------------------------
-        AnimateRingLayout();
+        AnimateRingLayout();                               // 配置更新
 
-        // 開示進行（RevealDistance 内 & まだ5行に到達していない時） --------------
+        // ---- 開示進行：クールタイムを考慮 ---------------------------------------
         if (dist <= RevealDistance && currentIndex < 5)
         {
-            revealProgressChars += RevealCharsPerSecond * Time.deltaTime; // 少しずつ開示
-            UpdateMaskedLine(currentIndex, revealProgressChars);
-
-            if (IsFullyRevealed(activeLines[currentIndex], revealProgressChars))
+            if (waitingCooldown)
             {
-                currentIndex = Mathf.Min(currentIndex + 1, 4);            // 次の行へ
-                revealProgressChars = 0f;                                  // カウンタリセット
+                cooldownTimer -= Time.deltaTime;           // クールタイム消化
+                if (cooldownTimer <= 0f) waitingCooldown = false; // 終了で次行開始
+            }
+            else
+            {
+                // 通常の開示
+                revealProgressChars += RevealCharsPerSecond * Time.deltaTime;
+                UpdateMaskedLine(currentIndex, revealProgressChars);
+
+                if (IsFullyRevealed(activeLines[currentIndex], revealProgressChars))
+                {
+                    // 行を開き切った → 次の行へ移る前にクールタイム
+                    currentIndex = Mathf.Min(currentIndex + 1, 4);
+                    revealProgressChars = 0f;
+                    waitingCooldown = true;                // クールタイム開始
+                    cooldownTimer = Mathf.Max(0f, NextHintCooldown);
+                }
             }
         }
 
-        // 他行の見え方を整える -----------------------------------------------------
+        // 行表示の整え：開示済/未着手/進行中 ---------------------------------------
         for (int i = 0; i < 5; i++)
         {
             if (!HintLabels[i]) continue;
 
-            if (i < currentIndex) HintLabels[i].text = activeLines[i];      // 完全開示済
-            else if (i == currentIndex) { /* UpdateMaskedLineで反映済み */ }
-            else HintLabels[i].text = MaskAll(activeLines[i]); // 未着手は全伏字
+            if (i < currentIndex) HintLabels[i].text = activeLines[i];               // 完全開示
+            else if (i == currentIndex && !waitingCooldown) { /* UpdateMaskedLineで反映 */ }
+            else HintLabels[i].text = MaskAll(activeLines[i]);                       // クールタイム中や未着手は全伏字
         }
     }
 
-    // --------------- ステージ＆状態でヒント5本を選ぶ ---------------
+    // ---- カメラに映っているか ----------------------------------------------------
+    private bool IsGhostOnScreen()
+    {
+        Camera cam = Camera.main;
+        if (!cam) return true;
+        Vector3 worldPos = Ghost.position + Vector3.up * HeightOffset;
+        Vector3 vp = cam.WorldToViewportPoint(worldPos);
+        if (vp.z <= 0f) return false;
+        if (vp.x < -OnScreenMargin || vp.x > 1f + OnScreenMargin) return false;
+        if (vp.y < -OnScreenMargin || vp.y > 1f + OnScreenMargin) return false;
+
+        if (CheckOcclusion)
+        {
+            Vector3 camEye = cam.transform.position + Vector3.up * CameraEyeHeight;
+            if (Physics.Linecast(camEye, worldPos, out RaycastHit hit, Occluders)) return false;
+        }
+        return true;
+    }
+
+    // ---- ステージ＆状態で文言を選択 ----------------------------------------------
     private void SelectLinesByStageAndState()
     {
-        int state = (ChaseRef ? ChaseRef.GetState() : 1); // 1/2（SearchChaseの固定状態）
-        if (Stages == null || Stages.Count == 0)
-        {
-            EnsureActiveEmpty();                          // 文言未設定の安全策
-            return;
-        }
+        int state = (ChaseRef ? ChaseRef.GetState() : 1);
+        if (Stages == null || Stages.Count == 0) { EnsureActiveEmpty(); return; }
 
         int stage = Mathf.Clamp(ProgressStage, 0, Stages.Count - 1);
         var set = Stages[stage];
         var source = (state == 2) ? set.State2 : set.State1;
 
-        // 変化が無いならスキップ
         if (cachedState == state && cachedStage == stage && IsSameLines(activeLines, source)) return;
 
-        // ライン差し替え
         for (int i = 0; i < 5; i++)
             activeLines[i] = (source != null && i < source.Length && !string.IsNullOrEmpty(source[i])) ? source[i] : "";
 
-        // 変更時は最初の行からやり直し
+        // 文言が変わったら最初から
         currentIndex = 0;
         revealProgressChars = 0f;
+        waitingCooldown = false;
+        cooldownTimer = 0f;
         ApplyMaskedAll();
 
         cachedState = state;
@@ -144,45 +171,30 @@ public class HintText : MonoBehaviour
         return true;
     }
 
-    private void EnsureActiveEmpty()
-    {
-        for (int i = 0; i < 5; i++) activeLines[i] = "";
-    }
+    private void EnsureActiveEmpty() { for (int i = 0; i < 5; i++) activeLines[i] = ""; }
 
-    // --------------- 進行状態チェック（空白フック） ---------------
     private void CheckAndMaybeAdvanceProgress()
     {
-        // ここに「進行状態を進める条件」を書く（空白）
-        // 例：
-        // if ( /* 進行を進める条件 */ )
-        // {
-        //     AdvanceProgress();                          // ステージを1つ進める
-        // }
-
-        // 戻す条件があるなら：
-        // if ( /* 戻す条件 */ )
-        // {
-        //     SetProgress(0);                             // 任意の段階へ
-        // }
+        // 進行状態を進める/戻す条件をここに（空白）
+        // if ( /* 条件 */ ) AdvanceProgress();
     }
-
-    public void AdvanceProgress() { SetProgress(ProgressStage + 1); } // 進める
+    public void AdvanceProgress() { SetProgress(ProgressStage + 1); }
     public void SetProgress(int next)
     {
         int clamped = Mathf.Clamp(next, 0, Mathf.Max(0, (Stages?.Count ?? 1) - 1));
         if (clamped == ProgressStage) return;
         ProgressStage = clamped;
         currentIndex = 0; revealProgressChars = 0f;
-        SelectLinesByStageAndState();                    // 反映
+        waitingCooldown = false; cooldownTimer = 0f;
+        SelectLinesByStageAndState();
     }
 
-    // --------------- 表示ユーティリティ ---------------
+    // ---- 表示ユーティリティ ------------------------------------------------------
     private void ApplyMaskedAll()
     {
         for (int i = 0; i < HintLabels.Length; i++)
             if (HintLabels[i]) HintLabels[i].text = MaskAll(i < activeLines.Length ? activeLines[i] : "");
     }
-
     private void UpdateMaskedLine(int index, float revealedChars)
     {
         if (index < 0 || index >= activeLines.Length) return;
@@ -191,26 +203,16 @@ public class HintText : MonoBehaviour
         int count = Mathf.Clamp(Mathf.FloorToInt(revealedChars), 0, src.Length);
         HintLabels[index].text = RevealLeftToRight(src, count);
     }
-
-    private string MaskAll(string s)
-    {
-        if (string.IsNullOrEmpty(s)) return "";
-        return new string(MaskChar, s.Length);
-    }
-
+    private string MaskAll(string s) { return string.IsNullOrEmpty(s) ? "" : new string(MaskChar, s.Length); }
     private string RevealLeftToRight(string s, int n)
     {
         if (string.IsNullOrEmpty(s)) return "";
         n = Mathf.Clamp(n, 0, s.Length);
         return s.Substring(0, n) + new string(MaskChar, s.Length - n);
     }
+    private bool IsFullyRevealed(string s, float revealedChars) { return Mathf.FloorToInt(revealedChars) >= (s?.Length ?? 0); }
 
-    private bool IsFullyRevealed(string s, float revealedChars)
-    {
-        return Mathf.FloorToInt(revealedChars) >= (s?.Length ?? 0);
-    }
-
-    // --------------- リング配置（UI/3D 切替） ---------------
+    // ---- リング配置（UI/3D 切替） ------------------------------------------------
     private void AnimateRingLayout()
     {
         float t = Time.time;
@@ -221,31 +223,30 @@ public class HintText : MonoBehaviour
             var label = HintLabels[i];
             if (!label) continue;
 
-            float angleDeg = (360f / Mathf.Max(1, HintLabels.Length)) * i + t * OrbitSpeed; // 周回
+            float angleDeg = (360f / Mathf.Max(1, HintLabels.Length)) * i + t * OrbitSpeed;
             float rad = angleDeg * Mathf.Deg2Rad;
             Vector3 around = new Vector3(Mathf.Cos(rad), 0f, Mathf.Sin(rad)) * RingRadius;
             float bob = Mathf.Sin(t * BobSpeed + i * 0.6f) * BobAmplitude;
 
             Vector3 worldPos = Ghost.position + around + Vector3.up * (HeightOffset + bob);
 
-            if (ScreenSpaceUI && UICanvas)                      // Screen Space UI
+            if (ScreenSpaceUI && UICanvas)
             {
-                Vector3 screen = cam ? cam.WorldToScreenPoint(worldPos) : worldPos; // ワールド→スクリーン
-                (label.transform as RectTransform).position = screen;               // 画面座標に配置
+                Vector3 screen = cam ? cam.WorldToScreenPoint(worldPos) : worldPos;
+                (label.transform as RectTransform).position = screen;
             }
-            else                                                // 3D TextMeshPro
+            else
             {
-                label.transform.position = worldPos;           // ワールド座標に配置
-                if (cam) label.transform.rotation = Quaternion.LookRotation(label.transform.position - cam.transform.position); // カメラへ面向き
+                label.transform.position = worldPos;
+                if (cam) label.transform.rotation = Quaternion.LookRotation(label.transform.position - cam.transform.position);
             }
         }
     }
 
-    // --------------- デバッグGizmos ---------------
     private void OnDrawGizmosSelected()
     {
         if (!Ghost) return;
-        Gizmos.color = Color.white; Gizmos.DrawWireSphere(Ghost.position, VisibleDistance); // 伏字で出現距離
-        Gizmos.color = Color.green; Gizmos.DrawWireSphere(Ghost.position, RevealDistance);  // 開示進行距離
+        Gizmos.color = Color.white; Gizmos.DrawWireSphere(Ghost.position, VisibleDistance);
+        Gizmos.color = Color.green; Gizmos.DrawWireSphere(Ghost.position, RevealDistance);
     }
 }

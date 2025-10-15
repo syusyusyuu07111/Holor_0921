@@ -182,3 +182,4 @@ public class EnemyAI : MonoBehaviour
         if (Player) { Gizmos.color = Color.cyan; Gizmos.DrawWireSphere(Player.position, MinSpawnDistance); } // 最小距離
     }
 }
+
