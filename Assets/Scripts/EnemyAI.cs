@@ -5,44 +5,52 @@ using UnityEngine.Events;
 public class EnemyAI : MonoBehaviour
 {
     // ===== 基本 =====
+    [Header("基本")]
     public Transform Player;
-    public GameObject Ghost;                  // 生成プレハブ
-    public Vector3 GhostPosition;             // 次に湧く座標
-    public int GhostEncountChance;            // 抽選値（ログ用）
+    public GameObject Ghost;                      // 生成プレハブ
+    public Vector3 GhostPosition;                 // 次に湧く座標（Updateで更新）
+    public int GhostEncountChance;                // 抽選値（ログ用）
 
     // ===== 範囲 =====
+    [Header("範囲")]
     public float MinX, MaxX, MinZ, MaxZ;
     public float SpawnYOffset = 0f;
 
     // ===== 距離/試行 =====
+    [Header("距離/試行")]
     public float MinSpawnDistance = 8f;
     public int MaxPickTrials = 16;
 
     // ===== 制御 =====
-    public GameObject CurrentGhost;
+    [Header("制御")]
+    public GameObject CurrentGhost;               // いまの幽霊
     public float GhostLifetime = 30f;
     public float RespawnDelayAfterDespawn = 5f;
     public float RetryIntervalWhileAlive = 0.25f;
     private bool _cooldown;
 
     // ===== 通知 =====
+    [Header("通知（SE/VFX）")]
     public AudioClip SpawnSE;
     public float SpawnSEVolume = 1.0f;
     public Vector2 SpawnSEPitchRange = new Vector2(0.98f, 1.02f);
     public bool UsePlayClipAtPoint = true;
     public GameObject SpawnVfxPrefab;
     public float SpawnVfxLifetime = 2f;
+    private AudioSource audioSource;
 
-    AudioSource audioSource;
-
-    // ===== イベント：湧いた瞬間 =====
+    // ===== イベント（湧いた瞬間） =====
+    [Header("イベント")]
     public UnityEvent OnGhostSpawned = new UnityEvent();
 
     // ===== 抽選制御（外部操作） =====
     [Header("抽選制御")]
-    public bool AutoStart = false;            // チュートリアルでは false 推奨
+    public bool AutoStart = false;                // チュートリアル中はfalse推奨
     private Coroutine _spawnLoop;
     public bool IsSpawning => _spawnLoop != null;
+
+    // ===== 最初=1、2回目=2 のためのカウンタ =====
+    private int _spawnCount = 0;
 
     void Start()
     {
@@ -52,10 +60,10 @@ public class EnemyAI : MonoBehaviour
 
     void Update()
     {
-        GhostPosition = PickSpawnPointInRect();  // 次の候補は常に更新
+        GhostPosition = PickSpawnPointInRect();
     }
 
-    // ===== 外部公開：抽選開始/停止 =====
+    // === 外部公開：開始/停止 ===
     public void BeginSpawning()
     {
         if (_spawnLoop == null) _spawnLoop = StartCoroutine(SpawnLoop());
@@ -66,41 +74,11 @@ public class EnemyAI : MonoBehaviour
         if (_spawnLoop != null) { StopCoroutine(_spawnLoop); _spawnLoop = null; }
     }
 
-    // ===== 外部公開：確定で1体出す（抽選スキップ） =====
-    public bool ForceSpawnOnce()
-    {
-        if (_cooldown) return false;
-        if (CurrentGhost) return false;                    // すでに1体いるなら出さない
-        if (!Ghost)
-        {
-            Debug.LogWarning("[EnemyAI] Ghost prefab 未設定。ForceSpawnOnce をスキップします。");
-            return false;
-        }
-
-        // 生成
-        CurrentGhost = Instantiate(Ghost, GhostPosition, Quaternion.identity);
-
-        // 通知
-        OnGhostSpawned?.Invoke();
-
-        // SE/VFX
-        PlaySpawnSoundAt(GhostPosition);
-        if (SpawnVfxPrefab)
-        {
-            var vfx = Instantiate(SpawnVfxPrefab, GhostPosition, Quaternion.identity);
-            if (SpawnVfxLifetime > 0f) Destroy(vfx, SpawnVfxLifetime);
-        }
-
-        // 寿命管理
-        StartCoroutine(GhostLifecycle(CurrentGhost));
-        return true;
-    }
-
     IEnumerator SpawnLoop()
     {
         while (true)
         {
-            // 1体制限／クールダウン中は軽く待つ
+            // 1体制限／クールダウン中は待機
             if (CurrentGhost || _cooldown)
             {
                 yield return new WaitForSeconds(RetryIntervalWhileAlive);
@@ -120,9 +98,23 @@ public class EnemyAI : MonoBehaviour
                     continue;
                 }
 
+                // 生成
                 CurrentGhost = Instantiate(Ghost, GhostPosition, Quaternion.identity);
+
+                // ★ ここで SearchChase を見つけて状態を強制（1回目=1、2回目=2）
+                var sc = CurrentGhost.GetComponentInChildren<SearchChase>(true);
+                if (sc)
+                {
+                    _spawnCount++;
+                    if (_spawnCount == 1) sc.ForceState(1);
+                    else if (_spawnCount == 2) sc.ForceState(2);
+                    // 3回目以降は何もしない → SearchChase 側のランダムが効く
+                }
+
+                // Tutorial等へ通知（このイベントを使ってStep3/4など進行）
                 OnGhostSpawned?.Invoke();
 
+                // SE/VFX
                 PlaySpawnSoundAt(GhostPosition);
                 if (SpawnVfxPrefab)
                 {
@@ -130,10 +122,11 @@ public class EnemyAI : MonoBehaviour
                     if (SpawnVfxLifetime > 0f) Destroy(vfx, SpawnVfxLifetime);
                 }
 
+                // 寿命管理
                 StartCoroutine(GhostLifecycle(CurrentGhost));
             }
 
-            yield return new WaitForSeconds(5f);  // 次回抽選
+            yield return new WaitForSeconds(5f); // 次の抽選まで
         }
     }
 
@@ -167,10 +160,12 @@ public class EnemyAI : MonoBehaviour
         }
     }
 
+    // ===== スポーン位置の算出 =====
     private Vector3 PickSpawnPointInRect()
     {
         if (!Player)
         {
+            // Player 未割り当てでも落ちないよう中央へ
             return new Vector3(
                 Mathf.Lerp(MinX, MaxX, 0.5f),
                 SpawnYOffset,
@@ -195,6 +190,7 @@ public class EnemyAI : MonoBehaviour
             if (d2.sqrMagnitude >= MinSpawnDistance * MinSpawnDistance) return pick;
         }
 
+        // フォールバック：最遠角
         Vector3 far = FarthestPointFromPlayerInRect(new Vector2(x0, z0), new Vector2(x1, z1));
         return new Vector3(far.x, Player.position.y + SpawnYOffset, far.z);
     }
