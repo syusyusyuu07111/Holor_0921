@@ -1,117 +1,149 @@
-using System.Collections;
+ï»¿using System.Collections;
 using Unity.VisualScripting;
 using UnityEngine;
 
 public class EnemyAI : MonoBehaviour
 {
-    bool GhostSpawn = false;
-    public Transform Player;
-    public GameObject Ghost;
-    public Vector3 GhostPosition;
-    public int GhostEncountChance;
+    bool GhostSpawn = false;                              // æŠ½é¸ã«å½“ãŸã£ãŸã‹
+    public Transform Player;                              // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼
+    public GameObject Ghost;                              // æ•µãƒ—ãƒ¬ãƒãƒ–
+    public Vector3 GhostPosition;                         // æ¬¡ã«æ¹§ãåº§æ¨™
+    public int GhostEncountChance;                        // æŠ½é¸å€¤
 
-    //=== ’Ç‰Áƒpƒ‰ƒ[ƒ^iÅ¬ŒÀj========================================================
-    // ƒXƒ|[ƒ“‹——£iƒvƒŒƒCƒ„[‚©‚ç‚ÌÅ¬/Å‘å‹——£j
-    public float MinSpawnDistance = 10f;
-    public float MaxSpawnDistance = 50f;
-    // ‹ŠE“à‚É“Ë‘R—N‚©‚¹‚È‚¢‚½‚ß‚ÌŠp“xiƒJƒƒ‰³–Ê ‰½“xˆÈ“à‚Í”ğ‚¯‚éj
-    public float MinAngleFromCameraForward = 50f;
-    // ‹ü‚ª•Ç‚È‚Ç‚ÅÕ‚ç‚ê‚Ä‚¢‚éêŠ‚ğ—Dæ‚µ‚½‚¢ê‡‚ÌƒŒƒCƒ„[i”CˆÓj
-    public LayerMask LineOfSightBlockers;
-    // ƒƒCƒ“ƒJƒƒ‰QÆi–¢w’è‚È‚ç©“®æ“¾j
-    public Camera MainCam;
+    // --------------- ç”Ÿæˆã‚¨ãƒªã‚¢ï¼ˆåº§æ¨™ç›´æŒ‡å®šï¼‰ ---------------
+    public float MinX;                                    // Xã®æœ€å°å€¤
+    public float MaxX;                                    // Xã®æœ€å¤§å€¤
+    public float MinZ;                                    // Zã®æœ€å°å€¤
+    public float MaxZ;                                    // Zã®æœ€å¤§å€¤
+    public float SpawnYOffset = 0f;                       // é«˜ã•å¾®èª¿æ•´
 
-    //ƒI[ƒfƒBƒIŒn=========================================================================================
-    public AudioClip SpawnSE;
-    AudioSource audioSource;
+    // --------------- è·é›¢ã¨è©¦è¡Œå›æ•° ---------------
+    public float MinSpawnDistance = 8f;                   // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‹ã‚‰ã®æœ€å°è·é›¢
+    public int MaxPickTrials = 16;                        // ãƒ©ãƒ³ãƒ€ãƒ è©¦è¡Œå›æ•°
+
+    // --------------- ç”Ÿæˆåˆ¶å¾¡ï¼š1ä½“åˆ¶é™ï¼†å¯¿å‘½ ---------------
+    public GameObject CurrentGhost;                       // ã„ã¾å­˜åœ¨ã—ã¦ã„ã‚‹å¹½éœŠï¼ˆnullãªã‚‰ä¸åœ¨ï¼‰
+    public float GhostLifetime = 30f;                     // ç”Ÿæˆã‹ã‚‰æ¶ˆæ»…ã¾ã§ã®å¯¿å‘½ï¼ˆç§’ï¼‰
+    public float RespawnDelayAfterDespawn = 5f;           // æ¶ˆæ»…å¾Œã«æŠ½é¸ã‚’å†é–‹ã™ã‚‹ã¾ã§ã®å¾…æ©Ÿï¼ˆç§’ï¼‰
+    public float RetryIntervalWhileAlive = 0.25f;         // å­˜åœ¨ä¸­ã®ãƒã‚§ãƒƒã‚¯é–“éš”ï¼ˆè»½ã‚ï¼‰
+
+    // --------------- ã‚ªãƒ¼ãƒ‡ã‚£ã‚ª ---------------
+    public AudioClip SpawnSE;                             // ç”ŸæˆSE
+    AudioSource audioSource;                              // å†ç”Ÿç”¨
+
+    // --------------- å†…éƒ¨ãƒ•ãƒ©ã‚° ---------------
+    private bool _cooldown;                               // æ¶ˆæ»…å¾Œã®å¾…æ©Ÿä¸­ãƒ•ãƒ©ã‚°
 
     void Start()
     {
-        StartCoroutine("Spawn");
-        audioSource = GetComponent<AudioSource>();
-        if (MainCam == null) MainCam = Camera.main; // ’Ç‰ÁF–¢İ’è‚Í©“®æ“¾
+        StartCoroutine("Spawn");                          // ç”Ÿæˆãƒ«ãƒ¼ãƒ—é–‹å§‹
+        audioSource = GetComponent<AudioSource>();        // å–å¾—
     }
 
-    private void Update()
+    void Update()
     {
-        //=== •ÏX“_F•„†ŒÅ’è‚ğ‚â‚ßAƒvƒŒƒCƒ„[üˆÍ‚Ìƒ‰ƒ“ƒ_ƒ€ˆÊ’u‚ğ¶¬ ===============================
-        // E…•½•ûŒü‚Ìƒ‰ƒ“ƒ_ƒ€iinsideUnitCirclej¨‹——£‚ÍMin~Max‚Åƒ‰ƒ“ƒ_ƒ€
-        // EƒJƒƒ‰³–Ê‚É‹ß‚·‚¬‚é•ûŒü‚Í”ğ‚¯‚éiƒtƒFƒAƒlƒXj
-        // Ei”CˆÓjƒvƒŒƒCƒ„[‚Æ‚ÌŠÔ‚ÉÕ•Á•¨‚ª‚ ‚é‚Æ‚«—Dæ
-        Vector3 candidate = Player.position;
-        bool decided = false;
+        GhostPosition = PickSpawnPointInRect();           // æ¬¡ã®å€™è£œã‚’æ›´æ–°
+    }
 
-        // ‰ß“x‚Éd‚­‚µ‚È‚¢‚½‚ßs‰ñ”‚ÉãŒÀ
-        for (int i = 0; i < 12 && !decided; i++)
+    // --------------- çŸ©å½¢å†…ãƒ©ãƒ³ãƒ€ãƒ ï¼ˆè¿‘ã™ãã¯é™¤å¤–ï¼‰ ---------------
+    private Vector3 PickSpawnPointInRect()
+    {
+        Vector3 pick = Player.position;                   // åˆæœŸå€¤
+
+        float x0 = Mathf.Min(MinX, MaxX);                 // æ­£è¦åŒ–ã—ãŸæœ€å°X
+        float x1 = Mathf.Max(MinX, MaxX);                 // æ­£è¦åŒ–ã—ãŸæœ€å¤§X
+        float z0 = Mathf.Min(MinZ, MaxZ);                 // æ­£è¦åŒ–ã—ãŸæœ€å°Z
+        float z1 = Mathf.Max(MinZ, MaxZ);                 // æ­£è¦åŒ–ã—ãŸæœ€å¤§Z
+
+        for (int i = 0; i < MaxPickTrials; i++)
         {
-            Vector2 dir2 = Random.insideUnitCircle.normalized;
-            Vector3 dir = new Vector3(dir2.x, 0f, dir2.y);
+            float x = Random.Range(x0, x1);               // çŸ©å½¢å†…X
+            float z = Random.Range(z0, z1);               // çŸ©å½¢å†…Z
+            pick = new Vector3(x, Player.position.y + SpawnYOffset, z);
 
-            // ƒJƒƒ‰Šp“xƒ`ƒFƒbƒNiƒJƒƒ‰‚ª–³‚¢ê‡‚ÍƒXƒLƒbƒvj
-            if (MainCam != null)
-            {
-                float angle = Vector3.Angle(MainCam.transform.forward, dir);
-                if (angle < MinAngleFromCameraForward) continue; // ‹ŠE‚É‹ß‚·‚¬‚é•ûŒü‚Í”ğ‚¯‚é
-            }
-
-            float dist = Random.Range(MinSpawnDistance, MaxSpawnDistance);
-            candidate = Player.position + dir * dist;
-
-            // ‹üÕ’fi”CˆÓjFƒvƒŒƒCƒ„[¨Œó•â‚ÌŠÔ‚ÉƒuƒƒbƒJ[‚ª‚ ‚é‚©
-            bool blocked = false;
-            if (LineOfSightBlockers.value != 0)
-            {
-                blocked = Physics.Linecast(
-                    Player.position + Vector3.up * 1.6f,
-                    candidate + Vector3.up * 1.6f,
-                    LineOfSightBlockers
-                );
-            }
-
-            // ƒuƒƒbƒJ[w’è‚È‚µ¨‚»‚Ì‚Ü‚ÜÌ—p / w’è‚ ‚è¨Õ‚ç‚ê‚Ä‚éŒó•â‚ğ—Dæ
-            if (LineOfSightBlockers.value == 0 || blocked)
-            {
-                decided = true;
-            }
+            Vector2 d2 = new Vector2(pick.x - Player.position.x, pick.z - Player.position.z);
+            if (d2.sqrMagnitude >= MinSpawnDistance * MinSpawnDistance) return pick; // æ¡ç”¨
         }
 
-        GhostPosition = decided ? candidate : // ğŒ‚ğ–‚½‚·Œó•â‚ªŒ©‚Â‚©‚Á‚½
-                                              // ƒtƒH[ƒ‹ƒoƒbƒNFŒ³‚Ìd—l‚É‹ß‚¢Œ`i‚½‚¾‚µ•‰†‚ào‚éj
-            new Vector3(
-                Player.transform.position.x + Random.Range(-MaxSpawnDistance, MaxSpawnDistance),
-                Player.transform.position.y,
-                Player.transform.position.z + Random.Range(-MaxSpawnDistance, MaxSpawnDistance)
-            );
+        // æœ€é ã®éš…ã‚’ãƒ•ã‚©ãƒ¼ãƒ«ãƒãƒƒã‚¯ã«ã™ã‚‹ï¼ˆå¿…ãšçŸ©å½¢å†…ï¼‰
+        Vector3 far = FarthestPointFromPlayerInRect(new Vector2(x0, z0), new Vector2(x1, z1));
+        return new Vector3(far.x, Player.position.y + SpawnYOffset, far.z);
+    }
+
+    // --------------- çŸ©å½¢ã®4éš…ã®ã†ã¡æœ€é ç‚¹ ---------------
+    private Vector3 FarthestPointFromPlayerInRect(Vector2 min, Vector2 max)
+    {
+        Vector2 p = new Vector2(Player.position.x, Player.position.z);
+        Vector2[] corners = new Vector2[]
+        {
+            new Vector2(min.x, min.y),
+            new Vector2(min.x, max.y),
+            new Vector2(max.x, min.y),
+            new Vector2(max.x, max.y)
+        };
+
+        float best = -1f; Vector2 bestPt = corners[0];
+        for (int i = 0; i < corners.Length; i++)
+        {
+            float d = (corners[i] - p).sqrMagnitude;      // 2Dè·é›¢
+            if (d > best) { best = d; bestPt = corners[i]; }
+        }
+        return new Vector3(bestPt.x, 0f, bestPt.y);       // Yã¯ã‚ã¨ã§SpawnYOffsetã‚’è¶³ã™
     }
 
     IEnumerator Spawn()
     {
-        //’Š‘I‚ª“–‚½‚é‚Ü‚Å‚Í’Š‘I‚µ‘±‚¯‚é==========================================================
-        while (GhostSpawn == false)
+        while (true)
         {
-            //=== ‚»‚Ì‚Ü‚ÜFŠù‘¶‚Ì’Š‘I®‚ğˆÛi’²®‚Í‚µ‚â‚·‚¢‚æ‚¤ƒRƒƒ“ƒg‚Ì‚İj===================
-            // 0~49 ‚Ì—”‚Å 31~49 ‚ª“–‚½‚è ¨ –ñ38%/‰ñB5•b‚²‚Æ‚É’Š‘IB
-            GhostEncountChance = Random.Range(0, 50);
-            if (GhostEncountChance > 30)
+            // 1ä½“åˆ¶é™ï¼šå­˜åœ¨ä¸­ or ã‚¯ãƒ¼ãƒ«ãƒ€ã‚¦ãƒ³ä¸­ã¯å¾…æ©Ÿ -------------------------------------
+            if (CurrentGhost || _cooldown)
             {
-                GhostSpawn = true;
+                yield return new WaitForSeconds(RetryIntervalWhileAlive);
+                continue;
             }
-            yield return new WaitForSeconds(5.0f);
+
+            // æŠ½é¸ï¼ˆæ—¢å­˜ãƒ­ã‚¸ãƒƒã‚¯ï¼‰ -------------------------------------------------------
+            GhostEncountChance = Random.Range(0, 50);     // 0ã€œ49
+            if (GhostEncountChance > 30) GhostSpawn = true;
+
+            if (GhostSpawn)
+            {
+                if (!CurrentGhost)                        // å¿µã®ãŸã‚äºŒé‡ã‚¬ãƒ¼ãƒ‰
+                {
+                    if (audioSource && SpawnSE) audioSource.PlayOneShot(SpawnSE);
+                    CurrentGhost = Instantiate(Ghost, GhostPosition, Quaternion.identity); // ç”Ÿæˆ
+                    StartCoroutine(GhostLifecycle(CurrentGhost)); // å¯¿å‘½ï¼†å†æŠ½é¸ã¾ã§ã®ç®¡ç†
+                }
+                GhostSpawn = false;                       // æŠ½é¸ãƒªã‚»ãƒƒãƒˆ
+            }
+
+            yield return new WaitForSeconds(5.0f);        // æ¬¡å›æŠ½é¸ã¾ã§ï¼ˆé€šå¸¸ã‚µã‚¤ã‚¯ãƒ«ï¼‰
         }
+    }
 
-        //’Š‘I‚ª“–‚½‚Á‚½‚Ìˆ—=================================================================
-        if (GhostSpawn == true)
-        {
-            //=== ’Ç‰ÁF‘O’›ƒtƒbƒNi•K—v‚È‚¯‚ê‚ÎíœOKj=========================================
-            // ‚±‚±‚Åƒ‰ƒCƒg“_–ÅEŠÂ‹«‰¹Eš‘‚«š–‹‚È‚Ç‚ğŒÄ‚Ô‚ÆƒtƒFƒA‚É‚È‚é
-            // e.g., EffectsManager.Instance.Foreshadow(GhostPosition, 2.0f);
-            yield return new WaitForSeconds(0.25f); // ‚Ù‚ñ‚Ì­‚µ—­‚ßi”÷’²®‰Âj
+    // --------------- å¹½éœŠã®å¯¿å‘½ç®¡ç†ï¼š30ç§’ã§æ¶ˆæ»…â†’5ç§’å¾Œã«æŠ½é¸å†é–‹ ---------------
+    private IEnumerator GhostLifecycle(GameObject ghost)
+    {
+        yield return new WaitForSeconds(GhostLifetime);   // å¯¿å‘½
+        if (ghost) Destroy(ghost);                        // æ¶ˆæ»…
+        if (CurrentGhost == ghost) CurrentGhost = null;   // å‚ç…§ã‚’ã‚¯ãƒªã‚¢ï¼ˆå³æ™‚ï¼‰
 
-            audioSource.PlayOneShot(SpawnSE);
-            Instantiate(Ghost, GhostPosition, Quaternion.identity);
+        _cooldown = true;                                 // ã‚¯ãƒ¼ãƒ«ãƒ€ã‚¦ãƒ³é–‹å§‹
+        yield return new WaitForSeconds(RespawnDelayAfterDespawn); // 5ç§’å¾…ã¡
+        _cooldown = false;                                // æŠ½é¸å†é–‹OK
+    }
 
-            GhostSpawn = false;
-            StartCoroutine("Spawn"); // Šù‘¶d—l‚Ì‚Ü‚ÜÄŠJ
-        }
+    // --------------- ãƒ‡ãƒãƒƒã‚°å¯è¦–åŒ– ---------------
+    private void OnDrawGizmosSelected()
+    {
+        float x0 = Mathf.Min(MinX, MaxX);
+        float x1 = Mathf.Max(MinX, MaxX);
+        float z0 = Mathf.Min(MinZ, MaxZ);
+        float z1 = Mathf.Max(MinZ, MaxZ);
+        Vector3 center = new Vector3((x0 + x1) * 0.5f, (Player ? Player.position.y : 0f) + SpawnYOffset, (z0 + z1) * 0.5f);
+        Vector3 size = new Vector3(Mathf.Abs(x1 - x0), 0.05f, Mathf.Abs(z1 - z0));
+        Gizmos.color = Color.yellow; Gizmos.DrawWireCube(center, size);   // ç”Ÿæˆç¯„å›²
+        Gizmos.color = Color.red; Gizmos.DrawWireSphere(GhostPosition, 0.25f); // å€™è£œç‚¹
+        if (Player) { Gizmos.color = Color.cyan; Gizmos.DrawWireSphere(Player.position, MinSpawnDistance); } // æœ€å°è·é›¢
     }
 }

@@ -4180,22 +4180,26 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 285738712}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5618b1c8fa9d89d49bebecf3ca924411, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   Player: {fileID: 956023712}
-  Ghost: {fileID: 625494743}
+  Ghost: {fileID: 1088747850}
   GhostPosition: {x: 0, y: 0, z: 0}
   GhostEncountChance: 0
+  MinX: -8
+  MaxX: 4.4
+  MinZ: -7.5
+  MaxZ: 2.7
+  SpawnYOffset: 0
   MinSpawnDistance: 5
-  MaxSpawnDistance: 10
-  MinAngleFromCameraForward: 50
-  LineOfSightBlockers:
-    serializedVersion: 2
-    m_Bits: 0
-  MainCam: {fileID: 330585545}
+  MaxPickTrials: 16
+  CurrentGhost: {fileID: 0}
+  GhostLifetime: 30
+  RespawnDelayAfterDespawn: 5
+  RetryIntervalWhileAlive: 2
   SpawnSE: {fileID: 8300000, guid: 13000b57fc449ff4e952548651cdf2df, type: 3}
 --- !u!4 &285738714
 Transform:
@@ -11857,7 +11861,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.2
+      value: -7.98
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       propertyPath: m_LocalPosition.y
@@ -11865,7 +11869,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -2.181
+      value: -7.55
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       propertyPath: m_LocalRotation.w
@@ -16205,7 +16209,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: 5ed07eeb520f65a4aa863929ba0f50c7, type: 2}
     - target: {fileID: 919132149155446097, guid: 9264ced940604ee408e2f6a99db9ad07, type: 3}
       propertyPath: m_Name
-      value: BgMD_room_plane0202 (2)
+      value: ROOM1
       objectReference: {fileID: 0}
     - target: {fileID: 933320475683634964, guid: 9264ced940604ee408e2f6a99db9ad07, type: 3}
       propertyPath: m_IsActive
@@ -16490,7 +16494,7 @@ NavMeshAgent:
   m_Enabled: 1
   m_AgentTypeID: 0
   m_Radius: 0.5
-  m_Speed: 1.5
+  m_Speed: 1
   m_Acceleration: 8
   avoidancePriority: 50
   m_AngularSpeed: 120
