@@ -5,54 +5,67 @@ using TMPro;
 
 public class Tutorial : MonoBehaviour
 {
-    // ===== 画面下テキスト（タイプ演出） =====
-    [Header("共通テキスト")]
+    // ===== テキスト／タイプ演出 =====
     public TextMeshProUGUI BottomText;
     public float CharsPerSecond = 40f;
     public float LineInterval = 0.6f;
     public bool HideWhenDone = true;
 
-    [TextArea]
-    public string[] Step1Lines = { "……ここはどこだろう。", "さっきまでの記憶が曖昧だ。", "とにかく、出口を探さないと。" };
+    [TextArea] public string[] Step1Lines = { "……ここはどこだろう。", "さっきまでの記憶が曖昧だ。", "とにかく、出口を探さないと。" };
+    [TextArea] public string[] Step3Lines = { "……何か音がしたぞ！", "周りを探してみよう。" };
 
-    // Step2：ドアが開かないメッセージ
-    [Header("Step2（ロック中ドア）")]
-    public string DoorLockedMessage = "ドアはあかないようだ…";
-    public Transform Player;                    // ドア近接判定用
-    public List<OpenDoor> DoorScripts = new();  // 有効/無効を切り替える対象（OpenDoorコンポーネントのみ）
+    Coroutine _typing;
+
+    // ===== 進行度参照 =====
+    [Header("進行度参照")]
+    public HintText HintRef;
+    public bool AutoFindHintRef = true;
+    public int MinProgressToEnableDoor = 1;
+
+    // ===== OpenDoor 制御 =====
+    [Header("制御対象（OpenDoorのみ）")]
+    public List<OpenDoor> DoorScripts = new();
+    private int _lastAppliedProgress = int.MinValue;
+
+    // ===== ドア：ロック時の入力フック（Step2トリガ） =====
+    [Header("ドア：ロック時の入力フック")]
+    public Transform Player;
     public float DoorInteractDistance = 1.6f;
     public bool DoorRequireFacingSide = false;
     [Range(-1f, 1f)] public float DoorFacingDotThreshold = 0f;
+    public string DoorLockedMessage = "ドアはあかないようだ…";
     public float DoorLockedCooldown = 1.2f;
     private float _doorMsgCD = 0f;
 
-    // Step3：初めて湧いた瞬間の一言（SEは無しでテキストのみ）
-    [Header("Step3（初湧きリアクション）")]
-    [TextArea]
-    public string Step3Line = "……今の音は？　近くを探してみよう。";
-    public List<EnemyAI> EnemyControllers = new(); // ここにEnemyAIを登録
-    public float EnemySpawnEnableDelay = 2.0f;     // Step2のテキストが消えてから何秒後に抽選開始
-    private bool _spawnWasEnabled = false;         // 一度だけ抽選開始させる
-    private bool _didFirstSpawnText = false;       // Step3を一度だけ
-
-    // Step4：初めて画面に幽霊が映ったらパネル表示＆時間停止
-    [Header("Step4（初見チュートリアル画像）")]
-    public HintText HintRef;                       // Ghostがカメラに映った検出を持っている
-    public bool AutoFindHintRef = true;
-    public GameObject Step4Panel;                  // 表示するUI
-    public bool PauseTimeOnStep4 = true;           // 時間停止ON
-    private bool _didStep4 = false;
-    private Coroutine _step4Co;
-
-    // 進行度：0のときはOpenDoorを無効
-    [Header("進行度")]
-    public int MinProgressToEnableDoor = 1;
-    private int _lastAppliedProgress = int.MinValue;
-
-    // 入力
     private InputSystem_Actions _input;
 
-    void Awake()
+    // ===== 初見パネル（Step4/Step5）＆一時停止 =====
+    [Header("初見チュートリアル画像")]
+    public GameObject Step4Panel_StateAny;   // 初めて幽霊が見えた
+    public GameObject Step5Panel_State2;     // 初めてstate=2を見た
+
+    private bool _didStep4 = false;
+    private bool _didStep5 = false;
+    private bool _pauseGate = false;         // パネル表示中の抑止
+
+    // ===== 抽選開始（Step3）制御 =====
+    [Header("幽霊スポナー（EnemyAI）")]
+    public List<EnemyAI> Spawners = new();   // AutoStart=false にしておく
+    public float StartSpawnDelayAfterStep2 = 2f; // Step2テキストが消えた後の待機
+
+    private bool _didStep2 = false;          // ドアロックを初回検知したか
+    private bool _didStep3 = false;          // 抽選開始を実行したか
+
+    // === Step3 ノイズSE（テキストより“先”に鳴らすための専用SE） ===
+    [Header("Step3 ノイズSE（テキストより先に鳴らす）")]
+    public bool PlayNoiseOnStep3 = true;
+    public AudioClip Step3NoiseSE;
+    public float Step3NoiseVolume = 1.0f;
+    public Vector2 Step3NoisePitchRange = new Vector2(0.95f, 1.05f);
+    public Transform NoiseAt;                    // nullなら Player の位置
+    public float Step3TextDelayAfterSE = 0.15f;  // SE 直後に少し間を置いてからテキスト表示
+
+    private void Awake()
     {
         if (!HintRef && AutoFindHintRef)
         {
@@ -65,72 +78,56 @@ public class Tutorial : MonoBehaviour
         _input = new InputSystem_Actions();
     }
 
-    void OnEnable()
+    private void OnEnable()
     {
         _input.Player.Enable();
         _input.UI.Enable();
 
-        // Ghostが“湧いた瞬間”→ Step3テキスト
-        foreach (var ai in EnemyControllers)
-            if (ai) ai.OnGhostSpawned.AddListener(OnFirstGhostSpawned);
-
-        // Ghostが“画面に映った瞬間”→ Step4パネル
-        if (HintRef) HintRef.OnFirstGhostSeen.AddListener(Step4);
-
-        // 進行度変更でドアON/OFF（HintTextにイベントがある想定）
-        if (HintRef) HintRef.OnProgressChanged.AddListener(OnProgressChanged);
-    }
-
-    void OnDisable()
-    {
-        foreach (var ai in EnemyControllers)
-            if (ai) ai.OnGhostSpawned.RemoveListener(OnFirstGhostSpawned);
-
         if (HintRef)
         {
-            HintRef.OnFirstGhostSeen.RemoveListener(Step4);
-            HintRef.OnProgressChanged.RemoveListener(OnProgressChanged);
+            HintRef.OnFirstGhostSeen.AddListener(Step4_ShowPanel);
+            HintRef.OnFirstState2Seen.AddListener(Step5_ShowPanel);
+            HintRef.OnProgressChanged.AddListener(OnProgressChanged);
         }
-
-        _input.UI.Disable();
-        _input.Player.Disable();
     }
 
-    void Start()
+    private void OnDisable()
     {
-        // 下テキスト初期化
+        if (HintRef)
+        {
+            HintRef.OnFirstGhostSeen.RemoveListener(Step4_ShowPanel);
+            HintRef.OnFirstState2Seen.RemoveListener(Step5_ShowPanel);
+            HintRef.OnProgressChanged.RemoveListener(OnProgressChanged);
+        }
+        _input.Player.Disable();
+        _input.UI.Disable();
+
+        if (Time.timeScale == 0f) Time.timeScale = 1f; // 念のため復旧
+    }
+
+    private void Start()
+    {
         if (BottomText) { BottomText.text = ""; BottomText.gameObject.SetActive(false); }
+        if (Step4Panel_StateAny) Step4Panel_StateAny.SetActive(false);
+        if (Step5Panel_State2) Step5Panel_State2.SetActive(false);
 
-        // Step4 UI 初期非表示
-        if (Step4Panel) Step4Panel.SetActive(false);
+        // 念のためスポナー自動開始は止める（AutoStart=false 推奨だが、保険で止める）
+        for (int i = 0; i < Spawners.Count; i++)
+            if (Spawners[i]) Spawners[i].StopSpawning();
 
-        // 進行度でドア有効/無効
         ApplyDoorEnableByProgress(HintRef ? HintRef.ProgressStage : 0);
-
-        // Step1開始
         Step1();
     }
 
-    void Update()
+    private void Update()
     {
-        // 進行度ポーリング（保険）
         if (HintRef && HintRef.ProgressStage != _lastAppliedProgress)
             ApplyDoorEnableByProgress(HintRef.ProgressStage);
 
-        // 進行度0のとき：ロック中ドアへインタラクトしたらStep2テキスト
-        HandleLockedDoorTapFeedback();
+        if (!_pauseGate) HandleLockedDoorTapFeedback(); // ポーズ中は抑止
     }
 
-    // ====== Step1：導入テキスト ======
-    public void Step1()
-    {
-        if (!BottomText) return;
-        if (_typing != null) StopCoroutine(_typing);
-        BottomText.gameObject.SetActive(true);
-        _typing = StartCoroutine(CoTypeLines(Step1Lines));
-    }
-
-    // ====== Step2：ドアが開かないメッセージ（表示→消えた後 → 2秒後に抽選開始） ======
+    // ====== Step2：ドアロック文言 → その後 Step3 を起動 ======
     void HandleLockedDoorTapFeedback()
     {
         if (!Player) return;
@@ -143,17 +140,13 @@ public class Tutorial : MonoBehaviour
 
         if (!pressed) return;
 
-        // 無効なOpenDoorに対してのみ反応
         for (int i = 0; i < DoorScripts.Count; i++)
         {
             var od = DoorScripts[i];
             if (!od) continue;
-            if (od.enabled) continue; // 開けられる状態ならスルー
-
-            // 距離判定
+            if (od.enabled) continue; // すでに開けられる段階ならスルー
             if (Vector3.Distance(Player.position, od.transform.position) > DoorInteractDistance) continue;
 
-            // 正面限定ならチェック
             if (DoorRequireFacingSide)
             {
                 Vector3 toPlayer = (Player.position - od.transform.position).normalized;
@@ -161,71 +154,105 @@ public class Tutorial : MonoBehaviour
                 if (dot < DoorFacingDotThreshold) continue;
             }
 
-            // Step2テキスト表示
+            // Step2：ロック文言
             ShowOneShot(DoorLockedMessage);
-
-            // 表示終了を待ってから抽選開始（未開始のときだけ）
-            if (!_spawnWasEnabled) StartCoroutine(CoEnableEnemySpawningAfterStep2());
             _doorMsgCD = DoorLockedCooldown;
+
+            // Step3 の予約（初回だけ）
+            if (!_didStep2)
+            {
+                _didStep2 = true;
+                StartCoroutine(CoAfterStep2_StartStep3());
+            }
             break;
         }
     }
 
-    IEnumerator CoEnableEnemySpawningAfterStep2()
+    IEnumerator CoAfterStep2_StartStep3()
     {
-        // 今出しているタイプ演出の終了を待つ
+        // 表示が消えるのを UI 状態で待つより、タイプ終端で待つ方が安全
         while (_typing != null) yield return null;
 
-        // 指定秒待機（デザイン要件：Step2テキストが消えてから2秒）
-        yield return new WaitForSeconds(EnemySpawnEnableDelay);
+        // さらに少し間を置く
+        yield return new WaitForSeconds(StartSpawnDelayAfterStep2);
 
-        // 抽選開始（チュートリアルの合図でのみ）
-        foreach (var ai in EnemyControllers)
-            if (ai && !ai.IsSpawning) ai.BeginSpawning();
-
-        _spawnWasEnabled = true;
+        // Step3 実行（抽選開始＋“まずSE”、その後テキスト）
+        DoStep3();
     }
 
-    // ====== Step3：初めて幽霊が湧いた瞬間の一言（SE無し） ======
-    private void OnFirstGhostSpawned()
+    public void DoStep3()
     {
-        if (_didFirstSpawnText) return;   // 一度だけ
-        _didFirstSpawnText = true;
-
-        if (!string.IsNullOrEmpty(Step3Line))
-            ShowOneShot(Step3Line);
+        if (_didStep3) return;
+        _didStep3 = true;
+        StartCoroutine(CoDoStep3Sequence());
     }
 
-    // ====== Step4：初めて画面に幽霊が映ったら画像＋時間停止（UI.Submitで閉じる） ======
-    public void Step4()
+    IEnumerator CoDoStep3Sequence()
+    {
+        // 1) 抽選開始（EnemyAI 側の SpawnLoop をスタート）
+        for (int i = 0; i < Spawners.Count; i++)
+            if (Spawners[i]) Spawners[i].BeginSpawning();
+
+        // 2) まずノイズSEを鳴らす（テキストより先）
+        if (PlayNoiseOnStep3 && Step3NoiseSE)
+        {
+            var at = NoiseAt ? NoiseAt.position : (Player ? Player.position : Vector3.zero);
+            float pitch = Random.Range(Step3NoisePitchRange.x, Step3NoisePitchRange.y);
+            PlayClipAtPointPitch(Step3NoiseSE, at, Step3NoiseVolume, pitch);
+        }
+
+        // 3) 少し間を置いてからテキスト
+        if (Step3TextDelayAfterSE > 0f)
+            yield return new WaitForSeconds(Step3TextDelayAfterSE);
+
+        if (Step3Lines != null && Step3Lines.Length > 0 && BottomText)
+        {
+            if (_typing != null) StopCoroutine(_typing);
+            BottomText.gameObject.SetActive(true);
+            _typing = StartCoroutine(CoTypeLines(Step3Lines));
+        }
+    }
+
+    // ===== Step4：初めて幽霊が画面に映った =====
+    public void Step4_ShowPanel()
     {
         if (_didStep4) return;
         _didStep4 = true;
-
-        if (_step4Co != null) StopCoroutine(_step4Co);
-        _step4Co = StartCoroutine(CoStep4Panel());
+        if (_pauseGate) return;
+        StartCoroutine(CoShowPausePanel(Step4Panel_StateAny));
     }
 
-    IEnumerator CoStep4Panel()
+    // ===== Step5：初めて state=2 の幽霊が映った =====
+    public void Step5_ShowPanel()
     {
-        if (Step4Panel) Step4Panel.SetActive(true);
+        if (_didStep5) return;
+        _didStep5 = true;
+        if (_pauseGate) return;
+        StartCoroutine(CoShowPausePanel(Step5Panel_State2));
+    }
 
-        float prevTimeScale = Time.timeScale;
-        if (PauseTimeOnStep4) Time.timeScale = 0f;
+    // ===== 共通：パネル表示→一時停止→UI.Submitで閉じる =====
+    IEnumerator CoShowPausePanel(GameObject panel)
+    {
+        if (!panel) yield break;
 
-        // UI.Submitが押されるまで待機（時間停止中でもUpdateは回るのでOK）
+        _pauseGate = true;
+
+        panel.SetActive(true);
+        float prevScale = Time.timeScale;
+        Time.timeScale = 0f;
+
+        yield return null; // 1フレーム置く
         while (!_input.UI.Submit.WasPressedThisFrame())
             yield return null;
 
-        if (Step4Panel) Step4Panel.SetActive(false);
-        if (PauseTimeOnStep4) Time.timeScale = prevTimeScale;
+        panel.SetActive(false);
+        Time.timeScale = prevScale;
 
-        _step4Co = null;
+        _pauseGate = false;
     }
 
-    // ====== 進行度 → ドアの有効/無効 ======
-    void OnProgressChanged(int newProgress) => ApplyDoorEnableByProgress(newProgress);
-
+    // ===== ドア制御 =====
     void ApplyDoorEnableByProgress(int progress)
     {
         _lastAppliedProgress = progress;
@@ -237,9 +264,16 @@ public class Tutorial : MonoBehaviour
             if (od.enabled != enableDoor) od.enabled = enableDoor;
         }
     }
+    void OnProgressChanged(int newProgress) => ApplyDoorEnableByProgress(newProgress);
 
-    // ====== テキストユーティリティ ======
-    Coroutine _typing;
+    // ===== タイプ演出 =====
+    public void Step1()
+    {
+        if (!BottomText) return;
+        if (_typing != null) StopCoroutine(_typing);
+        BottomText.gameObject.SetActive(true);
+        _typing = StartCoroutine(CoTypeLines(Step1Lines));
+    }
 
     public void ShowOneShot(string line)
     {
@@ -247,6 +281,14 @@ public class Tutorial : MonoBehaviour
         if (_typing != null) StopCoroutine(_typing);
         BottomText.gameObject.SetActive(true);
         _typing = StartCoroutine(CoTypeOneShot(line));
+    }
+
+    IEnumerator CoTypeOneShot(string line)
+    {
+        yield return StartCoroutine(CoTypeOne(line));
+        yield return new WaitForSeconds(LineInterval);
+        BottomText.gameObject.SetActive(false);
+        _typing = null;
     }
 
     IEnumerator CoTypeLines(string[] lines)
@@ -260,14 +302,6 @@ public class Tutorial : MonoBehaviour
         _typing = null;
     }
 
-    IEnumerator CoTypeOneShot(string line)
-    {
-        yield return StartCoroutine(CoTypeOne(line));
-        yield return new WaitForSeconds(LineInterval);
-        BottomText.gameObject.SetActive(false);
-        _typing = null;
-    }
-
     IEnumerator CoTypeOne(string text)
     {
         BottomText.text = "";
@@ -277,6 +311,7 @@ public class Tutorial : MonoBehaviour
         float acc = 0f; int i = 0;
         while (i < text.Length)
         {
+            // ポーズ中のタイプを止めたいなら deltaTime、進めたいなら unscaledDeltaTime
             acc += Time.deltaTime;
             while (acc >= interval && i < text.Length)
             {
@@ -285,5 +320,19 @@ public class Tutorial : MonoBehaviour
             }
             yield return null;
         }
+    }
+
+    // ===== 小ユーティリティ：ピッチ付き PlayClipAtPoint =====
+    void PlayClipAtPointPitch(AudioClip clip, Vector3 pos, float vol, float pitch)
+    {
+        // ワンショット専用の一時AudioSourceを生成してすぐ破棄
+        GameObject go = new GameObject("OneShotSE_Tutorial");
+        go.transform.position = pos;
+        var src = go.AddComponent<AudioSource>();
+        src.spatialBlend = 1f;
+        src.volume = Mathf.Clamp01(vol);
+        src.pitch = Mathf.Clamp(pitch, 0.5f, 2f);
+        src.PlayOneShot(clip, src.volume);
+        Destroy(go, clip.length / Mathf.Max(0.1f, src.pitch));
     }
 }

@@ -6,12 +6,12 @@ using UnityEngine.Events;
 
 public class HintText : MonoBehaviour
 {
-    public Transform Player;                               // プレイヤー
-    public Transform Ghost;                                // ゴースト中心（自動追尾で上書きされることあり）
-    public SearchChase ChaseRef;                           // ゴースト状態(1/2)
-    public HideCroset HideRef;                             // 隠れ状態（任意）
+    public Transform Player;
+    public Transform Ghost;                                // 自動追尾で上書きされることあり
+    public SearchChase ChaseRef;
+    public HideCroset HideRef;
 
-    // --------------- ゴースト自動追尾 ---------------
+    // --- ゴースト自動追尾 ---
     [Header("ゴースト自動追尾")]
     public bool AutoTrackNearestGhost = true;
     public string GhostTag = "Ghost";
@@ -20,56 +20,59 @@ public class HintText : MonoBehaviour
     private float _retargetTimer = 0f;
     private Transform _lastGhost;
 
-    // --------------- 表示（UI/3D 両対応） ---------------
+    // --- 表示(UI/3D) ---
     public TMP_Text[] HintLabels = new TMP_Text[5];
     public Canvas UICanvas;
     public bool ScreenSpaceUI = true;
 
-    // --------------- 進行管理 ---------------
+    // --- 進行管理 ---
     [System.Serializable] public class HintSet { [TextArea] public string[] State1 = new string[5]; [TextArea] public string[] State2 = new string[5]; }
     public List<HintSet> Stages = new List<HintSet>();
     public int ProgressStage = 0;
+
+    // 進行イベント
     public UnityEvent<int> OnProgressChanged;
 
-    // --------------- 距離/開示 ---------------
-    public float VisibleDistance = 10f;                     // 伏字で見え始める距離
-    public float RevealDistance = 7f;                       // 開示が進む距離
-    public float RevealCharsPerSecond = 6f;                 // 秒あたり開示文字数
-    public char MaskChar = '■';                             // 伏字文字
-    public float NextHintCooldown = 1.0f;                   // 行間CT
+    // --- 距離/開示 ---
+    public float VisibleDistance = 10f;
+    public float RevealDistance = 7f;
+    public float RevealCharsPerSecond = 6f;
+    public char MaskChar = '■';
+    public float NextHintCooldown = 1.0f;
 
-    // --------------- 自動進行（全部開示後） ---------------
+    // --- 自動進行（全部開示後） ---
     public bool AutoAdvanceWhenAllRevealed = true;
     public float AutoAdvanceDelay = 1.0f;
     private float _autoAdvanceTimer = -1f;
 
-    // --------------- 3D配置演出 ---------------
+    // --- 配置演出 ---
     public float RingRadius = 1.8f;
     public float OrbitSpeed = 20f;
     public float BobAmplitude = 0.15f;
     public float BobSpeed = 2.0f;
     public float HeightOffset = 1.6f;
 
-    // --------------- 画面に映っている時だけ表示 ---------------
+    // --- 画面に映っている時だけ表示 ---
     public bool OnlyWhenGhostOnScreen = true;
     public float OnScreenMargin = 0.05f;
     public bool CheckOcclusion = false;
     public LayerMask Occluders;
     public float CameraEyeHeight = 0.0f;
 
-    // --------------- Step4：初めて映った瞬間イベント ---------------
-    [Header("Tutorial Hooks")]
-    public UnityEvent OnFirstGhostSeen;       // 一度だけ発火
-    private bool _wasGhostOnScreen = false;
-    private bool _firedFirstSeen = false;
-
-    // --------------- 内部 ---------------
+    // --- 内部 ---
     private string[] activeLines = new string[5];
-    private int currentIndex = 0;                           // 今開示中の行
-    private float revealProgressChars = 0f;                 // 現行の開示文字数
-    private bool waitingCooldown = false;                   // クールタイム中か
-    private float cooldownTimer = 0f;                       // 残りクールタイム
+    private int currentIndex = 0;
+    private float revealProgressChars = 0f;
+    private bool waitingCooldown = false;
+    private float cooldownTimer = 0f;
     private int cachedState = -1, cachedStage = -1;
+
+    // --- 新規：初見イベント ---
+    [Header("初見イベント")]
+    public UnityEvent OnFirstGhostSeen;        // 初めて「画面に幽霊が映った」瞬間
+    public UnityEvent OnFirstState2Seen;       // 初めて「state=2 の幽霊が映った」瞬間
+    private bool _didSeeAny = false;
+    private bool _didSeeState2 = false;
 
     void Start()
     {
@@ -82,7 +85,7 @@ public class HintText : MonoBehaviour
 
     void Update()
     {
-        // 最寄りゴーストへ追尾
+        // 追尾
         if (AutoTrackNearestGhost)
         {
             _retargetTimer -= Time.deltaTime;
@@ -94,11 +97,9 @@ public class HintText : MonoBehaviour
                 {
                     Ghost = newGhost;
                     _lastGhost = newGhost;
-
                     if (AutoDeriveChaseRefFromGhost)
                         ChaseRef = Ghost ? Ghost.GetComponent<SearchChase>() : null;
 
-                    // 追尾先が変わったら表示状態リセット
                     currentIndex = 0;
                     revealProgressChars = 0f;
                     waitingCooldown = false;
@@ -110,12 +111,10 @@ public class HintText : MonoBehaviour
             }
         }
 
-        // ゴースト不在：非表示
         if (!Player || !Ghost)
         {
             for (int i = 0; i < HintLabels.Length; i++)
                 if (HintLabels[i]) HintLabels[i].gameObject.SetActive(false);
-            _wasGhostOnScreen = false; // リセット
             return;
         }
 
@@ -123,18 +122,25 @@ public class HintText : MonoBehaviour
         SelectLinesByStageAndState();
 
         float dist = Vector3.Distance(Player.position, Ghost.position);
-        bool ghostOnScreenNow = IsGhostOnScreen();
         bool visibleByDistance = dist <= VisibleDistance;
-        bool visibleByCamera = !OnlyWhenGhostOnScreen || ghostOnScreenNow;
+        bool visibleByCamera = !OnlyWhenGhostOnScreen || IsGhostOnScreen();
         bool show = visibleByDistance && visibleByCamera;
 
-        // Step4：初めて映った瞬間
-        if (!_firedFirstSeen && !_wasGhostOnScreen && ghostOnScreenNow)
+        // ここで「初めて映ったら」イベント発火
+        if (visibleByCamera)
         {
-            _firedFirstSeen = true;
-            OnFirstGhostSeen?.Invoke();
+            if (!_didSeeAny)
+            {
+                _didSeeAny = true;
+                OnFirstGhostSeen?.Invoke();
+            }
+            int state = (ChaseRef ? ChaseRef.GetState() : 1);
+            if (state == 2 && !_didSeeState2)
+            {
+                _didSeeState2 = true;
+                OnFirstState2Seen?.Invoke();
+            }
         }
-        _wasGhostOnScreen = ghostOnScreenNow;
 
         for (int i = 0; i < HintLabels.Length; i++)
             if (HintLabels[i]) HintLabels[i].gameObject.SetActive(show);
@@ -142,7 +148,7 @@ public class HintText : MonoBehaviour
 
         AnimateRingLayout();
 
-        // 開示処理（クールタイム込み）
+        // 開示
         if (dist <= RevealDistance && currentIndex < 5)
         {
             if (waitingCooldown)
@@ -165,24 +171,18 @@ public class HintText : MonoBehaviour
             }
         }
 
-        // 行ごとの表示調整
         for (int i = 0; i < 5; i++)
         {
             if (!HintLabels[i]) continue;
-
-            if (i < currentIndex) HintLabels[i].text = activeLines[i];                 // 完全開示済
-            else if (i == currentIndex && !waitingCooldown) { /* UpdateMaskedLine で反映済み */ }
-            else HintLabels[i].text = MaskAll(activeLines[i]);                         // 未着手 or CT中
+            if (i < currentIndex) HintLabels[i].text = activeLines[i];
+            else if (i == currentIndex && !waitingCooldown) { /* UpdateMaskedLineで反映済み */ }
+            else HintLabels[i].text = MaskAll(activeLines[i]);
         }
     }
 
-    // ================= ヘルパー群 =================
-
-    // 最寄りゴースト検索
     private Transform FindNearestGhostByTag()
     {
         if (string.IsNullOrEmpty(GhostTag) || !Player) return Ghost;
-
         var gos = GameObject.FindGameObjectsWithTag(GhostTag);
         if (gos == null || gos.Length == 0) return null;
 
@@ -200,12 +200,10 @@ public class HintText : MonoBehaviour
         return best;
     }
 
-    // 画面に映っているか
     private bool IsGhostOnScreen()
     {
         Camera cam = Camera.main;
         if (!cam) return true;
-
         Vector3 worldPos = Ghost.position + Vector3.up * HeightOffset;
         Vector3 vp = cam.WorldToViewportPoint(worldPos);
         if (vp.z <= 0f) return false;
@@ -220,7 +218,6 @@ public class HintText : MonoBehaviour
         return true;
     }
 
-    // ステージ＆状態で文言選択
     private void SelectLinesByStageAndState()
     {
         int state = (ChaseRef ? ChaseRef.GetState() : 1);
@@ -235,7 +232,6 @@ public class HintText : MonoBehaviour
         for (int i = 0; i < 5; i++)
             activeLines[i] = (source != null && i < source.Length && !string.IsNullOrEmpty(source[i])) ? source[i] : "";
 
-        // 文言が変わったら最初から
         currentIndex = 0;
         revealProgressChars = 0f;
         waitingCooldown = false;
@@ -243,7 +239,6 @@ public class HintText : MonoBehaviour
         _autoAdvanceTimer = -1f;
 
         ApplyMaskedAll();
-
         cachedState = state;
         cachedStage = stage;
     }
@@ -260,18 +255,14 @@ public class HintText : MonoBehaviour
         return true;
     }
 
-    private void EnsureActiveEmpty()
-    {
-        for (int i = 0; i < 5; i++) activeLines[i] = "";
-    }
+    private void EnsureActiveEmpty() { for (int i = 0; i < 5; i++) activeLines[i] = ""; }
 
-    // 自動進行（5行すべて開示後）
     private void CheckAndMaybeAdvanceProgress()
     {
         if (!AutoAdvanceWhenAllRevealed) return;
         if (!AllFiveRevealed()) { _autoAdvanceTimer = -1f; return; }
 
-        if (_autoAdvanceTimer < 0f) _autoAdvanceTimer = AutoAdvanceDelay; // カウント開始
+        if (_autoAdvanceTimer < 0f) _autoAdvanceTimer = AutoAdvanceDelay;
         else
         {
             _autoAdvanceTimer -= Time.deltaTime;
@@ -299,13 +290,11 @@ public class HintText : MonoBehaviour
         OnProgressChanged?.Invoke(ProgressStage);
     }
 
-    // 表示ユーティリティ
     private void ApplyMaskedAll()
     {
         for (int i = 0; i < HintLabels.Length; i++)
             if (HintLabels[i]) HintLabels[i].text = MaskAll(i < activeLines.Length ? activeLines[i] : "");
     }
-
     private void UpdateMaskedLine(int index, float revealedChars)
     {
         if (index < 0 || index >= activeLines.Length) return;
@@ -314,31 +303,20 @@ public class HintText : MonoBehaviour
         int count = Mathf.Clamp(Mathf.FloorToInt(revealedChars), 0, src.Length);
         HintLabels[index].text = RevealLeftToRight(src, count);
     }
-
-    private string MaskAll(string s)
-    {
-        return string.IsNullOrEmpty(s) ? "" : new string(MaskChar, s.Length);
-    }
-
+    private string MaskAll(string s) { return string.IsNullOrEmpty(s) ? "" : new string(MaskChar, s.Length); }
     private string RevealLeftToRight(string s, int n)
     {
         if (string.IsNullOrEmpty(s)) return "";
         n = Mathf.Clamp(n, 0, s.Length);
         return s.Substring(0, n) + new string(MaskChar, s.Length - n);
     }
-
-    private bool IsFullyRevealed(string s, float revealedChars)
-    {
-        return Mathf.FloorToInt(revealedChars) >= (s?.Length ?? 0);
-    }
-
+    private bool IsFullyRevealed(string s, float revealedChars) { return Mathf.FloorToInt(revealedChars) >= (s?.Length ?? 0); }
     private bool AllFiveRevealed()
     {
         if (currentIndex < 4) return false;
         return IsFullyRevealed(activeLines[4], revealProgressChars) || string.IsNullOrEmpty(activeLines[4]);
     }
 
-    // 3D/画面UIの配置（リング状）
     private void AnimateRingLayout()
     {
         float t = Time.time;
