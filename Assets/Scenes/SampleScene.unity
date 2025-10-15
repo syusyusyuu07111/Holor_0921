@@ -157,7 +157,7 @@ GameObject:
   - component: {fileID: 1804238}
   - component: {fileID: 1804237}
   m_Layer: 5
-  m_Name: Panel
+  m_Name: TutorialStep4Panel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4298,7 +4298,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1534714874}
         m_TargetAssemblyTypeName: Tutorial, Assembly-CSharp
-        m_MethodName: Step3
+        m_MethodName: DoStep3
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -23300,7 +23300,34 @@ MonoBehaviour:
   CameraEyeHeight: 0
   OnFirstGhostSeen:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1534714874}
+        m_TargetAssemblyTypeName: Tutorial, Assembly-CSharp
+        m_MethodName: Step4_ShowPanel
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+  OnFirstState2Seen:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 1534714874}
+        m_TargetAssemblyTypeName: Tutorial, Assembly-CSharp
+        m_MethodName: Step5_ShowPanel
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1534714874
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -23321,23 +23348,31 @@ MonoBehaviour:
   - "\u2026\u2026\u3053\u3053\u306F\u3069\u3053\u3060\u308D\u3046\u3002"
   - "\u3055\u3063\u304D\u307E\u3067\u306E\u8A18\u61B6\u304C\u66D6\u6627\u3060\u3002"
   - "\u3068\u306B\u304B\u304F\u3001\u51FA\u53E3\u3092\u63A2\u3055\u306A\u3044\u3068\u3002"
-  DoorLockedMessage: "\u30C9\u30A2\u306F\u3042\u304B\u306A\u3044\u3088\u3046\u3060\u2026"
-  Player: {fileID: 956023712}
+  Step3Lines:
+  - "\u2026\u2026\u4F55\u304B\u97F3\u304C\u3057\u305F\u305E\uFF01"
+  - "\u5468\u308A\u3092\u63A2\u3057\u3066\u307F\u3088\u3046\u3002"
+  HintRef: {fileID: 1534714873}
+  AutoFindHintRef: 1
+  MinProgressToEnableDoor: 1
   DoorScripts:
   - {fileID: 1886452244}
+  Player: {fileID: 956023712}
   DoorInteractDistance: 1.6
   DoorRequireFacingSide: 0
   DoorFacingDotThreshold: 0
+  DoorLockedMessage: "\u30C9\u30A2\u306F\u3042\u304B\u306A\u3044\u3088\u3046\u3060\u2026"
   DoorLockedCooldown: 3
-  Step3Line: "\u2026\u2026\u4ECA\u306E\u97F3\u306F\uFF1F\u3000\u8FD1\u304F\u3092\u63A2\u3057\u3066\u307F\u3088\u3046\u3002"
-  EnemyControllers:
+  Step4Panel_StateAny: {fileID: 1804235}
+  Step5Panel_State2: {fileID: 0}
+  Spawners:
   - {fileID: 285738713}
-  EnemySpawnEnableDelay: 2
-  HintRef: {fileID: 1534714873}
-  AutoFindHintRef: 1
-  Step4Panel: {fileID: 1804235}
-  PauseTimeOnStep4: 1
-  MinProgressToEnableDoor: 1
+  StartSpawnDelayAfterStep2: 2
+  PlayNoiseOnStep3: 1
+  Step3NoiseSE: {fileID: 8300000, guid: 13000b57fc449ff4e952548651cdf2df, type: 3}
+  Step3NoiseVolume: 1
+  Step3NoisePitchRange: {x: 0.95, y: 1.05}
+  NoiseAt: {fileID: 0}
+  Step3TextDelayAfterSE: 0.15
 --- !u!1 &1540994105
 GameObject:
   m_ObjectHideFlags: 0
