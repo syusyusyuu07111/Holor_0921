@@ -5,69 +5,54 @@ using TMPro;
 
 public class Tutorial : MonoBehaviour
 {
-    // ===== テキスト／タイプ演出 =====
-    [Header("共通UI")]
+    // ===== 画面下テキスト（タイプ演出） =====
+    [Header("共通テキスト")]
     public TextMeshProUGUI BottomText;
     public float CharsPerSecond = 40f;
-    public float LineInterval = 0.6f;            // 行間の待機
-    public bool HideWhenDone = true;             // 全文後に自動で非表示
+    public float LineInterval = 0.6f;
+    public bool HideWhenDone = true;
 
     [TextArea]
-    public string[] Step1Lines = {
-        "……ここはどこだろう。", "さっきまでの記憶が曖昧だ。", "とにかく、出口を探さないと。"
-    };
+    public string[] Step1Lines = { "……ここはどこだろう。", "さっきまでの記憶が曖昧だ。", "とにかく、出口を探さないと。" };
 
-    [Header("Step2：ロック中ドアを叩いた時のメッセージ")]
+    // Step2：ドアが開かないメッセージ
+    [Header("Step2（ロック中ドア）")]
     public string DoorLockedMessage = "ドアはあかないようだ…";
-    public float DoorLockedCooldown = 1.2f;      // 連打ガード
-    public float AfterDoorMsgDelay = 2.0f;       // Step2のテキストが消えた“後”の追加待機
-
-    [Header("Step3：出現後のメッセージ")]
-    [TextArea]
-    public string[] Step3Lines = {
-        "……何か音がしたぞ！", "周りを探してみよう。"
-    };
-
-    Coroutine _typing;                           // 走っているタイプコルーチン
-    float _doorMsgCD = 0f;                       // 連打ガード
-
-    // ===== 進行度参照 =====
-    [Header("進行度参照")]
-    public HintText HintRef;
-    public bool AutoFindHintRef = true;
-    public int MinProgressToEnableDoor = 1;      // これ未満では OpenDoor を無効化
-
-    // ===== OpenDoor 制御（スクリプトだけ有効/無効） =====
-    [Header("OpenDoor（コンポーネントのみ切替）")]
-    public List<OpenDoor> DoorScripts = new();
-    private int _lastAppliedProgress = int.MinValue;
-
-    // ===== 入力とドア叩き検知 =====
-    [Header("ドア入力検知")]
-    public Transform Player;
+    public Transform Player;                    // ドア近接判定用
+    public List<OpenDoor> DoorScripts = new();  // 有効/無効を切り替える対象（OpenDoorコンポーネントのみ）
     public float DoorInteractDistance = 1.6f;
     public bool DoorRequireFacingSide = false;
     [Range(-1f, 1f)] public float DoorFacingDotThreshold = 0f;
+    public float DoorLockedCooldown = 1.2f;
+    private float _doorMsgCD = 0f;
 
-    private InputSystem_Actions _input;
+    // Step3：初めて湧いた瞬間の一言（SEは無しでテキストのみ）
+    [Header("Step3（初湧きリアクション）")]
+    [TextArea]
+    public string Step3Line = "……今の音は？　近くを探してみよう。";
+    public List<EnemyAI> EnemyControllers = new(); // ここにEnemyAIを登録
+    public float EnemySpawnEnableDelay = 2.0f;     // Step2のテキストが消えてから何秒後に抽選開始
+    private bool _spawnWasEnabled = false;         // 一度だけ抽選開始させる
+    private bool _didFirstSpawnText = false;       // Step3を一度だけ
 
-    // ===== スポナー（チュートリアルから発火） =====
-    [Header("敵スポナー制御")]
-    public EnemyAI Spawner;                       // AutoStart=false にしておく
-    public bool StartSpawnLoopAfterFirst = true;  // 最初の確定湧き後に抽選開始する
-
-    // ===== Step4：初めて幽霊が画面に映ったら画像を表示（任意） =====
+    // Step4：初めて画面に幽霊が映ったらパネル表示＆時間停止
     [Header("Step4（初見チュートリアル画像）")]
-    public GameObject Step4Panel;                 // 表示したいパネル（任意）
-    public bool Step4AutoHide = true;
-    public float Step4VisibleSeconds = 3f;
+    public HintText HintRef;                       // Ghostがカメラに映った検出を持っている
+    public bool AutoFindHintRef = true;
+    public GameObject Step4Panel;                  // 表示するUI
+    public bool PauseTimeOnStep4 = true;           // 時間停止ON
     private bool _didStep4 = false;
     private Coroutine _step4Co;
 
-    // ===== 内部状態 =====
-    private bool _didStep2Flow = false;           // Step2→Step3 の一連は一度だけ
+    // 進行度：0のときはOpenDoorを無効
+    [Header("進行度")]
+    public int MinProgressToEnableDoor = 1;
+    private int _lastAppliedProgress = int.MinValue;
 
-    private void Awake()
+    // 入力
+    private InputSystem_Actions _input;
+
+    void Awake()
     {
         if (!HintRef && AutoFindHintRef)
         {
@@ -80,50 +65,63 @@ public class Tutorial : MonoBehaviour
         _input = new InputSystem_Actions();
     }
 
-    private void OnEnable()
+    void OnEnable()
     {
         _input.Player.Enable();
+        _input.UI.Enable();
 
-        // 進行度イベント
+        // Ghostが“湧いた瞬間”→ Step3テキスト
+        foreach (var ai in EnemyControllers)
+            if (ai) ai.OnGhostSpawned.AddListener(OnFirstGhostSpawned);
+
+        // Ghostが“画面に映った瞬間”→ Step4パネル
+        if (HintRef) HintRef.OnFirstGhostSeen.AddListener(Step4);
+
+        // 進行度変更でドアON/OFF（HintTextにイベントがある想定）
         if (HintRef) HintRef.OnProgressChanged.AddListener(OnProgressChanged);
-
-        // Step4：初めてカメラに映った合図（HintText 側にイベントがある場合）
-        if (HintRef && HintRef.OnFirstGhostSeen != null)
-            HintRef.OnFirstGhostSeen.AddListener(Step4);
     }
 
-    private void OnDisable()
+    void OnDisable()
     {
-        if (HintRef) HintRef.OnProgressChanged.RemoveListener(OnProgressChanged);
-        if (HintRef && HintRef.OnFirstGhostSeen != null)
+        foreach (var ai in EnemyControllers)
+            if (ai) ai.OnGhostSpawned.RemoveListener(OnFirstGhostSpawned);
+
+        if (HintRef)
+        {
             HintRef.OnFirstGhostSeen.RemoveListener(Step4);
+            HintRef.OnProgressChanged.RemoveListener(OnProgressChanged);
+        }
+
+        _input.UI.Disable();
         _input.Player.Disable();
     }
 
-    private void Start()
+    void Start()
     {
+        // 下テキスト初期化
         if (BottomText) { BottomText.text = ""; BottomText.gameObject.SetActive(false); }
+
+        // Step4 UI 初期非表示
         if (Step4Panel) Step4Panel.SetActive(false);
 
-        // 進行度に応じてドアのコンポーネントを切替
+        // 進行度でドア有効/無効
         ApplyDoorEnableByProgress(HintRef ? HintRef.ProgressStage : 0);
 
-        // Step1 開始
+        // Step1開始
         Step1();
     }
 
-    private void Update()
+    void Update()
     {
+        // 進行度ポーリング（保険）
         if (HintRef && HintRef.ProgressStage != _lastAppliedProgress)
             ApplyDoorEnableByProgress(HintRef.ProgressStage);
 
-        HandleLockedDoorTapFeedback();   // Step2 の入口
-        if (_doorMsgCD > 0f) _doorMsgCD -= Time.deltaTime;
+        // 進行度0のとき：ロック中ドアへインタラクトしたらStep2テキスト
+        HandleLockedDoorTapFeedback();
     }
 
-    // =========================================================
-    // Step1
-    // =========================================================
+    // ====== Step1：導入テキスト ======
     public void Step1()
     {
         if (!BottomText) return;
@@ -132,14 +130,11 @@ public class Tutorial : MonoBehaviour
         _typing = StartCoroutine(CoTypeLines(Step1Lines));
     }
 
-    // =========================================================
-    // Step2：ロック中ドアを叩いた瞬間に表示 → 消えたのを待って 2 秒後にスポーン確定
-    // =========================================================
+    // ====== Step2：ドアが開かないメッセージ（表示→消えた後 → 2秒後に抽選開始） ======
     void HandleLockedDoorTapFeedback()
     {
         if (!Player) return;
-        if (_didStep2Flow) return; // 一度だけでOK
-        if (_doorMsgCD > 0f) return;
+        if (_doorMsgCD > 0f) { _doorMsgCD -= Time.deltaTime; return; }
 
         bool pressed =
             _input.Player.DoorOpen.WasPressedThisFrame() ||
@@ -148,17 +143,17 @@ public class Tutorial : MonoBehaviour
 
         if (!pressed) return;
 
-        // 近い & OpenDoor が無効なドアがあるか
+        // 無効なOpenDoorに対してのみ反応
         for (int i = 0; i < DoorScripts.Count; i++)
         {
             var od = DoorScripts[i];
             if (!od) continue;
+            if (od.enabled) continue; // 開けられる状態ならスルー
 
-            if (od.enabled) continue; // 開けられる状態ならチュートリアルトリガーじゃない
+            // 距離判定
+            if (Vector3.Distance(Player.position, od.transform.position) > DoorInteractDistance) continue;
 
-            if (Vector3.Distance(Player.position, od.transform.position) > DoorInteractDistance)
-                continue;
-
+            // 正面限定ならチェック
             if (DoorRequireFacingSide)
             {
                 Vector3 toPlayer = (Player.position - od.transform.position).normalized;
@@ -166,67 +161,75 @@ public class Tutorial : MonoBehaviour
                 if (dot < DoorFacingDotThreshold) continue;
             }
 
-            // ここで Step2 を開始
-            _didStep2Flow = true;
-            StartCoroutine(CoStep2ThenSpawn());  // メッセージ→消えるまで待つ→2秒→スポーン
+            // Step2テキスト表示
+            ShowOneShot(DoorLockedMessage);
+
+            // 表示終了を待ってから抽選開始（未開始のときだけ）
+            if (!_spawnWasEnabled) StartCoroutine(CoEnableEnemySpawningAfterStep2());
+            _doorMsgCD = DoorLockedCooldown;
             break;
         }
     }
 
-    IEnumerator CoStep2ThenSpawn()
+    IEnumerator CoEnableEnemySpawningAfterStep2()
     {
-        // 「ドアはあかないようだ…」をワンショットで
-        yield return StartCoroutine(CoTypeOneShot(DoorLockedMessage));
+        // 今出しているタイプ演出の終了を待つ
+        while (_typing != null) yield return null;
 
-        // “消えた後”さらに待機
-        yield return new WaitForSeconds(AfterDoorMsgDelay);
+        // 指定秒待機（デザイン要件：Step2テキストが消えてから2秒）
+        yield return new WaitForSeconds(EnemySpawnEnableDelay);
 
-        // スポーン確定（抽選スキップ）
-        if (Spawner) Spawner.ForceSpawnOnce();
+        // 抽選開始（チュートリアルの合図でのみ）
+        foreach (var ai in EnemyControllers)
+            if (ai && !ai.IsSpawning) ai.BeginSpawning();
 
-        // Step3 テキスト
-        if (Step3Lines != null && Step3Lines.Length > 0)
-        {
-            if (_typing != null) StopCoroutine(_typing);
-            BottomText.gameObject.SetActive(true);
-            _typing = StartCoroutine(CoTypeLines(Step3Lines));
-        }
-
-        // 以降は抽選ループ開始（任意）
-        if (Spawner && StartSpawnLoopAfterFirst) Spawner.BeginSpawning();
+        _spawnWasEnabled = true;
     }
 
-    // =========================================================
-    // Step4：初めて幽霊が画面に映ったら画像を出す（HintText 側のイベントを利用）
-    // =========================================================
+    // ====== Step3：初めて幽霊が湧いた瞬間の一言（SE無し） ======
+    private void OnFirstGhostSpawned()
+    {
+        if (_didFirstSpawnText) return;   // 一度だけ
+        _didFirstSpawnText = true;
+
+        if (!string.IsNullOrEmpty(Step3Line))
+            ShowOneShot(Step3Line);
+    }
+
+    // ====== Step4：初めて画面に幽霊が映ったら画像＋時間停止（UI.Submitで閉じる） ======
     public void Step4()
     {
         if (_didStep4) return;
         _didStep4 = true;
+
         if (_step4Co != null) StopCoroutine(_step4Co);
-        _step4Co = StartCoroutine(CoStep4Show());
+        _step4Co = StartCoroutine(CoStep4Panel());
     }
 
-    IEnumerator CoStep4Show()
+    IEnumerator CoStep4Panel()
     {
         if (Step4Panel) Step4Panel.SetActive(true);
 
-        if (Step4AutoHide && Step4VisibleSeconds > 0f)
-        {
-            yield return new WaitForSeconds(Step4VisibleSeconds);
-            if (Step4Panel) Step4Panel.SetActive(false);
-        }
+        float prevTimeScale = Time.timeScale;
+        if (PauseTimeOnStep4) Time.timeScale = 0f;
+
+        // UI.Submitが押されるまで待機（時間停止中でもUpdateは回るのでOK）
+        while (!_input.UI.Submit.WasPressedThisFrame())
+            yield return null;
+
+        if (Step4Panel) Step4Panel.SetActive(false);
+        if (PauseTimeOnStep4) Time.timeScale = prevTimeScale;
+
         _step4Co = null;
     }
 
-    // =========================================================
-    // 進行度に応じた OpenDoor コンポーネントの有効化
-    // =========================================================
+    // ====== 進行度 → ドアの有効/無効 ======
+    void OnProgressChanged(int newProgress) => ApplyDoorEnableByProgress(newProgress);
+
     void ApplyDoorEnableByProgress(int progress)
     {
         _lastAppliedProgress = progress;
         bool enableDoor = progress >= MinProgressToEnableDoor;
-
         for (int i = 0; i < DoorScripts.Count; i++)
         {
             var od = DoorScripts[i];
@@ -235,11 +238,9 @@ public class Tutorial : MonoBehaviour
         }
     }
 
-    void OnProgressChanged(int newProgress) => ApplyDoorEnableByProgress(newProgress);
+    // ====== テキストユーティリティ ======
+    Coroutine _typing;
 
-    // =========================================================
-    // タイプ演出ユーティリティ
-    // =========================================================
     public void ShowOneShot(string line)
     {
         if (!BottomText || string.IsNullOrEmpty(line)) return;
@@ -248,50 +249,32 @@ public class Tutorial : MonoBehaviour
         _typing = StartCoroutine(CoTypeOneShot(line));
     }
 
-    IEnumerator CoTypeOneShot(string line)
-    {
-        yield return StartCoroutine(CoTypeOne(line));       // 1文字ずつ
-        yield return new WaitForSeconds(LineInterval);      // 終了後にもインターバルを適用
-        BottomText.gameObject.SetActive(false);
-        _typing = null;
-    }
-
     IEnumerator CoTypeLines(string[] lines)
     {
-        if (lines == null || lines.Length == 0)
-        {
-            BottomText.gameObject.SetActive(false);
-            _typing = null;
-            yield break;
-        }
-
         for (int li = 0; li < lines.Length; li++)
         {
             yield return StartCoroutine(CoTypeOne(lines[li]));
-            // 各行のあとにもインターバルを必ず入れる
-            yield return new WaitForSeconds(LineInterval);
+            if (li < lines.Length - 1) yield return new WaitForSeconds(LineInterval);
         }
-
         if (HideWhenDone) BottomText.gameObject.SetActive(false);
+        _typing = null;
+    }
+
+    IEnumerator CoTypeOneShot(string line)
+    {
+        yield return StartCoroutine(CoTypeOne(line));
+        yield return new WaitForSeconds(LineInterval);
+        BottomText.gameObject.SetActive(false);
         _typing = null;
     }
 
     IEnumerator CoTypeOne(string text)
     {
-        if (!BottomText) yield break;
-
         BottomText.text = "";
-        BottomText.gameObject.SetActive(true);
-
-        if (CharsPerSecond <= 0f)
-        {
-            BottomText.text = text;
-            yield break;
-        }
+        if (CharsPerSecond <= 0f) { BottomText.text = text; yield break; }
 
         float interval = 1f / CharsPerSecond;
         float acc = 0f; int i = 0;
-
         while (i < text.Length)
         {
             acc += Time.deltaTime;
