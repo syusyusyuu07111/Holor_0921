@@ -26,18 +26,21 @@ public class EnemyAI : MonoBehaviour
     public float GhostLifetime = 30f;                     // 生成から消滅までの寿命（秒）
     public float RespawnDelayAfterDespawn = 5f;           // 消滅後に抽選を再開するまでの待機（秒）
     public float RetryIntervalWhileAlive = 0.25f;         // 存在中のチェック間隔（軽め）
-
-    // --------------- オーディオ ---------------
-    public AudioClip SpawnSE;                             // 生成SE
-    AudioSource audioSource;                              // 再生用
-
-    // --------------- 内部フラグ ---------------
     private bool _cooldown;                               // 消滅後の待機中フラグ
+
+    // --------------- 生成通知（サウンド/エフェクト） ---------------
+    public AudioClip SpawnSE;                             // 生成時に鳴らすSE
+    public float SpawnSEVolume = 1.0f;                    // 再生音量
+    public Vector2 SpawnSEPitchRange = new Vector2(0.98f, 1.02f); // ピッチゆらぎ
+    public bool UsePlayClipAtPoint = true;                // true: 位置で鳴らす（推奨）
+    public GameObject SpawnVfxPrefab;                     // 生成VFX（任意）
+    public float SpawnVfxLifetime = 2f;                   // VFX寿命
+    AudioSource audioSource;                              // このオブジェクトのAudioSource（あれば使用）
 
     void Start()
     {
         StartCoroutine("Spawn");                          // 生成ループ開始
-        audioSource = GetComponent<AudioSource>();        // 取得
+        audioSource = GetComponent<AudioSource>();        // 取得（無くてもOK）
     }
 
     void Update()
@@ -110,9 +113,20 @@ public class EnemyAI : MonoBehaviour
             {
                 if (!CurrentGhost)                        // 念のため二重ガード
                 {
-                    if (audioSource && SpawnSE) audioSource.PlayOneShot(SpawnSE);
-                    CurrentGhost = Instantiate(Ghost, GhostPosition, Quaternion.identity); // 生成
-                    StartCoroutine(GhostLifecycle(CurrentGhost)); // 寿命＆再抽選までの管理
+                    // 生成
+                    CurrentGhost = Instantiate(Ghost, GhostPosition, Quaternion.identity); // 参照保持
+
+                    // 生成通知：サウンド ------------------------------------------------
+                    PlaySpawnSoundAt(GhostPosition);      // 位置で再生（確実に聞こえる）
+                    // 生成通知：VFX（任意） -------------------------------------------
+                    if (SpawnVfxPrefab)
+                    {
+                        var vfx = Instantiate(SpawnVfxPrefab, GhostPosition, Quaternion.identity);
+                        if (SpawnVfxLifetime > 0f) Destroy(vfx, SpawnVfxLifetime);
+                    }
+
+                    // 寿命管理コルーチン
+                    StartCoroutine(GhostLifecycle(CurrentGhost)); // 30秒で消滅→5秒後抽選再開
                 }
                 GhostSpawn = false;                       // 抽選リセット
             }
@@ -121,16 +135,37 @@ public class EnemyAI : MonoBehaviour
         }
     }
 
-    // --------------- 幽霊の寿命管理：30秒で消滅→5秒後に抽選再開 ---------------
+    // --------------- 幽霊の寿命：30秒で消滅→5秒後に抽選再開 ---------------
     private IEnumerator GhostLifecycle(GameObject ghost)
     {
         yield return new WaitForSeconds(GhostLifetime);   // 寿命
         if (ghost) Destroy(ghost);                        // 消滅
-        if (CurrentGhost == ghost) CurrentGhost = null;   // 参照をクリア（即時）
+        if (CurrentGhost == ghost) CurrentGhost = null;   // 参照クリア
 
-        _cooldown = true;                                 // クールダウン開始
-        yield return new WaitForSeconds(RespawnDelayAfterDespawn); // 5秒待ち
+        _cooldown = true;                                 // クールダウン
+        yield return new WaitForSeconds(RespawnDelayAfterDespawn); // 5秒待機
         _cooldown = false;                                // 抽選再開OK
+    }
+
+    // --------------- サウンド再生（確実に聞こえるよう二系統用意） ---------------
+    private void PlaySpawnSoundAt(Vector3 pos)
+    {
+        if (!SpawnSE) return;                             // クリップ未設定なら何もしない
+
+        float pitch = Mathf.Clamp(Random.Range(SpawnSEPitchRange.x, SpawnSEPitchRange.y), 0.5f, 2f); // 安全な範囲
+
+        if (UsePlayClipAtPoint)
+        {
+            AudioSource.PlayClipAtPoint(SpawnSE, pos, Mathf.Clamp01(SpawnSEVolume)); // 3D位置で鳴らす
+        }
+        else
+        {
+            if (!audioSource) audioSource = gameObject.AddComponent<AudioSource>(); // 無ければ付ける
+            audioSource.spatialBlend = 1f;                 // 3D化
+            audioSource.transform.position = pos;          // 再生位置
+            audioSource.pitch = pitch;                     // ピッチ
+            audioSource.PlayOneShot(SpawnSE, Mathf.Clamp01(SpawnSEVolume)); // 再生
+        }
     }
 
     // --------------- デバッグ可視化 ---------------
