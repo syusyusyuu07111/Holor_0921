@@ -23,6 +23,17 @@ public class PlayerController : MonoBehaviour
     [SerializeField] LayerMask stepMask = ~0;          // 当たり判定レイヤー（地形など）
     [SerializeField] CapsuleCollider col;              // カプセル。当たりから実寸を取る（任意）
 
+    // ================= ここから追加（公開状態 & イベント） =================
+    [System.Serializable] public class DashEvent : UnityEngine.Events.UnityEvent { }
+    public bool IsMovingNow { get; private set; }       // 歩行/走行入力で動いている
+    public bool IsDashingNow { get; private set; }      // ダッシュ中（前進のみ）
+    public bool IsSlowWalkingNow { get; private set; }  // そーっと歩き中
+
+    public DashEvent OnDashStart = new DashEvent();
+    public DashEvent OnDashEnd = new DashEvent();
+    private bool _prevDash = false;
+    // ================= 追加ここまで =================
+
     private void Awake()
     {
         Input = new InputSystem_Actions();
@@ -131,6 +142,27 @@ public class PlayerController : MonoBehaviour
                 if (animator) animator.SetBool("IsSlowWalking", false);
             }
         }
+
+        // ================= ここから追加（公開状態の更新＆イベント） =================
+        // 「歩いているか」は、入力がありIsMovingがtrueになるかで判断（Animatorに依存しない）
+        bool nowMoving =
+            Input.Player.Move.ReadValue<Vector2>() != Vector2.zero;
+
+        // 「ダッシュ中」はこのフレームの isDashing をそのまま公開
+        bool nowDashing = isDashing;
+
+        // 「そーっと歩き中」はボタン状態をそのまま公開
+        bool nowSlow = isSlowWalking;
+
+        // イベント（立ち上がり/立ち下がり）
+        if (nowDashing && !_prevDash) OnDashStart.Invoke();
+        if (!nowDashing && _prevDash) OnDashEnd.Invoke();
+        _prevDash = nowDashing;
+
+        IsMovingNow = nowMoving;
+        IsDashingNow = nowDashing;
+        IsSlowWalkingNow = nowSlow;
+        // ================= 追加ここまで =================
     }
 
     // （段差登り本体。transform移動のまま“少し持ち上げてから進む”）
