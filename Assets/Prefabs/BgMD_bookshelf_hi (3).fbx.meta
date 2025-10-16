@@ -3,7 +3,17 @@ guid: 5d389062dcf1a554e8eda7aa08d34afa
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: lambert8
+    second: {fileID: 2100000, guid: d29b921e3f6e7aa4a89f5d247267dafa, type: 2}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: TX_bookshelf_hi
+    second: {fileID: 2800000, guid: dd2a46d0b609f38488dba8466a58b91c, type: 3}
   materials:
     materialImportMode: 2
     materialName: 0
