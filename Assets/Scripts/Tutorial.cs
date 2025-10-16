@@ -62,6 +62,58 @@ public class Tutorial : MonoBehaviour
     private bool _didStep2 = false;          // ドアロックを初回検知したか
     private bool _didStep3 = false;          // 抽選開始を実行したか
 
+    // ========== 前段チュートリアル（移動／視点／ダッシュ） ==========
+    [Header("前段チュートリアル（移動／視点／ダッシュ）")]
+    public bool EnableBasicTutorial = true;
+    public Transform CameraTransform;
+    public PlayerController PlayerCtrl;   // ← PlayerController から状態参照
+
+    [TextArea] public string BasicMoveText = "移動してみよう（WASD / 左スティック）";
+    [TextArea] public string BasicLookText = "カメラを動かしてみよう（マウス / 右スティック）";
+    [TextArea] public string BasicDashText = "シフトを押しながらダッシュしてみよう";
+    [TextArea] public string BasicDoneText = "OK！準備完了。";
+
+    [Header("前段チュートリアル：しきい値")]
+    public float BasicLookYawTotal = 20f;        // ヨーの合計角度
+    public float BasicLookPitchTotal = 10f;      // ピッチの合計角度
+    public float BasicMoveMinDuration = 0.15f;   // 「動いている」継続時間
+    public float BasicDashMinDuration = 0.15f;   // 「ダッシュ中」継続時間
+
+    // --- 移動クリアに合計距離もしばる ---
+    public float BasicMoveTotalDistanceRequired = 1.5f; // XZ合計[m]
+    public bool BasicMoveCountOnlyWhenInput = true;   // 入力がある時だけ距離を積算
+    public float BasicMoveMaxStepPerFrame = 2.0f;   // テレポ等の急加速を無視
+
+    // 内部（前段チュートリアル）
+    private bool _basicRunning = false;
+    private bool _basicDone = false;
+    private Quaternion _basicPrevCamRot;
+    private float _basicAccYaw = 0f;
+    private float _basicAccPitch = 0f;
+    private Vector3 _basicMovePrevPos;
+    private float _basicMoveTotal = 0f;
+
+    // ========== ここから追加：ドア用ミッション（独立テキスト） ==========
+    [Header("ドア用ミッション（別テキストUI）")]
+    public bool EnableDoorMission = true;
+
+    // ミッション専用の独立テキスト（BottomTextとは別のTMPをシーンに用意して割り当て）
+    public TextMeshProUGUI MissionText;
+    public float MissionCharsPerSecond = 40f;
+    public float MissionLineInterval = 0.4f;
+    public bool MissionHideWhenDone = false;
+
+    [TextArea] public string Mission_DoorCheck = "ドアをしらべてみよう";
+    [TextArea] public string Mission_FindGhost = "次は近くにいる幽霊を見つけてみよう";
+    [TextArea] public string Mission_HearVoiceGoNext = "次は幽霊の声を聞いて次の部屋に行こう";
+    [TextArea] public string Mission_AllDone = "ミッション完了";
+
+    private enum DoorMissionStage { None, DoorCheck, FindGhost, HearVoiceGoNext, AllDone }
+    private DoorMissionStage _doorMission = DoorMissionStage.None;
+    private Coroutine _typingMission;
+    private bool _heardVoice = false; // state=2 検知フラグ
+    // ========== 追加ここまで ==========
+
     // ========== ライフサイクル ==========
     private void Awake()
     {
@@ -91,6 +143,12 @@ public class Tutorial : MonoBehaviour
 
         // 隠れ案内 初回表示イベント（HideCroset側から）
         if (HideRef) HideRef.OnFirstHidePromptShown.AddListener(ShowHidePanelOnce);
+
+        // 前段チュートリアル開始
+        if (EnableBasicTutorial) StartCoroutine(CoRunBasicTutorial());
+
+        // ドア用ミッション開始（独立表示）
+        if (EnableDoorMission) StartDoorMissionIfNeeded();
     }
 
     private void OnDisable()
@@ -122,6 +180,9 @@ public class Tutorial : MonoBehaviour
 
         ApplyDoorEnableByProgress(HintRef ? HintRef.ProgressStage : 0);
         Step1();
+
+        // MissionText 初期化
+        if (MissionText) { MissionText.text = ""; MissionText.gameObject.SetActive(false); }
     }
 
     private void Update()
@@ -130,10 +191,15 @@ public class Tutorial : MonoBehaviour
             ApplyDoorEnableByProgress(HintRef.ProgressStage);
 
         if (!_pauseGate) HandleLockedDoorTapFeedback(); // パネル中は抑止
+
+        // ミッション3：声を聞いた後、有効なドアへのインタラクトで完了
+        if (EnableDoorMission && _doorMission == DoorMissionStage.HearVoiceGoNext && !_pauseGate)
+        {
+            TryCompleteDoorMissionByEnabledDoorInteract();
+        }
     }
 
     // ========== Step2：ドアロック文言 → その後Step3（抽選開始） ==========
-
     private void HandleLockedDoorTapFeedback()
     {
         if (!Player) return;
@@ -151,7 +217,7 @@ public class Tutorial : MonoBehaviour
             var od = DoorScripts[i];
             if (!od) continue;
 
-            // 既に開けられる段階ならスルー
+            // 既に開けられる段階ならスルー（→ ミッション3の別処理で扱う）
             if (od.enabled) continue;
 
             // 距離
@@ -168,6 +234,12 @@ public class Tutorial : MonoBehaviour
             // Step2：ロック文言（OneShot）
             ShowOneShot(DoorLockedMessage);
             _doorMsgCD = DoorLockedCooldown;
+
+            // ★ ドア用ミッション：ステージ1達成（ロック中のドアを調べた）
+            if (EnableDoorMission && _doorMission == DoorMissionStage.DoorCheck)
+            {
+                AdvanceDoorMissionTo(DoorMissionStage.FindGhost);
+            }
 
             // Step3 の予約（初回だけ）
             if (!_didStep2)
@@ -209,17 +281,18 @@ public class Tutorial : MonoBehaviour
         }
     }
 
-    // ========== Step4：初めて幽霊が画面に映った（state問わず） ==========
-
+    // ========== Step4/5/6：既存 UI ==========
     public void Step4_ShowPanel()
     {
         if (_didStep4) return;
         _didStep4 = true;
         if (_pauseGate) return;
         StartCoroutine(CoShowPausePanel(Step4Panel_StateAny));
-    }
 
-    // ========== Step5：初めて state=2 の幽霊が映った ==========
+        // ★ ドア用ミッション：ステージ2達成（幽霊を見つけた）
+        if (EnableDoorMission && _doorMission == DoorMissionStage.FindGhost)
+            AdvanceDoorMissionTo(DoorMissionStage.HearVoiceGoNext);
+    }
 
     public void Step5_ShowPanel()
     {
@@ -227,9 +300,14 @@ public class Tutorial : MonoBehaviour
         _didStep5 = true;
         if (_pauseGate) return;
         StartCoroutine(CoShowPausePanel(Step5Panel_State2));
-    }
 
-    // ========== Step6：初めて「隠れる案内」が表示されたらパネル ==========
+        // 声を聞いた
+        _heardVoice = true;
+
+        // ミッション3の文言を改めて表示（同じ文言）
+        if (EnableDoorMission && _doorMission == DoorMissionStage.HearVoiceGoNext)
+            ShowMissionText(Mission_HearVoiceGoNext);
+    }
 
     public void ShowHidePanelOnce()
     {
@@ -240,7 +318,6 @@ public class Tutorial : MonoBehaviour
     }
 
     // ========== 共通：パネル表示→一時停止→UI.Submitで閉じる ==========
-
     private IEnumerator CoShowPausePanel(GameObject panel)
     {
         if (!panel) yield break;
@@ -284,7 +361,6 @@ public class Tutorial : MonoBehaviour
         BottomText.gameObject.SetActive(true);
         _typing = StartCoroutine(CoTypeLines(Step1Lines));
     }
-
     public void ShowOneShot(string line)
     {
         if (!BottomText || string.IsNullOrEmpty(line)) return;
@@ -292,7 +368,6 @@ public class Tutorial : MonoBehaviour
         BottomText.gameObject.SetActive(true);
         _typing = StartCoroutine(CoTypeOneShot(line));
     }
-
     private IEnumerator CoTypeOneShot(string line)
     {
         yield return StartCoroutine(CoTypeOne(line));
@@ -300,7 +375,6 @@ public class Tutorial : MonoBehaviour
         BottomText.gameObject.SetActive(false);
         _typing = null;
     }
-
     private IEnumerator CoTypeLines(string[] lines)
     {
         for (int li = 0; li < lines.Length; li++)
@@ -311,12 +385,10 @@ public class Tutorial : MonoBehaviour
         if (HideWhenDone) BottomText.gameObject.SetActive(false);
         _typing = null;
     }
-
     private IEnumerator CoTypeOne(string text)
     {
         BottomText.text = "";
         if (CharsPerSecond <= 0f) { BottomText.text = text; yield break; }
-
         float interval = 1f / CharsPerSecond;
         float acc = 0f; int i = 0;
         while (i < text.Length)
@@ -331,4 +403,233 @@ public class Tutorial : MonoBehaviour
             yield return null;
         }
     }
+
+    // ========== 前段チュートリアル本体 ==========
+    private IEnumerator CoRunBasicTutorial()
+    {
+        if (_basicRunning || _basicDone) yield break;
+        if (!BottomText) yield break;
+
+        _basicRunning = true;
+
+        // 参照の初期化
+        if (CameraTransform) _basicPrevCamRot = CameraTransform.rotation;
+
+        // 1フレーム待って（Start() の処理が終わるのを待つ）→テキストを上書き
+        yield return null;
+
+        // ---- 移動してみよう ----
+        if (_typing != null) { StopCoroutine(_typing); _typing = null; }
+        BottomText.gameObject.SetActive(true);
+        yield return StartCoroutine(CoTypeOne(BasicMoveText));
+
+        // 合計距離トラッキング初期化
+        _basicMoveTotal = 0f;
+        _basicMovePrevPos = Player ? Player.position : Vector3.zero;
+
+        float moveTimer = 0f;
+        while (true)
+        {
+            // 1) 「動いているか」判定（PlayerController があればそれを使用）
+            bool moving = PlayerCtrl ? PlayerCtrl.IsMovingNow : (_input.Player.Move.ReadValue<Vector2>() != Vector2.zero);
+
+            // 2) 合計距離を積算（XZのみ）。必要なら「入力がある時だけ」カウント
+            if (Player)
+            {
+                Vector3 cur = Player.position;
+                Vector3 delta = cur - _basicMovePrevPos; delta.y = 0f;
+
+                float step = delta.magnitude;
+                step = Mathf.Min(step, BasicMoveMaxStepPerFrame); // テレポ/異常値防止
+
+                if (!BasicMoveCountOnlyWhenInput || moving)
+                    _basicMoveTotal += step;
+
+                _basicMovePrevPos = cur;
+            }
+
+            // 3) 継続時間カウント
+            if (moving) moveTimer += Time.deltaTime;
+            else moveTimer = 0f;
+
+            // 4) 両方みたしたらクリア
+            if (moveTimer >= BasicMoveMinDuration && _basicMoveTotal >= BasicMoveTotalDistanceRequired)
+                break;
+
+            yield return null;
+        }
+
+        // ---- カメラを動かしてみよう ----
+        if (_typing != null) { StopCoroutine(_typing); _typing = null; }
+        BottomText.gameObject.SetActive(true);
+        yield return StartCoroutine(CoTypeOne(BasicLookText));
+
+        _basicAccYaw = 0f; _basicAccPitch = 0f;
+        while (true)
+        {
+            if (CameraTransform)
+            {
+                Quaternion cur = CameraTransform.rotation;
+
+                // 前方ベクトルからヨー／ピッチを近似
+                Vector3 fPrev = _basicPrevCamRot * Vector3.forward;
+                Vector3 fCur = cur * Vector3.forward;
+
+                float yawPrev = Mathf.Atan2(fPrev.x, fPrev.z) * Mathf.Rad2Deg;
+                float yawCur = Mathf.Atan2(fCur.x, fCur.z) * Mathf.Rad2Deg;
+                float dyaw = Mathf.DeltaAngle(yawPrev, yawCur);
+                _basicAccYaw += Mathf.Abs(dyaw);
+
+                float pitchPrev = Mathf.Asin(Mathf.Clamp(fPrev.y, -1f, 1f)) * Mathf.Rad2Deg;
+                float pitchCur = Mathf.Asin(Mathf.Clamp(fCur.y, -1f, 1f)) * Mathf.Rad2Deg;
+                float dpitch = Mathf.DeltaAngle(pitchPrev, pitchCur);
+                _basicAccPitch += Mathf.Abs(dpitch);
+
+                _basicPrevCamRot = cur;
+
+                if (_basicAccYaw >= BasicLookYawTotal && _basicAccPitch >= BasicLookPitchTotal)
+                    break;
+            }
+            yield return null;
+        }
+
+        // ---- ダッシュしてみよう（PlayerController から判定）----
+        if (_typing != null) { StopCoroutine(_typing); _typing = null; }
+        BottomText.gameObject.SetActive(true);
+        yield return StartCoroutine(CoTypeOne(BasicDashText));
+
+        float dashTimer = 0f;
+        float decayPerSec = 0.5f; // 一瞬の落ち込みに猶予
+        while (true)
+        {
+            bool dashing = PlayerCtrl ? PlayerCtrl.IsDashingNow : false;
+
+            if (dashing) dashTimer += Time.deltaTime;
+            else dashTimer = Mathf.Max(0f, dashTimer - Time.deltaTime * decayPerSec);
+
+            if (dashTimer >= BasicDashMinDuration) break;
+            yield return null;
+        }
+
+        // 完了
+        if (_typing != null) { StopCoroutine(_typing); _typing = null; }
+        BottomText.gameObject.SetActive(true);
+        yield return StartCoroutine(CoTypeOne(BasicDoneText));
+        yield return new WaitForSeconds(LineInterval);
+        if (HideWhenDone) BottomText.gameObject.SetActive(false);
+
+        _basicDone = true;
+        _basicRunning = false;
+
+        // 本編チュートリアルへ
+        Step1();
+
+        // ドア用ミッションが未開始なら開始
+        if (EnableDoorMission) StartDoorMissionIfNeeded();
+    }
+
+    // ========== ここから追加：ドア用ミッション制御（別テキストUI） ==========
+    // ========== ここから追加：ドア用ミッション制御（別テキストUI） ==========
+    // ※ 既存のメソッドをこの内容に差し替え
+    private void StartDoorMissionIfNeeded()
+    {
+        // すでに開始していたら何もしない
+        if (_doorMission != DoorMissionStage.None) return;
+
+        // 前段チュートリアルが有効なときは、完了までミッションを出さない
+        if (EnableBasicTutorial && !_basicDone) return;
+
+        // ここに来た時点＝前段チュートリアルが終わっている（or 無効）
+        _doorMission = DoorMissionStage.DoorCheck;
+        ShowMissionText(Mission_DoorCheck); // 「ドアをしらべてみよう」
+    }
+
+
+    private void AdvanceDoorMissionTo(DoorMissionStage next)
+    {
+        _doorMission = next;
+        switch (_doorMission)
+        {
+            case DoorMissionStage.FindGhost:
+                ShowMissionText(Mission_FindGhost);
+                break;
+            case DoorMissionStage.HearVoiceGoNext:
+                ShowMissionText(Mission_HearVoiceGoNext);
+                break;
+            case DoorMissionStage.AllDone:
+                ShowMissionText(Mission_AllDone);
+                if (MissionHideWhenDone && MissionText) StartCoroutine(CoHideMissionAfter(MissionLineInterval));
+                break;
+        }
+    }
+
+    private void ShowMissionText(string line)
+    {
+        if (!MissionText || string.IsNullOrEmpty(line)) return;
+
+        // ミッション用タイプ演出は BottomText と独立
+        if (_typingMission != null) { StopCoroutine(_typingMission); _typingMission = null; }
+        MissionText.gameObject.SetActive(true);
+        _typingMission = StartCoroutine(CoTypeOne_Mission(line));
+    }
+
+    private IEnumerator CoTypeOne_Mission(string text)
+    {
+        MissionText.text = "";
+        if (MissionCharsPerSecond <= 0f) { MissionText.text = text; yield break; }
+
+        float interval = 1f / MissionCharsPerSecond;
+        float acc = 0f; int i = 0;
+        while (i < text.Length)
+        {
+            acc += Time.deltaTime;
+            while (acc >= interval && i < text.Length)
+            {
+                acc -= interval; i++;
+                MissionText.text = text.Substring(0, i);
+            }
+            yield return null;
+        }
+    }
+
+    private IEnumerator CoHideMissionAfter(float wait)
+    {
+        yield return new WaitForSeconds(wait);
+        if (MissionText) MissionText.gameObject.SetActive(false);
+    }
+
+    private void TryCompleteDoorMissionByEnabledDoorInteract()
+    {
+        // 「声を聞いた」必須にしたい場合は以下のガードを戻す
+        // if (!_heardVoice) return;
+
+        bool pressed =
+            _input.Player.DoorOpen.WasPressedThisFrame() ||
+            _input.Player.Interact.WasPressedThisFrame();
+
+        if (!pressed || !Player) return;
+
+        for (int i = 0; i < DoorScripts.Count; i++)
+        {
+            var od = DoorScripts[i];
+            if (!od) continue;
+            if (!od.enabled) continue; // 有効なドアのみ
+
+            // 距離
+            if (Vector3.Distance(Player.position, od.transform.position) > DoorInteractDistance) continue;
+
+            // 表側チェック（必要なら）
+            if (DoorRequireFacingSide)
+            {
+                Vector3 toPlayer = (Player.position - od.transform.position).normalized;
+                float dot = Vector3.Dot(od.transform.forward, toPlayer);
+                if (dot < DoorFacingDotThreshold) continue;
+            }
+
+            // 条件を満たしたらミッション完了
+            AdvanceDoorMissionTo(DoorMissionStage.AllDone);
+            break;
+        }
+    }
+    // ========== 追加ここまで ==========
 }
