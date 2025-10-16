@@ -66,10 +66,16 @@ public class EnemyAI : MonoBehaviour
     private Coroutine _spawnLoop;
     public bool IsSpawning => _spawnLoop != null;
 
+    // ====== 1回目=STATE1 / 2回目=STATE2 を保証する仕組み ======
+    private static int s_GlobalSpawnCount = 0;   // 全スポナー共通の累積カウンタ
+    [Tooltip("Play開始時に1→2カウンタをリセット（通常はtrue）")]
+    public bool ResetCounterOnStart = true;
+
     // =========================================================
 
     void Start()
     {
+        if (ResetCounterOnStart) s_GlobalSpawnCount = 0;   // ★最初にリセット
         _sharedSource = GetComponent<AudioSource>();
         if (AutoStart) _spawnLoop = StartCoroutine(SpawnLoop());
     }
@@ -102,6 +108,9 @@ public class EnemyAI : MonoBehaviour
         var pos = PickSpawnPointInRect();
 
         CurrentGhost = Instantiate(Ghost, pos, Quaternion.identity);
+
+        // ★最初の2体はSTATEを固定（1体目=1、2体目=2、以降は強制なし）
+        ForceFirstTwoStates(CurrentGhost);
 
         // イベント通知（Tutorialなどが受け取る）
         OnGhostSpawned?.Invoke();
@@ -148,6 +157,9 @@ public class EnemyAI : MonoBehaviour
                 var pos = PickSpawnPointInRect();
                 CurrentGhost = Instantiate(Ghost, pos, Quaternion.identity);
 
+                // ★最初の2体はSTATEを固定（1体目=1、2体目=2、以降は強制なし）
+                ForceFirstTwoStates(CurrentGhost);
+
                 // イベント通知（Tutorialなどが受け取る）
                 OnGhostSpawned?.Invoke();
 
@@ -176,6 +188,27 @@ public class EnemyAI : MonoBehaviour
         _cooldown = true;
         yield return new WaitForSeconds(RespawnDelayAfterDespawn);
         _cooldown = false;
+    }
+
+    // ---- ★STATE固定（1回目=1、2回目=2） ----
+    private void ForceFirstTwoStates(GameObject ghostRoot)
+    {
+        if (!ghostRoot) return;
+
+        // ゴーストに付いている（子含む）SearchChaseを全部拾う
+        var chasers = ghostRoot.GetComponentsInChildren<SearchChase>(true);
+        if (chasers == null || chasers.Length == 0) { s_GlobalSpawnCount++; return; }
+
+        // 1体目=1, 2体目=2, 以降は強制なし
+        int forced =
+            (s_GlobalSpawnCount == 0) ? 1 :
+            (s_GlobalSpawnCount == 1) ? 2 : 0;
+
+        if (forced != 0)
+        {
+            foreach (var sc in chasers) sc.ForceState(forced);
+        }
+        s_GlobalSpawnCount++;
     }
 
     // ---- SE再生：2D/3D 切替 & 3Dパラメータ明示 ----
