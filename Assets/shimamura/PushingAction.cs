@@ -12,7 +12,6 @@ public class PushingAction: MonoBehaviour
     private Quaternion _lockedRotation;     // 押している間の固定された回転角度
     private Transform _tr;
     private PlayerInput _inputAction;
-
     private void Start()
     {
         _tr = GetComponent<Transform>();
@@ -70,4 +69,7 @@ public class PushingAction: MonoBehaviour
         Gizmos.color = Color.yellow;
         Gizmos.DrawRay(transform.position,transform.forward * _rayDistance);
     }
+    //キーを押したら家具の方向を向く
+    //家具の座標をフォワード方向に移動（移動速度を低下させる）
+    
 }
