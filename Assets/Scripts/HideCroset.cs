@@ -1,138 +1,199 @@
-using System.Collections.Generic;
+ï»¿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using TMPro;
+using UnityEngine.Events;
 
 public class HideCroset : MonoBehaviour
 {
-    public Transform Player;                             // ƒvƒŒƒCƒ„[–{‘Ì
-    public List<Transform> CrosetLists = new List<Transform>();   // ƒNƒ[ƒ[ƒbƒgŒQiTransformj‚ğ“ü‚ê‚Ä‚¨‚­
-    public bool hide = false;                             // ‰B‚ê‚Ä‚¢‚é‚©‚Ç‚¤‚©
-    public InputSystem_Actions Input;                     // VInputSystem¶¬ƒNƒ‰ƒX
+    public Transform Player;                                 // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼
+    public List<Transform> CrosetLists = new List<Transform>(); // ã‚¯ãƒ­ãƒ¼ã‚¼ãƒƒãƒˆå€™è£œ
+    public bool hide = false;                                 // éš ã‚Œä¸­ã‹
+    public InputSystem_Actions Input;                         // æ–°InputSystem
 
-    // --------------- ’²®—piInspector‚©‚ç•ÏX‰Âj ---------------
-    public float OffsetForward = 0.30f;                   // ƒNƒ[ƒ[ƒbƒg‚Ì‰œ•ûŒüi+‚Å“à‘¤‚Öj
-    public float OffsetRight = 0.00f;                     // ‰E•ûŒü‚Ì”÷’²®
-    public float OffsetUp = 0.00f;                        // ã•ûŒü‚Ì”÷’²®
-    public float InteractRadius = 1.6f;                   // ‹ßÚ”»’è‚Ì”¼Œa
-    public MonoBehaviour[] MovementScriptsToDisable;      // ‰B‚ê‚Ä‚¢‚éŠÔ‚¾‚¯–³Œø‰»‚µ‚½‚¢ˆÚ“®ŒnƒXƒNƒŠƒvƒg
+    [Header("ä½ç½®èª¿æ•´ï¼ˆInspectorã§å¤‰æ›´å¯ãƒ»å®Ÿè¡Œä¸­ã‚‚å¯ï¼‰")]
+    public float OffsetForward = 0.30f;                       // å¥¥æ–¹å‘ï¼ˆ+ã§å†…å´ï¼‰
+    public float OffsetRight = 0.00f;                         // å³
+    public float OffsetUp = 0.00f;                            // ä¸Š
+    public float InteractRadius = 1.6f;                       // éš ã‚Œã‚‰ã‚Œã‚‹åŠå¾„
+    public MonoBehaviour[] MovementScriptsToDisable;          // éš ã‚Œä¸­ã ã‘ç„¡åŠ¹åŒ–ã™ã‚‹ç§»å‹•ç³»
 
-    // --------------- “à•”ó‘Ô ---------------
-    private Transform _currentCloset;                      // ¡“ü‚Á‚Ä‚¢‚éƒNƒ[ƒ[ƒbƒg
-    private Vector3 _cachedPos;                            // “ü‚é‘O‚ÌˆÊ’u
-    private Vector3 _lockedInsidePos;                      // ‰B‚ê‚Ä‚¢‚éŠÔ‚ÉŒÅ’è‚·‚éˆÊ’u
-    private Collider[] _playerCols;                        // ƒvƒŒƒCƒ„[‘¤ƒRƒ‰ƒCƒ_[
-    private readonly List<Collider> _closetCols = new List<Collider>(); // ƒNƒ[ƒ[ƒbƒg‚ÌƒRƒ‰ƒCƒ_[ŒQ
+    [Header("UIï¼ˆéš ã‚Œæ¡ˆå†…ï¼‰")]
+    public TextMeshProUGUI PromptText;                        // ã€Œã€Eã€‘éš ã‚Œã‚‹ã€
+    public string PromptMessage = "ã€Eã€‘éš ã‚Œã‚‹";
+
+    [Header("ã‚¤ãƒ™ãƒ³ãƒˆï¼ˆTutorialãŒè³¼èª­ï¼‰")]
+    public UnityEvent OnFirstHidePromptShown;                 // åˆã‚ã¦æ¡ˆå†…ãŒå‡ºãŸç¬é–“ã«ç™ºç«
+
+    // å†…éƒ¨
+    private Transform _currentCloset;
+    private Vector3 _cachedPos;
+    private Vector3 _lockedInsidePos;
+    private Collider[] _playerCols;
+    private readonly List<Collider> _closetCols = new List<Collider>();
+    private bool _hidePromptEverShown = false;                // åˆå›ãƒ•ãƒ©ã‚°
 
     private void Awake()
     {
-        Input = new InputSystem_Actions();                 // ¶¬
-        if (!Player) Player = transform;                   // –¢İ’è‚È‚ç©g
-        _playerCols = Player.GetComponentsInChildren<Collider>(true); // Õ“Ë–³‹—p
+        Input = new InputSystem_Actions();
+        if (!Player) Player = transform;
+        _playerCols = Player.GetComponentsInChildren<Collider>(true);
+
+        if (PromptText)
+        {
+            PromptText.text = "";
+            PromptText.gameObject.SetActive(false);
+        }
     }
 
     private void OnEnable()
     {
-        Input.Player.Enable();                             // ƒAƒNƒVƒ‡ƒ“—LŒø‰»
-        // --------------- “ü—Íw“Ç ---------------
-        Input.Player.Interact.performed += OnInterect;     // ’Ô‚è Interect
+        Input.Player.Enable();
+        Input.Player.Interact.performed += OnInterect;        // ã€ŒEã€ãªã©
     }
 
     private void OnDisable()
     {
-        // --------------- “ü—Íw“Ç‰ğœ ---------------
-        Input.Player.Interact.performed -= OnInterect;     // ‰ğœ
+        Input.Player.Interact.performed -= OnInterect;
         Input.Player.Disable();
     }
 
     private void Update()
     {
-        if (hide) Player.position = _lockedInsidePos;      // ‰B‚ê‚Ä‚¢‚éŠÔ‚ÍˆÊ’u‚ğŒÅ’èitransform.position‚Ì‚İj
+        // éš ã‚Œä¸­ã¯ä½ç½®ã‚’å›ºå®šï¼ˆç‰©ç†ã¯è§¦ã‚‰ãš position ã®ã¿ï¼‰
+        if (hide) Player.position = _lockedInsidePos;
+
+        // è¿‘æ¥æ¡ˆå†…UIã®åˆ¶å¾¡
+        UpdateHidePromptUI();
     }
 
-    // --------------- Interect‰Ÿ‰º ---------------
+    // è¿‘æ¥æ¡ˆå†…UIã¨åˆå›ã‚¤ãƒ™ãƒ³ãƒˆ
+    private void UpdateHidePromptUI()
+    {
+        if (!PromptText) return;
+
+        // éš ã‚Œä¸­ã¯æ¡ˆå†…ã‚’æ¶ˆã™
+        if (hide)
+        {
+            if (PromptText.gameObject.activeSelf) PromptText.gameObject.SetActive(false);
+            return;
+        }
+
+        // åŠå¾„å†…ã«ã‚¯ãƒ­ãƒ¼ã‚¼ãƒƒãƒˆãŒã‚ã‚‹ï¼Ÿ
+        var closet = FindNearestCloset();
+        bool canHideHere = closet && (Player.position - GetClosetCenter(closet)).sqrMagnitude <= InteractRadius * InteractRadius;
+
+        if (canHideHere)
+        {
+            PromptText.text = string.IsNullOrEmpty(PromptMessage) ? "ã€Eã€‘éš ã‚Œã‚‹" : PromptMessage;
+
+            // åˆå›ã ã‘ã‚¤ãƒ™ãƒ³ãƒˆç™ºç«
+            if (!PromptText.gameObject.activeSelf)
+            {
+                PromptText.gameObject.SetActive(true);
+                if (!_hidePromptEverShown)
+                {
+                    _hidePromptEverShown = true;
+                    OnFirstHidePromptShown?.Invoke();         // â˜… Tutorial ãŒãƒ‘ãƒãƒ«è¡¨ç¤ºã—ã¦ä¸€æ™‚åœæ­¢
+                }
+            }
+        }
+        else
+        {
+            if (PromptText.gameObject.activeSelf) PromptText.gameObject.SetActive(false);
+        }
+    }
+
+    // Interact å…¥åŠ›
     private void OnInterect(InputAction.CallbackContext _)
     {
-        if (hide) { ExitCloset(); return; }               // Šù‚É‰B‚ê‚Ä‚¢‚ê‚Îo‚é
+        if (hide) { ExitCloset(); return; }
 
-        Transform closet = FindNearestCloset();           // ÅŠñ‚èƒNƒ[ƒ[ƒbƒgŒŸõ
-        if (closet) EnterCloset(closet);                  // Œ©‚Â‚©‚ê‚Î“ü‚é
+        Transform closet = FindNearestCloset();
+        if (closet && (Player.position - GetClosetCenter(closet)).sqrMagnitude <= InteractRadius * InteractRadius)
+        {
+            EnterCloset(closet);
+        }
     }
 
-    // --------------- ÅŠñ‚èƒNƒ[ƒ[ƒbƒgŒŸõ ---------------
+    // æœ€å¯„ã‚Šã‚¯ãƒ­ãƒ¼ã‚¼ãƒƒãƒˆæ¤œç´¢
     private Transform FindNearestCloset()
     {
-        float best = float.MaxValue;                      // Å’Z‹——£
-        Transform pick = null;                            // Œó•â
+        float best = float.MaxValue;
+        Transform pick = null;
 
         for (int i = 0; i < CrosetLists.Count; i++)
         {
             var t = CrosetLists[i];
             if (!t) continue;
-            float d = (Player.position - GetClosetCenter(t)).sqrMagnitude; // ’†S‹——£
-            if (d < best && d <= InteractRadius * InteractRadius) { best = d; pick = t; } // ”¼Œa“à‚Ì‚İ
+            float d = (Player.position - GetClosetCenter(t)).sqrMagnitude;
+            if (d < best) { best = d; pick = t; }
         }
 
-        if (!pick)                                        // ƒtƒH[ƒ‹ƒoƒbƒNiƒŠƒXƒg–¢İ’è/“Í‚©‚È‚¢j
+        // ãƒªã‚¹ãƒˆæœªè¨­å®šãªã‚‰å‘¨å›²ã‚µãƒ¼ãƒï¼ˆä»»æ„ï¼‰
+        if (!pick && CrosetLists.Count == 0)
         {
-            Collider[] hits = Physics.OverlapSphere(Player.position, InteractRadius, ~0, QueryTriggerInteraction.Collide); // ‘SLayer
+            Collider[] hits = Physics.OverlapSphere(Player.position, InteractRadius, ~0, QueryTriggerInteraction.Collide);
             foreach (var h in hits)
             {
-                Transform t = h.transform;
-                if (CrosetLists.Count > 0 && !CrosetLists.Contains(t)) continue; // ƒŠƒXƒg‰^—p‚ÍƒŠƒXƒgŠO‚ğ–³‹
+                var t = h.transform;
                 float d = (Player.position - GetClosetCenter(t)).sqrMagnitude;
                 if (d < best) { best = d; pick = t; }
             }
         }
-        return pick;                                      // Œ©‚Â‚©‚ç‚È‚¯‚ê‚Înull
+
+        return pick;
     }
 
-    // --------------- “ü‚éiposition‚Ì‚İj ---------------
+    // å…¥ã‚‹ï¼ˆç¬é–“ãƒ¯ãƒ¼ãƒ—ï¼špositionï¼‰
     private void EnterCloset(Transform closet)
     {
-        _currentCloset = closet;                          // Œ»İ‚ÌƒNƒ[ƒ[ƒbƒg
-        _cachedPos = Player.position;                     // o‚éˆÊ’u¡‚ÌˆÊ’u
+        _currentCloset = closet;
+        _cachedPos = Player.position;
 
-        _closetCols.Clear();                              // ƒNƒ[ƒ[ƒbƒg‚ÌColliderûW
+        _closetCols.Clear();
         closet.GetComponentsInChildren(true, _closetCols);
-        ToggleIgnoreClosetCollision(true);                // Õ“Ë–³‹ON
+        ToggleIgnoreClosetCollision(true);
 
-        Vector3 center = GetClosetCenter(closet);         // ƒNƒ[ƒ[ƒbƒg’†S
+        Vector3 center = GetClosetCenter(closet);
         Vector3 offset =
-              (closet.forward * -OffsetForward)           // ‰œ•ûŒü‚Öi+‚Å“à‘¤‚É“ü‚éj
-            + (closet.right * OffsetRight)                // ‰E•ûŒü”÷’²®
-            + (Vector3.up * OffsetUp);                    // ã•ûŒü”÷’²®
+              (closet.forward * -OffsetForward)
+            + (closet.right * OffsetRight)
+            + (Vector3.up * OffsetUp);
 
-        Vector3 targetPos = center + offset;              // –Ú•WˆÊ’u
-        Player.position = targetPos;                      // ƒ[ƒviposition‚Ì‚İj
-        _lockedInsidePos = targetPos;                     // ƒƒbƒNÀ•W
+        Vector3 targetPos = center + offset;
+        Player.position = targetPos;
+        _lockedInsidePos = targetPos;
 
-        SetMovementEnabled(false);                        // ˆÚ“®ŒnƒXƒNƒŠƒvƒg‚ğ–³Œø‰»
-        hide = true;                                      // ‰B‚êó‘ÔON
+        SetMovementEnabled(false);
+        hide = true;
+
+        if (PromptText) PromptText.gameObject.SetActive(false);
     }
 
-    // --------------- o‚éiposition‚Ì‚İj ---------------
+    // å‡ºã‚‹ï¼ˆå…ƒã®ä½ç½®ã¸ï¼‰
     private void ExitCloset()
     {
-        Player.position = _cachedPos;                     // “ü‚é‘O‚Ö–ß‚·
-        ToggleIgnoreClosetCollision(false);               // Õ“Ë–³‹OFF
+        Player.position = _cachedPos;
+        ToggleIgnoreClosetCollision(false);
         _closetCols.Clear();
 
-        SetMovementEnabled(true);                         // ˆÚ“®ŒnƒXƒNƒŠƒvƒg‚ğÄ—LŒø‰»
-        _currentCloset = null;                            // ƒNƒŠƒA
-        hide = false;                                     // ‰B‚êó‘ÔOFF
+        SetMovementEnabled(true);
+        _currentCloset = null;
+        hide = false;
     }
 
-    // --------------- ƒNƒ[ƒ[ƒbƒg’†Sæ“¾ ---------------
+    // ã‚¯ãƒ­ãƒ¼ã‚¼ãƒƒãƒˆã®ä¸­å¿ƒ
     private Vector3 GetClosetCenter(Transform closet)
     {
-        if (closet && closet.TryGetComponent<Collider>(out var col)) return col.bounds.center; // Collider—Dæ
-        return closet ? closet.position : Player.position;                                      // ƒtƒH[ƒ‹ƒoƒbƒN
+        if (closet && closet.TryGetComponent<Collider>(out var col)) return col.bounds.center;
+        return closet ? closet.position : Player.position;
     }
 
-    // --------------- Õ“Ë–³‹ƒIƒ“/ƒIƒt ---------------
+    // è¡çªç„¡è¦–ã®åˆ‡æ›¿
     private void ToggleIgnoreClosetCollision(bool ignore)
     {
-        if (_playerCols == null || _playerCols.Length == 0) return; // ƒvƒŒƒCƒ„[‚ÉCollider‚ª–³‚¯‚ê‚Î‰½‚à‚µ‚È‚¢
+        if (_playerCols == null || _playerCols.Length == 0) return;
         for (int i = 0; i < _closetCols.Count; i++)
         {
             var c = _closetCols[i];
@@ -141,25 +202,26 @@ public class HideCroset : MonoBehaviour
             {
                 var pc = _playerCols[j];
                 if (!pc) continue;
-                Physics.IgnoreCollision(pc, c, ignore);   // ‘o•û‚ÌÕ“Ë‚ğ–³‹/‰ğœ
+                Physics.IgnoreCollision(pc, c, ignore);
             }
         }
     }
 
-    // --------------- ˆÚ“®ƒXƒNƒŠƒvƒg‚Ì—LŒø/–³Œø ---------------
+    // ç§»å‹•ç³»ã®æœ‰åŠ¹/ç„¡åŠ¹
     private void SetMovementEnabled(bool enabled)
     {
-        if (MovementScriptsToDisable == null) return;     // Inspector–¢İ’è‚È‚ç‰½‚à‚µ‚È‚¢
+        if (MovementScriptsToDisable == null) return;
         for (int i = 0; i < MovementScriptsToDisable.Length; i++)
         {
             var m = MovementScriptsToDisable[i];
-            if (m) m.enabled = enabled;                   // —LŒø/–³Œø‚ğØ‚è‘Ö‚¦
+            if (m) m.enabled = enabled;
         }
     }
 
     private void OnDrawGizmosSelected()
     {
         if (!Player) return;
-        Gizmos.DrawWireSphere(Player.position, InteractRadius); // ”ÍˆÍŠm”F—p
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawWireSphere(Player.position, InteractRadius);
     }
 }

@@ -5,66 +5,64 @@ using TMPro;
 
 public class Tutorial : MonoBehaviour
 {
-    // ===== テキスト／タイプ演出 =====
+    // ========== テキスト／タイプ演出 ==========
     public TextMeshProUGUI BottomText;
     public float CharsPerSecond = 40f;
     public float LineInterval = 0.6f;
     public bool HideWhenDone = true;
 
     [TextArea] public string[] Step1Lines = { "……ここはどこだろう。", "さっきまでの記憶が曖昧だ。", "とにかく、出口を探さないと。" };
-    [TextArea] public string[] Step3Lines = { "……何か音がしたぞ！", "周りを探してみよう。" };
-
+    [TextArea] public string[] Step3Lines = { "……何か音がしたぞ！", "周りを探してみよう。" }; // 抽選開始と同時に出す
     Coroutine _typing;
 
-    // ===== 進行度参照 =====
+    // ========== 進行度参照 ==========
     [Header("進行度参照")]
     public HintText HintRef;
     public bool AutoFindHintRef = true;
     public int MinProgressToEnableDoor = 1;
 
-    // ===== OpenDoor 制御 =====
+    // ========== OpenDoor 制御 ==========
     [Header("制御対象（OpenDoorのみ）")]
     public List<OpenDoor> DoorScripts = new();
     private int _lastAppliedProgress = int.MinValue;
 
-    // ===== ドア：ロック時の入力フック（Step2トリガ） =====
+    // ========== ドア：ロック時の入力フック（Step2トリガ） ==========
     [Header("ドア：ロック時の入力フック")]
     public Transform Player;
     public float DoorInteractDistance = 1.6f;
     public bool DoorRequireFacingSide = false;
     [Range(-1f, 1f)] public float DoorFacingDotThreshold = 0f;
     public string DoorLockedMessage = "ドアはあかないようだ…";
-    public float DoorLockedCooldown = 1.2f;
+    public float DoorLockedCooldown = 1.0f;
     private float _doorMsgCD = 0f;
 
     private InputSystem_Actions _input;
 
-    // ===== 初見パネル（Step4/Step5）＆一時停止 =====
-    [Header("初見チュートリアル画像")]
+    // ========== 初見パネル（幽霊）＆一時停止 ==========
+    [Header("初見チュートリアル画像（幽霊）")]
     public GameObject Step4Panel_StateAny;   // 初めて幽霊が見えた
-    public GameObject Step5Panel_State2;     // 初めてstate=2を見た
-
+    public GameObject Step5Panel_State2;     // 初めて state=2 を見た
     private bool _didStep4 = false;
     private bool _didStep5 = false;
-    private bool _pauseGate = false;         // パネル表示中の抑止
 
-    // ===== 抽選開始（Step3）制御 =====
+    // ========== 初見パネル（隠れる） ==========
+    [Header("隠れるチュートリアル画像")]
+    public HideCroset HideRef;               // HideCroset をアサイン
+    public GameObject HidePanel;             // 隠れチュートリアル画像
+    private bool _didHidePanel = false;
+
+    // ========== パネル共通：一時停止のゲート ==========
+    private bool _pauseGate = false;         // パネル表示中は入力/演出を止めたい時に使う
+
+    // ========== 抽選開始（Step3）制御 ==========
     [Header("幽霊スポナー（EnemyAI）")]
-    public List<EnemyAI> Spawners = new();   // AutoStart=false にしておく
+    public List<EnemyAI> Spawners = new();   // AutoStart=false 推奨（保険でStartで止める）
     public float StartSpawnDelayAfterStep2 = 2f; // Step2テキストが消えた後の待機
 
     private bool _didStep2 = false;          // ドアロックを初回検知したか
     private bool _didStep3 = false;          // 抽選開始を実行したか
 
-    // === Step3 ノイズSE（テキストより“先”に鳴らすための専用SE） ===
-    [Header("Step3 ノイズSE（テキストより先に鳴らす）")]
-    public bool PlayNoiseOnStep3 = true;
-    public AudioClip Step3NoiseSE;
-    public float Step3NoiseVolume = 1.0f;
-    public Vector2 Step3NoisePitchRange = new Vector2(0.95f, 1.05f);
-    public Transform NoiseAt;                    // nullなら Player の位置
-    public float Step3TextDelayAfterSE = 0.15f;  // SE 直後に少し間を置いてからテキスト表示
-
+    // ========== ライフサイクル ==========
     private void Awake()
     {
         if (!HintRef && AutoFindHintRef)
@@ -83,12 +81,16 @@ public class Tutorial : MonoBehaviour
         _input.Player.Enable();
         _input.UI.Enable();
 
+        // 幽霊・進行度のイベント
         if (HintRef)
         {
             HintRef.OnFirstGhostSeen.AddListener(Step4_ShowPanel);
             HintRef.OnFirstState2Seen.AddListener(Step5_ShowPanel);
             HintRef.OnProgressChanged.AddListener(OnProgressChanged);
         }
+
+        // 隠れ案内 初回表示イベント（HideCroset側から）
+        if (HideRef) HideRef.OnFirstHidePromptShown.AddListener(ShowHidePanelOnce);
     }
 
     private void OnDisable()
@@ -99,6 +101,8 @@ public class Tutorial : MonoBehaviour
             HintRef.OnFirstState2Seen.RemoveListener(Step5_ShowPanel);
             HintRef.OnProgressChanged.RemoveListener(OnProgressChanged);
         }
+        if (HideRef) HideRef.OnFirstHidePromptShown.RemoveListener(ShowHidePanelOnce);
+
         _input.Player.Disable();
         _input.UI.Disable();
 
@@ -110,8 +114,9 @@ public class Tutorial : MonoBehaviour
         if (BottomText) { BottomText.text = ""; BottomText.gameObject.SetActive(false); }
         if (Step4Panel_StateAny) Step4Panel_StateAny.SetActive(false);
         if (Step5Panel_State2) Step5Panel_State2.SetActive(false);
+        if (HidePanel) HidePanel.SetActive(false);
 
-        // 念のためスポナー自動開始は止める（AutoStart=false 推奨だが、保険で止める）
+        // 念のため自動開始を止める（AutoStart=false推奨だが保険）
         for (int i = 0; i < Spawners.Count; i++)
             if (Spawners[i]) Spawners[i].StopSpawning();
 
@@ -124,11 +129,12 @@ public class Tutorial : MonoBehaviour
         if (HintRef && HintRef.ProgressStage != _lastAppliedProgress)
             ApplyDoorEnableByProgress(HintRef.ProgressStage);
 
-        if (!_pauseGate) HandleLockedDoorTapFeedback(); // ポーズ中は抑止
+        if (!_pauseGate) HandleLockedDoorTapFeedback(); // パネル中は抑止
     }
 
-    // ====== Step2：ドアロック文言 → その後 Step3 を起動 ======
-    void HandleLockedDoorTapFeedback()
+    // ========== Step2：ドアロック文言 → その後Step3（抽選開始） ==========
+
+    private void HandleLockedDoorTapFeedback()
     {
         if (!Player) return;
         if (_doorMsgCD > 0f) { _doorMsgCD -= Time.deltaTime; return; }
@@ -144,9 +150,14 @@ public class Tutorial : MonoBehaviour
         {
             var od = DoorScripts[i];
             if (!od) continue;
-            if (od.enabled) continue; // すでに開けられる段階ならスルー
+
+            // 既に開けられる段階ならスルー
+            if (od.enabled) continue;
+
+            // 距離
             if (Vector3.Distance(Player.position, od.transform.position) > DoorInteractDistance) continue;
 
+            // 表側チェック
             if (DoorRequireFacingSide)
             {
                 Vector3 toPlayer = (Player.position - od.transform.position).normalized;
@@ -154,7 +165,7 @@ public class Tutorial : MonoBehaviour
                 if (dot < DoorFacingDotThreshold) continue;
             }
 
-            // Step2：ロック文言
+            // Step2：ロック文言（OneShot）
             ShowOneShot(DoorLockedMessage);
             _doorMsgCD = DoorLockedCooldown;
 
@@ -168,15 +179,15 @@ public class Tutorial : MonoBehaviour
         }
     }
 
-    IEnumerator CoAfterStep2_StartStep3()
+    private IEnumerator CoAfterStep2_StartStep3()
     {
-        // 表示が消えるのを UI 状態で待つより、タイプ終端で待つ方が安全
-        while (_typing != null) yield return null;
+        // 「ドアはあかないようだ…」の OneShot が消えるのを待つ（HideWhenDone=true前提）
+        while (BottomText && BottomText.gameObject.activeSelf) yield return null;
 
-        // さらに少し間を置く
+        // 少し間を置く
         yield return new WaitForSeconds(StartSpawnDelayAfterStep2);
 
-        // Step3 実行（抽選開始＋“まずSE”、その後テキスト）
+        // Step3 実行（抽選開始＋文言）
         DoStep3();
     }
 
@@ -184,28 +195,13 @@ public class Tutorial : MonoBehaviour
     {
         if (_didStep3) return;
         _didStep3 = true;
-        StartCoroutine(CoDoStep3Sequence());
-    }
 
-    IEnumerator CoDoStep3Sequence()
-    {
-        // 1) 抽選開始（EnemyAI 側の SpawnLoop をスタート）
+        // 1) 抽選開始（EnemyAIにBeginSpawningを呼ぶ）
         for (int i = 0; i < Spawners.Count; i++)
             if (Spawners[i]) Spawners[i].BeginSpawning();
 
-        // 2) まずノイズSEを鳴らす（テキストより先）
-        if (PlayNoiseOnStep3 && Step3NoiseSE)
-        {
-            var at = NoiseAt ? NoiseAt.position : (Player ? Player.position : Vector3.zero);
-            float pitch = Random.Range(Step3NoisePitchRange.x, Step3NoisePitchRange.y);
-            PlayClipAtPointPitch(Step3NoiseSE, at, Step3NoiseVolume, pitch);
-        }
-
-        // 3) 少し間を置いてからテキスト
-        if (Step3TextDelayAfterSE > 0f)
-            yield return new WaitForSeconds(Step3TextDelayAfterSE);
-
-        if (Step3Lines != null && Step3Lines.Length > 0 && BottomText)
+        // 2) 文言を流す（音が鳴った演出は実際のスポーンとズレないよう、開始合図だけ）
+        if (Step3Lines != null && Step3Lines.Length > 0)
         {
             if (_typing != null) StopCoroutine(_typing);
             BottomText.gameObject.SetActive(true);
@@ -213,7 +209,8 @@ public class Tutorial : MonoBehaviour
         }
     }
 
-    // ===== Step4：初めて幽霊が画面に映った =====
+    // ========== Step4：初めて幽霊が画面に映った（state問わず） ==========
+
     public void Step4_ShowPanel()
     {
         if (_didStep4) return;
@@ -222,7 +219,8 @@ public class Tutorial : MonoBehaviour
         StartCoroutine(CoShowPausePanel(Step4Panel_StateAny));
     }
 
-    // ===== Step5：初めて state=2 の幽霊が映った =====
+    // ========== Step5：初めて state=2 の幽霊が映った ==========
+
     public void Step5_ShowPanel()
     {
         if (_didStep5) return;
@@ -231,8 +229,19 @@ public class Tutorial : MonoBehaviour
         StartCoroutine(CoShowPausePanel(Step5Panel_State2));
     }
 
-    // ===== 共通：パネル表示→一時停止→UI.Submitで閉じる =====
-    IEnumerator CoShowPausePanel(GameObject panel)
+    // ========== Step6：初めて「隠れる案内」が表示されたらパネル ==========
+
+    public void ShowHidePanelOnce()
+    {
+        if (_didHidePanel) return;
+        _didHidePanel = true;
+        if (_pauseGate) return;
+        StartCoroutine(CoShowPausePanel(HidePanel));
+    }
+
+    // ========== 共通：パネル表示→一時停止→UI.Submitで閉じる ==========
+
+    private IEnumerator CoShowPausePanel(GameObject panel)
     {
         if (!panel) yield break;
 
@@ -242,7 +251,8 @@ public class Tutorial : MonoBehaviour
         float prevScale = Time.timeScale;
         Time.timeScale = 0f;
 
-        yield return null; // 1フレーム置く
+        // 1フレーム待ってから入力待ち
+        yield return null;
         while (!_input.UI.Submit.WasPressedThisFrame())
             yield return null;
 
@@ -252,8 +262,8 @@ public class Tutorial : MonoBehaviour
         _pauseGate = false;
     }
 
-    // ===== ドア制御 =====
-    void ApplyDoorEnableByProgress(int progress)
+    // ========== ドア制御 ==========
+    private void ApplyDoorEnableByProgress(int progress)
     {
         _lastAppliedProgress = progress;
         bool enableDoor = progress >= MinProgressToEnableDoor;
@@ -264,9 +274,9 @@ public class Tutorial : MonoBehaviour
             if (od.enabled != enableDoor) od.enabled = enableDoor;
         }
     }
-    void OnProgressChanged(int newProgress) => ApplyDoorEnableByProgress(newProgress);
+    private void OnProgressChanged(int newProgress) => ApplyDoorEnableByProgress(newProgress);
 
-    // ===== タイプ演出 =====
+    // ========== タイプ演出 ==========
     public void Step1()
     {
         if (!BottomText) return;
@@ -283,7 +293,7 @@ public class Tutorial : MonoBehaviour
         _typing = StartCoroutine(CoTypeOneShot(line));
     }
 
-    IEnumerator CoTypeOneShot(string line)
+    private IEnumerator CoTypeOneShot(string line)
     {
         yield return StartCoroutine(CoTypeOne(line));
         yield return new WaitForSeconds(LineInterval);
@@ -291,7 +301,7 @@ public class Tutorial : MonoBehaviour
         _typing = null;
     }
 
-    IEnumerator CoTypeLines(string[] lines)
+    private IEnumerator CoTypeLines(string[] lines)
     {
         for (int li = 0; li < lines.Length; li++)
         {
@@ -302,7 +312,7 @@ public class Tutorial : MonoBehaviour
         _typing = null;
     }
 
-    IEnumerator CoTypeOne(string text)
+    private IEnumerator CoTypeOne(string text)
     {
         BottomText.text = "";
         if (CharsPerSecond <= 0f) { BottomText.text = text; yield break; }
@@ -311,7 +321,7 @@ public class Tutorial : MonoBehaviour
         float acc = 0f; int i = 0;
         while (i < text.Length)
         {
-            // ポーズ中のタイプを止めたいなら deltaTime、進めたいなら unscaledDeltaTime
+            // 時間停止中はタイプを止めたいので deltaTime を使用（unscaled にすると止まらない）
             acc += Time.deltaTime;
             while (acc >= interval && i < text.Length)
             {
@@ -320,19 +330,5 @@ public class Tutorial : MonoBehaviour
             }
             yield return null;
         }
-    }
-
-    // ===== 小ユーティリティ：ピッチ付き PlayClipAtPoint =====
-    void PlayClipAtPointPitch(AudioClip clip, Vector3 pos, float vol, float pitch)
-    {
-        // ワンショット専用の一時AudioSourceを生成してすぐ破棄
-        GameObject go = new GameObject("OneShotSE_Tutorial");
-        go.transform.position = pos;
-        var src = go.AddComponent<AudioSource>();
-        src.spatialBlend = 1f;
-        src.volume = Mathf.Clamp01(vol);
-        src.pitch = Mathf.Clamp(pitch, 0.5f, 2f);
-        src.PlayOneShot(clip, src.volume);
-        Destroy(go, clip.length / Mathf.Max(0.1f, src.pitch));
     }
 }
