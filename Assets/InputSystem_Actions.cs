@@ -200,7 +200,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""initialStateCheck"": false
                 },
                 {
-                    ""name"": ""push"",
+                    ""name"": ""Push"",
                     ""type"": ""Button"",
                     ""id"": ""f6a948e0-079d-4ae2-81ef-93698f31c684"",
                     ""expectedControlType"": """",
@@ -668,7 +668,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
-                    ""action"": ""push"",
+                    ""action"": ""Push"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 }
@@ -1268,7 +1268,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         m_Player_DoorOpen = m_Player.FindAction("DoorOpen", throwIfNotFound: true);
         m_Player_Dash = m_Player.FindAction("Dash", throwIfNotFound: true);
         m_Player_SlowWalk = m_Player.FindAction("SlowWalk", throwIfNotFound: true);
-        m_Player_push = m_Player.FindAction("push", throwIfNotFound: true);
+        m_Player_Push = m_Player.FindAction("Push", throwIfNotFound: true);
         // UI
         m_UI = asset.FindActionMap("UI", throwIfNotFound: true);
         m_UI_Navigate = m_UI.FindAction("Navigate", throwIfNotFound: true);
@@ -1374,7 +1374,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
     private readonly InputAction m_Player_DoorOpen;
     private readonly InputAction m_Player_Dash;
     private readonly InputAction m_Player_SlowWalk;
-    private readonly InputAction m_Player_push;
+    private readonly InputAction m_Player_Push;
     /// <summary>
     /// Provides access to input actions defined in input action map "Player".
     /// </summary>
@@ -1435,9 +1435,9 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// </summary>
         public InputAction @SlowWalk => m_Wrapper.m_Player_SlowWalk;
         /// <summary>
-        /// Provides access to the underlying input action "Player/push".
+        /// Provides access to the underlying input action "Player/Push".
         /// </summary>
-        public InputAction @push => m_Wrapper.m_Player_push;
+        public InputAction @Push => m_Wrapper.m_Player_Push;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -1500,9 +1500,9 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @SlowWalk.started += instance.OnSlowWalk;
             @SlowWalk.performed += instance.OnSlowWalk;
             @SlowWalk.canceled += instance.OnSlowWalk;
-            @push.started += instance.OnPush;
-            @push.performed += instance.OnPush;
-            @push.canceled += instance.OnPush;
+            @Push.started += instance.OnPush;
+            @Push.performed += instance.OnPush;
+            @Push.canceled += instance.OnPush;
         }
 
         /// <summary>
@@ -1550,9 +1550,9 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @SlowWalk.started -= instance.OnSlowWalk;
             @SlowWalk.performed -= instance.OnSlowWalk;
             @SlowWalk.canceled -= instance.OnSlowWalk;
-            @push.started -= instance.OnPush;
-            @push.performed -= instance.OnPush;
-            @push.canceled -= instance.OnPush;
+            @Push.started -= instance.OnPush;
+            @Push.performed -= instance.OnPush;
+            @Push.canceled -= instance.OnPush;
         }
 
         /// <summary>
@@ -1938,7 +1938,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnSlowWalk(InputAction.CallbackContext context);
         /// <summary>
-        /// Method invoked when associated input action "push" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// Method invoked when associated input action "Push" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
         /// </summary>
         /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
