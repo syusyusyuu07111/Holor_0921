@@ -14,7 +14,7 @@ OcclusionCullingSettings:
 RenderSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 10
-  m_Fog: 1
+  m_Fog: 0
   m_FogColor: {r: 0.1997792, g: 0.5320754, b: 0.51173073, a: 1}
   m_FogMode: 3
   m_FogDensity: 0.033
@@ -12210,7 +12210,7 @@ MonoBehaviour:
   MsgText: {fileID: 890327098}
   PromptOn: "\u3010SPACE\u3011\u30E9\u30A4\u30C8\u3092\u6D88\u3059"
   PromptOff: "\u3010SPACE\u3011\u30E9\u30A4\u30C8\u3092\u70B9\u3051\u308B"
-  MsgTurnedOff: "\u30E9\u30A4\u30C8\u304C\u6D88\u3048\u305F\u3088\u3046\u3060"
+  MsgTurnedOff: "\u30E9\u30A4\u30C8\u306E\u8272\u304C\u5909\u308F\u3063\u305F\u3088\u3046\u3060"
   MsgTurnedOn: "\u30E9\u30A4\u30C8\u304C\u70B9\u3044\u305F\u3088\u3046\u3060"
   EventMsgDuration: 0.5
   HintRef: {fileID: 1534714873}
