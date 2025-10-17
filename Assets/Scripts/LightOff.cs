@@ -9,49 +9,82 @@ public class LightOff : MonoBehaviour
     public GameObject Light;                                // 近接判定の位置（スイッチ等）
     public float PushDistance = 3.0f;                       // インタラクト距離
     public bool OnLight = true;                             // 今ライトが点いているか
-    public GameObject Ghost;                                // 消灯時に消す対象（任意）
+    public GameObject Ghost;                                // 暖色化時に消す対象（任意）
+    public GameObject lever;                                // 回すレバー
+    public float RotateLever = 30f;                         // 回す量（X度）
+
+    [Header("レバー回転（追加）")]
+    public float LeverRotateSpeed = 180f;                   // 回転速度[deg/sec]
+    private bool _isLeverAnimating = false;                 // 回転中フラグ
 
     [SerializeField] private List<Light> LightLists = new();// 操作対象ライト群
 
+    // ==== 暖色設定（Inspector） ====
+    [Header("ライト暖色（OFF操作時に適用）")]
+    public Color WarmLightColor = new Color(1.0f, 0.78f, 0.56f, 1f); // デフォ“暖かい色”
+
+    // ==== 見せカメラ切替 ====
+    [Header("見せ用カメラ（任意）")]
+    public Camera MainCamera;                               // 通常表示カメラ（未設定なら Camera.main）
+    public Camera ShowcaseCamera;                           // 見せ用の固定/演出カメラ
+    public float ShowcaseHoldSeconds = 0.5f;                // 色変更後に“見せる”実時間
+
     InputSystem_Actions input;                              // 新InputSystem
 
-    // --------------- ここから実装を追加（2種類のテキスト） ---------------
+    // ------- 2種類のテキスト -------
     public TextMeshProUGUI PromptText;                      // 近づいた時だけ出す「キー案内」
     public TextMeshProUGUI MsgText;                         // 点いた/消えた“瞬間だけ”出るメッセージ
-    // --------------- ここまで実装を追加 ---------------
 
-    // --------------- ここから実装を追加（文言/表示時間） ---------------
+    // ------- 文言/表示時間 -------
     [Header("文言設定")]
-    public string PromptOn = "【E】ライトを消す";           // 点灯中に近づいた時の案内
-    public string PromptOff = "【E】ライトを点ける";         // 消灯中に近づいた時の案内
-    public string MsgTurnedOff = "ライトが消えたようだ";     // 消した直後のメッセージ
-    public string MsgTurnedOn = "ライトが点いたようだ";     // 点けた直後のメッセージ
+    public string PromptOn = "【E】暖色にする";              // 点灯中：暖色にする
+    public string PromptOff = "【E】ライトを点ける";         // 消灯中の案内
+    public string MsgTurnedOff = "ライトが暖かい色になった";
+    public string MsgTurnedOn = "ライトが点いたようだ";
 
     [Header("表示時間")]
     public float EventMsgDuration = 5.0f;                   // メッセージ表示秒数
-    private float _msgTimer = 0f;                           // 残り表示時間
-    // --------------- ここまで実装を追加 ---------------
+    private float _msgTimer = 0f;
 
-    // --------------- ここから実装を追加（進行度連携） ---------------
+    // ------- 進行度連携 -------
     [Header("進行度（ミッション）")]
-    public HintText HintRef;                                // ヒント/進行度管理への参照（任意）
-    public bool AutoFindHintRef = true;                     // 未設定なら自動検索
-    public int AdvanceAmountOnOff = 1;                      // 消灯で進む段数（通常1）
-    public int DecreaseAmountOnOn = 1;                      // 点灯で下がる段数（通常1）
+    public HintText HintRef;
+    public bool AutoFindHintRef = true;
+    public int AdvanceAmountOnOff = 1;                      // 暖色化で進む
+    public int DecreaseAmountOnOn = 1;                      // 点灯で下がる
 
-    [Tooltip("同じライトでは最初の消灯だけを進行度にカウントする")]
-    public bool CountOnlyOncePerThisLight = false;          // 一回きりにするか？
-    private bool _alreadyCounted = false;                   // このライトで既に加算したか
+    [Tooltip("同じライトでは最初の“暖色化”だけを進行度にカウントする")]
+    public bool CountOnlyOncePerThisLight = false;
+    private bool _alreadyCounted = false;
 
     [Tooltip("トグルの連打での多重カウント防止（秒）")]
-    public float ToggleDebounceSeconds = 0.25f;             // デバウンス秒（消灯/点灯の両方で使用）
-    private float _lastToggleTime = -999f;                   // 直近トグル時刻
-    // --------------- ここまで実装を追加 ---------------
+    public float ToggleDebounceSeconds = 0.25f;
+    private float _lastToggleTime = -999f;
+
+    // ------- “一度点けたら固定ON”ロック -------
+    private bool _lockedOn = false;
+    private bool IsLocked() => _lockedOn;
+
+    // ------- レバー中はゲーム時間停止 -------
+    private bool _pausedForLever = false;
+    private float _timeScaleBeforePause = 1f;
+    private void PauseGameForLever()
+    {
+        if (_pausedForLever) return;
+        _timeScaleBeforePause = Time.timeScale;
+        Time.timeScale = 0f;                                // ★時間停止
+        _pausedForLever = true;
+    }
+    private void ResumeGameIfPausedForLever()
+    {
+        if (!_pausedForLever) return;
+        Time.timeScale = _timeScaleBeforePause;             // ★時間再開
+        _pausedForLever = false;
+    }
 
     private void Awake()
     {
-        input = new InputSystem_Actions();                  // 入力クラス生成
-        // --------------- ここから実装を追加（進行度の自動取得：非推奨置換対応） ---------------
+        input = new InputSystem_Actions();
         if (AutoFindHintRef && !HintRef)
         {
 #if UNITY_2023_1_OR_NEWER
@@ -60,91 +93,162 @@ public class LightOff : MonoBehaviour
             HintRef = FindObjectOfType<HintText>(true);
 #endif
         }
-        // --------------- ここまで実装を追加 ---------------
+
+        if (!MainCamera && Camera.main) MainCamera = Camera.main;
+        if (ShowcaseCamera) ShowcaseCamera.enabled = false; // 初期は無効
     }
 
     private void OnEnable()
     {
-        input.Player.Enable();                              // アクション有効化
-        // --------------- ここから実装を追加（初期は非表示） ---------------
+        input.Player.Enable();
         if (PromptText) { PromptText.text = ""; PromptText.gameObject.SetActive(false); }
         if (MsgText) { MsgText.text = ""; MsgText.gameObject.SetActive(false); }
-        // --------------- ここまで実装を追加 ---------------
     }
 
     private void OnDisable()
     {
-        input.Player.Disable();                             // アクション無効化
+        input.Player.Disable();
     }
 
     void Update()
     {
-        if (!Player || !Light) return;                      // 参照欠けガード
+        if (!Player || !Light) return;
 
-        // 近接チェック ---------------------------------------------------------------
+        // 近接チェック
         float distance = Vector3.Distance(Player.transform.position, Light.transform.position);
         bool inRange = (distance < PushDistance);
 
-        // キー案内（近接時のみ） -----------------------------------------------------
-        if (PromptText) PromptText.gameObject.SetActive(inRange);
-        if (inRange && PromptText)
+        // 案内表示（ロック/レバー中は非表示）
+        if (PromptText) PromptText.gameObject.SetActive(inRange && !_isLeverAnimating && !IsLocked());
+        if (inRange && PromptText && !IsLocked())
         {
             PromptText.text = OnLight ? PromptOn : PromptOff;
         }
 
-        // 入力トグル ----------------------------------------------------------------
-        if (inRange && input.Player.Jump.triggered)         // ← Jump をインタラクトに使用中
+        // 入力
+        if (inRange && !_isLeverAnimating && !IsLocked() && input.Player.Jump.triggered) // Jump=インタラクト
         {
             if (OnLight) Off(); else On();
         }
 
-        // メッセージ寿命 -------------------------------------------------------------
+        // メッセージ寿命
         if (_msgTimer > 0f)
         {
-            _msgTimer -= Time.deltaTime;
+            _msgTimer -= Time.deltaTime;                    // timeScaleの影響を受ける
             if (_msgTimer <= 0f && MsgText)
             {
                 MsgText.text = "";
-                MsgText.gameObject.SetActive(false);        // 5秒経ったら消す
+                MsgText.gameObject.SetActive(false);
             }
         }
     }
 
-    // --------------- ここから実装を追加（全ライトOFF：進行度＋） ---------------
+    // ========= “OFF操作”＝暖色にする + カメラ演出 =========
     void Off()
     {
-        // デバウンス（消灯/点灯共通） ------------------------------------------------
+        if (IsLocked()) return;
+
         if (Time.time - _lastToggleTime < ToggleDebounceSeconds) return;
         _lastToggleTime = Time.time;
 
+        // 順番：押す＞時間止める＞レバー＞カメラ切替＞色変える＞数秒待つ＞カメラ戻す＞時間戻す
+        if (lever && RotateLever != 0f)
+        {
+            if (!_isLeverAnimating) StartCoroutine(CoRotateLeverThenShowcaseThenWarmify());
+            return;
+        }
+
+        // レバー無し：カメラ切替＞色＞待つ＞戻す＞時間戻す
+        StartCoroutine(CoOnlyShowcaseThenWarmify());
+    }
+
+    // レバーあり：押す＞時間止める＞レバー＞カメラ切替＞色＞待つ＞カメラ戻す＞時間戻す
+    private System.Collections.IEnumerator CoRotateLeverThenShowcaseThenWarmify()
+    {
+        _isLeverAnimating = true;
+        PauseGameForLever();                                // ★時間停止
+
+        // レバー回転（Xのみ、停止中でも進む）
+        Transform tf = lever.transform;
+        Vector3 euler = tf.localEulerAngles;
+        float startX = euler.x;
+        float endX = startX + RotateLever;
+        float duration = Mathf.Max(0.01f, Mathf.Abs(RotateLever) / Mathf.Max(1f, LeverRotateSpeed));
+        float t = 0f;
+        while (t < duration)
+        {
+            t += Time.unscaledDeltaTime;                    // 停止中でも進行
+            float x = Mathf.LerpAngle(startX, endX, Mathf.Clamp01(t / duration));
+            euler = tf.localEulerAngles; euler.x = x;
+            tf.localEulerAngles = euler;
+            yield return null;
+        }
+        euler = tf.localEulerAngles; euler.x = endX; tf.localEulerAngles = euler;
+
+        // カメラ切替（メイン→見せ）
+        SwitchToShowcaseCamera();
+
+        // 直ちに色変更
+        DoWarmifyInternal();
+
+        // “見せ”のための待機（実時間）
+        yield return new WaitForSecondsRealtime(Mathf.Max(0f, ShowcaseHoldSeconds));
+
+        // カメラ戻す（見せ→メイン）
+        SwitchBackToMainCamera();
+
+        _isLeverAnimating = false;
+
+        // 最後に時間再開
+        ResumeGameIfPausedForLever();
+    }
+
+    // レバー無し：カメラ切替＞色＞待つ＞戻す＞時間戻す
+    private System.Collections.IEnumerator CoOnlyShowcaseThenWarmify()
+    {
+        PauseGameForLever();                                // ★時間停止
+
+        SwitchToShowcaseCamera();
+        DoWarmifyInternal();
+        yield return new WaitForSecondsRealtime(Mathf.Max(0f, ShowcaseHoldSeconds));
+        SwitchBackToMainCamera();
+
+        ResumeGameIfPausedForLever();                       // ★時間再開
+    }
+
+    // 暖色化（enabledは触らず色のみ）
+    private void DoWarmifyInternal()
+    {
         foreach (var l in LightLists)
         {
-            if (l) l.enabled = false;
+            if (!l) continue;
+            l.color = WarmLightColor;                       // ★ 暖かい色を適用
         }
-        OnLight = false;
-        Debug.Log("ライトを消した");
 
-        if (Ghost) Destroy(Ghost.gameObject);               // 仕様：消灯時にゴースト破棄（任意）
+        OnLight = false;                                    // UIテキスト上の“OFF側”扱い
+        Debug.Log("ライトを暖色にした");
 
-        ShowEventMessage(MsgTurnedOff);                     // 「消えたようだ」
+        if (Ghost) Destroy(Ghost.gameObject);               // 任意：暖色化時にゴースト破棄
 
-        // 進行度を進める（一回きりモード考慮）
+        ShowEventMessage(MsgTurnedOff);
+
+        // 進行度（必要なら一回きり）
         if (!CountOnlyOncePerThisLight || (CountOnlyOncePerThisLight && !_alreadyCounted))
         {
             if (HintRef && AdvanceAmountOnOff > 0)
             {
                 for (int i = 0; i < AdvanceAmountOnOff; i++)
-                    HintRef.AdvanceProgress();              // 進行度 +1（複数可）
+                    HintRef.AdvanceProgress();
             }
-            _alreadyCounted = true;                         // 一回きりフラグ
+            _alreadyCounted = true;
         }
     }
-    // --------------- ここまで実装を追加 ---------------
 
-    // --------------- ここから実装を追加（全ライトON：進行度－） ---------------
+    // ========= 全ライトON：進行度－＆固定ONロック =========
     void On()
     {
-        // デバウンス（消灯/点灯共通） ------------------------------------------------
+        if (IsLocked()) return;
+
         if (Time.time - _lastToggleTime < ToggleDebounceSeconds) return;
         _lastToggleTime = Time.time;
 
@@ -155,30 +259,43 @@ public class LightOff : MonoBehaviour
         OnLight = true;
         Debug.Log("ライトを点けた");
 
-        ShowEventMessage(MsgTurnedOn);                      // 「点いたようだ」
+        ShowEventMessage(MsgTurnedOn);
 
-        // --------------- ここから実装を追加（点灯で進行度を下げる） ---------------
-        // 条件：直前が「消えていた」状態 → 今点けたので減少させる
         if (HintRef && DecreaseAmountOnOn > 0)
         {
             for (int i = 0; i < DecreaseAmountOnOn; i++)
-            {
-                // SetProgress で下限クランプされる前提。直接1段ずつ下げる。
                 HintRef.SetProgress(HintRef.ProgressStage - 1);
-            }
         }
-        // ※ 一回きり制御は「減少」には適用しない（仕様）。必要なら同様のフラグを追加してね。
-        // --------------- ここまで実装を追加 ---------------
-    }
-    // --------------- ここまで実装を追加 ---------------
 
-    // --------------- ここから実装を追加（メッセージ表示共通） ---------------
+        _lockedOn = true;                                   // 以降は無反応
+        if (PromptText) PromptText.gameObject.SetActive(false);
+    }
+
+    // ========= カメラ切りかえ =========
+    private void SwitchToShowcaseCamera()
+    {
+        if (!MainCamera && Camera.main) MainCamera = Camera.main;
+
+        if (ShowcaseCamera)
+        {
+            if (MainCamera) MainCamera.enabled = false;
+            ShowcaseCamera.enabled = true;
+        }
+    }
+
+    private void SwitchBackToMainCamera()
+    {
+        if (ShowcaseCamera) ShowcaseCamera.enabled = false;
+        if (!MainCamera && Camera.main) MainCamera = Camera.main;
+        if (MainCamera) MainCamera.enabled = true;
+    }
+
+    // ========= メッセージ表示共通 =========
     void ShowEventMessage(string msg)
     {
         if (!MsgText) return;
         MsgText.text = msg;
         MsgText.gameObject.SetActive(true);
-        _msgTimer = Mathf.Max(0.01f, EventMsgDuration);     // 表示時間リセット
+        _msgTimer = Mathf.Max(0.01f, EventMsgDuration);     // timeScaleの影響を受ける
     }
-    // --------------- ここまで実装を追加 ---------------
 }
