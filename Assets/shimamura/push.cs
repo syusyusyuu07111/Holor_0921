@@ -26,8 +26,8 @@ public class push : MonoBehaviour
     [SerializeField] private LayerMask _itemLayer;              // アイテムのレイヤー（例：Item）
 
     [Header("Text")]
-    [SerializeField] private TextMeshProUGUI _itemTextMeshPro;
-    [SerializeField] private TextMeshProUGUI _pushTextMeshPro;
+    [SerializeField] private TextMeshProUGUI _itemTextMeshPro;  //アイテム取得テキスト
+    [SerializeField] private TextMeshProUGUI _pushTextMeshPro;  //椅子を押す＋乗るテキスト
 
     private Rigidbody _pushingRb = null;                    // 押しているオブジェクト
     private Vector3 _pushDirection;                         // 押す方向
@@ -46,10 +46,11 @@ public class push : MonoBehaviour
     {
         if (_isJumping)
         {
-            
             UpdateJump();
             return;
         }
+
+        //UpdateFurnitureStatus();
 
         if (_isOnFurniture)
         {
@@ -63,7 +64,7 @@ public class push : MonoBehaviour
 
         if (Physics.Raycast(ray, out hit, _pushDistance, _LayerPositoin))
         {
-            _pushTextMeshPro.SetText("Eキーで椅子に乗る\nFキーで椅子を押す");
+            _pushTextMeshPro.SetText("Rキーで椅子に乗る\nFキーで椅子を押す");
             ChairPush(hit);
             HandleJumpInput(hit);
         }
@@ -71,7 +72,6 @@ public class push : MonoBehaviour
         {
             // 何もヒットしていなければ解除
             _pushingRb = null;
-
             _pushTextMeshPro.SetText("");
         }
     }
@@ -128,7 +128,7 @@ public class push : MonoBehaviour
     /// </summary>
     private void HandleJumpInput(RaycastHit hit)
     {
-        if (Input.GetKeyDown(KeyCode.E))
+        if (Input.GetKeyDown(KeyCode.R))
         {
             Collider col = hit.collider;
             if (col == null) return;
@@ -153,14 +153,10 @@ public class push : MonoBehaviour
         Collider[] items = Physics.OverlapSphere(_player.position, _itemPickupRange, _itemLayer);
 
         // 該当するアイテムが1つもない場合は処理をスキップ
-        if (items.Length == 0)
-        {
-            _itemTextMeshPro.SetText("");
-            return;
-        }
+        if (items.Length == 0) return;
 
 
-        _itemTextMeshPro.SetText("Eキーアイテムを取る");
+        _itemTextMeshPro.SetText("Rキーアイテムを取る");
 
         // 一番近いアイテムを記録する変数
         Collider nearestItem = null;
@@ -184,11 +180,28 @@ public class push : MonoBehaviour
         }
 
         //一番近いアイテムがあり、Eキーを押したら拾う
-        if (nearestItem != null && Input.GetKeyDown(KeyCode.E))
+        if (nearestItem != null && Input.GetKeyDown(KeyCode.R))
         {
             _inventory.Add(nearestItem.gameObject);//インベントリ追加
             Debug.Log($"アイテム取得: {nearestItem.name}");
             Destroy(nearestItem.gameObject);
+        }
+    }
+
+    /// <summary>
+    /// 家具の上にいるかを確認
+    /// </summary>
+    private void UpdateFurnitureStatus()
+    {
+        if (!_isJumping && _isOnFurniture)
+        {
+            // もしプレイヤーが家具の上から離れたら
+            // ここでは家具の位置や高さで簡易判定
+            if (_player.position.y < _jumpEnd.y - 0.1f)
+            {
+                _isOnFurniture = false;
+                _itemTextMeshPro.SetText("");
+            }
         }
     }
 
