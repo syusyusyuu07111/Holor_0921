@@ -276,7 +276,7 @@ public class Tutorial : MonoBehaviour
             ShowOneShot(DoorLockedMessage);
             _doorMsgCD = DoorLockedCooldown;
 
-            // ★ ドア用ミッション：ステージ1達成（ロック中のドアを調べた）
+            // ドア用ミッション：ステージ1達成（ロック中のドアを調べた）
             if (EnableDoorMission && _doorMission == DoorMissionStage.DoorCheck)
             {
                 AdvanceDoorMissionTo(DoorMissionStage.FindGhost);
@@ -348,7 +348,7 @@ public class Tutorial : MonoBehaviour
         if (_pauseGate) return;
         StartCoroutine(CoShowPausePanel(Step4Panel_StateAny));
 
-        // ★ ドア用ミッション：ステージ2達成（幽霊を見つけた）
+        //  ドア用ミッション：ステージ2達成（幽霊を見つけた）
         if (EnableDoorMission && _doorMission == DoorMissionStage.FindGhost)
             AdvanceDoorMissionTo(DoorMissionStage.HearVoiceGoNext);
     }
@@ -429,7 +429,7 @@ public class Tutorial : MonoBehaviour
     }
     private void OnProgressChanged(int newProgress) => ApplyDoorEnableByProgress(newProgress);
 
-    // ========== タイプ演出 ==========
+    //  タイプ演出 =====================================================================================================================
     public void Step1()
     {
         if (!BottomText) return;
@@ -469,7 +469,7 @@ public class Tutorial : MonoBehaviour
         float acc = 0f; int i = 0;
         while (i < text.Length)
         {
-            // 時間停止中はタイプを止めたいので deltaTime を使用（unscaled にすると止まらない）
+            // 時間停止中はタイプを止めたいので deltaTime を使用
             acc += Time.deltaTime;
             while (acc >= interval && i < text.Length)
             {
@@ -590,9 +590,10 @@ public class Tutorial : MonoBehaviour
         // 完了
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
         BottomText.gameObject.SetActive(true);
-        yield return StartCoroutine(CoTypeOne(BasicDoneText));
-        yield return new WaitForSeconds(LineInterval);
+        BottomText.text = BasicDoneText;                         // ← 文字を一気に出す
+        yield return new WaitForSeconds(LineInterval);           // ← この余韻は必要なら0に
         if (HideWhenDone) BottomText.gameObject.SetActive(false);
+
 
         _basicDone = true;
         _basicRunning = false;
