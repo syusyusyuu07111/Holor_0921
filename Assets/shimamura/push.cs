@@ -1,5 +1,8 @@
+using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Video;
 using static UnityEditor.Experimental.GraphView.GraphView;
 
 public class push : MonoBehaviour
@@ -11,12 +14,20 @@ public class push : MonoBehaviour
 
     [Header("References")]
     [SerializeField] private Transform _rayOrigin;       　　　// レイを飛ばす起点
-    [SerializeField] private float _angleLimit = 60f;  // 押せる角度の範囲
+    [SerializeField] private float _angleLimit = 45f;  // 押せる角度の範囲
     [SerializeField] private Transform _player;                // プレイヤー本体（位置を動かす対象）
 
     [Header("Jump Settings")]
     [SerializeField] private float _jumpDuration = 0.7f;        // 飛ぶ時間（秒）
-    [SerializeField] private float _jumpHeight = 2f;            // 放物線の高さ
+    [SerializeField] private float _jumpHeight = 0.75f;            // 放物線の高さ
+
+    [Header("Item Pickup Settings")]
+    [SerializeField] private float _itemPickupRange = 1f;       // アイテムを拾える距離
+    [SerializeField] private LayerMask _itemLayer;              // アイテムのレイヤー（例：Item）
+
+    [Header("Text")]
+    [SerializeField] private TextMeshProUGUI _itemTextMeshPro;
+    [SerializeField] private TextMeshProUGUI _pushTextMeshPro;
 
     private Rigidbody _pushingRb = null;                    // 押しているオブジェクト
     private Vector3 _pushDirection;                         // 押す方向
@@ -26,14 +37,23 @@ public class push : MonoBehaviour
     private Vector3 _jumpStart;                                  // ジャンプ開始位置
     private Vector3 _jumpEnd;                                    // ジャンプ目標位置
     private float _jumpElapsed = 0f;                             // ジャンプ経過時間
+    private bool _isOnFurniture = false;                        // 家具の上に乗っているか
 
+    //インベントリ
+    private List<GameObject> _inventory = new List<GameObject>();  // 拾ったアイテムを保存するリスト
 
     private void Update()
     {
         if (_isJumping)
         {
+            
             UpdateJump();
             return;
+        }
+
+        if (_isOnFurniture)
+        {
+            CheckItemPickup();
         }
 
 
@@ -43,6 +63,7 @@ public class push : MonoBehaviour
 
         if (Physics.Raycast(ray, out hit, _pushDistance, _LayerPositoin))
         {
+            _pushTextMeshPro.SetText("Eキーで椅子に乗る\nFキーで椅子を押す");
             ChairPush(hit);
             HandleJumpInput(hit);
         }
@@ -50,6 +71,8 @@ public class push : MonoBehaviour
         {
             // 何もヒットしていなければ解除
             _pushingRb = null;
+
+            _pushTextMeshPro.SetText("");
         }
     }
 
@@ -95,6 +118,7 @@ public class push : MonoBehaviour
         if (t >= 1f)
         {
             _isJumping = false;
+            _isOnFurniture = true; // ←ここ追加
             Debug.Log("家具の上に着地完了！");
         }
     }
@@ -118,6 +142,53 @@ public class push : MonoBehaviour
             _isJumping = true;
 
             Debug.Log("放物線ジャンプ開始 → " + hit.transform.name);
+        }
+    }
+
+    /// <summary>
+    /// 家具の上でアイテムを取得する処理
+    /// </summary>
+    private void CheckItemPickup()
+    {
+        Collider[] items = Physics.OverlapSphere(_player.position, _itemPickupRange, _itemLayer);
+
+        // 該当するアイテムが1つもない場合は処理をスキップ
+        if (items.Length == 0)
+        {
+            _itemTextMeshPro.SetText("");
+            return;
+        }
+
+
+        _itemTextMeshPro.SetText("Eキーアイテムを取る");
+
+        // 一番近いアイテムを記録する変数
+        Collider nearestItem = null;
+        float minDist = Mathf.Infinity;
+
+        // 取得した全アイテムを調べる
+        foreach (var item in items)
+        {
+            // レイヤーが正しいか再確認（OverLapSphereの結果に他の物が混ざった場合用）
+            if (((1 << item.gameObject.layer) & _itemLayer) == 0) continue;
+
+            // 距離を計算
+            float dist = Vector3.Distance(_player.position, item.transform.position);
+
+            // より近ければ更新
+            if (dist < minDist)
+            {
+                minDist = dist;
+                nearestItem = item;
+            }
+        }
+
+        //一番近いアイテムがあり、Eキーを押したら拾う
+        if (nearestItem != null && Input.GetKeyDown(KeyCode.E))
+        {
+            _inventory.Add(nearestItem.gameObject);//インベントリ追加
+            Debug.Log($"アイテム取得: {nearestItem.name}");
+            Destroy(nearestItem.gameObject);
         }
     }
 
