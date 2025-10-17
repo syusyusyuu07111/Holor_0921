@@ -15,6 +15,10 @@ public class Tutorial : MonoBehaviour
     [TextArea] public string[] Step3Lines = { "……何か音がしたぞ！", "周りを探してみよう。" }; // （修正）1回目の生成時に出す
     Coroutine _typing;
 
+    // （追加）ロック解除テキスト
+    [TextArea] public string DoorUnlockedMessage = "ドアが開いたようだ";
+    private bool _didAnnounceDoorUnlocked = false; // 一度だけ表示
+
     // ========== 進行度参照 ==========
     [Header("進行度参照")]
     public HintText HintRef;
@@ -167,7 +171,7 @@ public class Tutorial : MonoBehaviour
         // ドア用ミッション開始（独立表示）
         if (EnableDoorMission) StartDoorMissionIfNeeded();
 
-        // （追加）スポーナーの生成イベント購読：最初の1回だけ Step3Lines を出す
+        // スポーナーの生成イベント購読：最初の1回だけ Step3Lines を出す
         if (Spawners != null)
         {
             for (int i = 0; i < Spawners.Count; i++)
@@ -190,7 +194,7 @@ public class Tutorial : MonoBehaviour
 
         if (Time.timeScale == 0f) Time.timeScale = 1f; // 念のため復旧
 
-        // （追加）購読解除
+        // 購読解除
         if (Spawners != null)
         {
             for (int i = 0; i < Spawners.Count; i++)
@@ -224,7 +228,7 @@ public class Tutorial : MonoBehaviour
         if (!_pauseGate) HandleLockedDoorTapFeedback(); // パネル中は抑止
 
         // ミッション3：声を聞いた後、有効なドアにして完了
-        if (EnableDoorMission && _doorMission == DoorMissionStage.HearVoiceGoNext && !_pauseGate && IsEventAllowed()) // （追加）ゲート
+        if (EnableDoorMission && _doorMission == DoorMissionStage.HearVoiceGoNext && !_pauseGate && IsEventAllowed())
         {
             TryCompleteDoorMissionByEnabledDoorInteract();
         }
@@ -233,7 +237,7 @@ public class Tutorial : MonoBehaviour
     // ========== Step2：ドアロック文言 → その後Step3（抽選開始） ==========
     private void HandleLockedDoorTapFeedback()
     {
-        // （追加）前段が未完了なら何も起こさない
+        // 前段が未完了なら何も起こさない
         if (!IsEventAllowed()) return;
 
         if (!Player) return;
@@ -265,7 +269,7 @@ public class Tutorial : MonoBehaviour
                 if (dot < DoorFacingDotThreshold) continue;
             }
 
-            // （追加）Step1 などの読み上げ中なら一旦スキップして次イベントへ進められる状態にする
+            // Step1 などの読み上げ中なら一旦スキップして次イベントへ進められる状態にする
             SkipCurrentTyping();
 
             // Step2：ロック文言（OneShot）
@@ -305,21 +309,19 @@ public class Tutorial : MonoBehaviour
         if (_didStep3) return;
         _didStep3 = true;
 
-        // （追加）安全側：前段未完了なら開始しない（通常はここに来ないが二重ガード）
+        // 安全側：前段未完了なら開始しない
         if (!IsEventAllowed()) return;
 
         // 1) 抽選開始（EnemyAIにBeginSpawningを呼ぶ）
         for (int i = 0; i < Spawners.Count; i++)
             if (Spawners[i]) Spawners[i].BeginSpawning();
 
-        // 2) （削除）ここでは Step3Lines を出さない
-        //    最初の生成イベント(OnGhostSpawned)で OnAnyGhostSpawned_FirstTime() が表示する
+        // 2) ここでは Step3Lines を出さない（最初の生成イベントで表示）
     }
 
-    // （追加）最初の生成時に一度だけ Step3Lines を表示
+    // 最初の生成時に一度だけ Step3Lines を表示
     private void OnAnyGhostSpawned_FirstTime()
     {
-        // 前段が未完了の間は表示しない
         if (!IsEventAllowed()) return;
 
         if (_step3TextShown) return;
@@ -339,7 +341,6 @@ public class Tutorial : MonoBehaviour
     // ========== Step4/5/6：既存 UI ==========
     public void Step4_ShowPanel()
     {
-        // （追加）前段が未完了なら発火しない
         if (!IsEventAllowed()) return;
 
         if (_didStep4) return;
@@ -354,7 +355,6 @@ public class Tutorial : MonoBehaviour
 
     public void Step5_ShowPanel()
     {
-        // （追加）前段が未完了なら発火しない
         if (!IsEventAllowed()) return;
 
         if (_didStep5) return;
@@ -372,7 +372,6 @@ public class Tutorial : MonoBehaviour
 
     public void ShowHidePanelOnce()
     {
-        // （追加）前段が未完了なら発火しない
         if (!IsEventAllowed()) return;
 
         if (_didHidePanel) return;
@@ -408,11 +407,24 @@ public class Tutorial : MonoBehaviour
     {
         _lastAppliedProgress = progress;
         bool enableDoor = progress >= MinProgressToEnableDoor;
+
+        bool anyJustEnabled = false; // この呼び出しで“初めて有効になった”ドアがあるか
         for (int i = 0; i < DoorScripts.Count; i++)
         {
             var od = DoorScripts[i];
             if (!od) continue;
+
+            bool wasEnabled = od.enabled;
             if (od.enabled != enableDoor) od.enabled = enableDoor;
+
+            if (!wasEnabled && enableDoor) anyJustEnabled = true;
+        }
+
+        // ちょうど今ロック解除された → 一度だけテキストを出す（ポーズ中は出さない）
+        if (enableDoor && anyJustEnabled && !_didAnnounceDoorUnlocked && !_pauseGate)
+        {
+            ShowOneShot(string.IsNullOrEmpty(DoorUnlockedMessage) ? "ドアが開いたようだ" : DoorUnlockedMessage);
+            _didAnnounceDoorUnlocked = true;
         }
     }
     private void OnProgressChanged(int newProgress) => ApplyDoorEnableByProgress(newProgress);
