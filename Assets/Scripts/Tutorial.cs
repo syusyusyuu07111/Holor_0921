@@ -12,7 +12,7 @@ public class Tutorial : MonoBehaviour
     public bool HideWhenDone = true;
 
     [TextArea] public string[] Step1Lines = { "……ここはどこだろう。", "さっきまでの記憶が曖昧だ。", "とにかく、出口を探さないと。" };
-    [TextArea] public string[] Step3Lines = { "……何か音がしたぞ！", "周りを探してみよう。" }; // 抽選開始と同時に出す
+    [TextArea] public string[] Step3Lines = { "……何か音がしたぞ！", "周りを探してみよう。" }; // （修正）1回目の生成時に出す
     Coroutine _typing;
 
     // ========== 進行度参照 ==========
@@ -61,6 +61,9 @@ public class Tutorial : MonoBehaviour
 
     private bool _didStep2 = false;          // ドアロックを初回検知したか
     private bool _didStep3 = false;          // 抽選開始を実行したか
+
+    // （追加）Step3テキストを「最初の生成時に一度だけ」出すためのフラグ
+    private bool _step3TextShown = false;
 
     // ========== 前段チュートリアル（移動／視点／ダッシュ） ==========
     [Header("前段チュートリアル（移動／視点／ダッシュ）")]
@@ -112,7 +115,21 @@ public class Tutorial : MonoBehaviour
     private DoorMissionStage _doorMission = DoorMissionStage.None;
     private Coroutine _typingMission;
     private bool _heardVoice = false; // state=2 検知フラグ
-    // ========== 追加ここまで ==========
+    // ===================================================================================
+
+    // （追加）前段が未完了の間は一切のイベント/進行を出さないための共通ゲート
+    private bool IsEventAllowed() => !EnableBasicTutorial || _basicDone;
+
+    // （追加）進行中のタイプ演出を強制スキップして非表示にする（Step1表示中にドア叩いた場合など）
+    private void SkipCurrentTyping()
+    {
+        if (_typing != null)
+        {
+            StopCoroutine(_typing);
+            _typing = null;
+        }
+        if (BottomText) BottomText.gameObject.SetActive(false);
+    }
 
     // ========== ライフサイクル ==========
     private void Awake()
@@ -149,6 +166,13 @@ public class Tutorial : MonoBehaviour
 
         // ドア用ミッション開始（独立表示）
         if (EnableDoorMission) StartDoorMissionIfNeeded();
+
+        // （追加）スポーナーの生成イベント購読：最初の1回だけ Step3Lines を出す
+        if (Spawners != null)
+        {
+            for (int i = 0; i < Spawners.Count; i++)
+                if (Spawners[i]) Spawners[i].OnGhostSpawned.AddListener(OnAnyGhostSpawned_FirstTime);
+        }
     }
 
     private void OnDisable()
@@ -165,6 +189,13 @@ public class Tutorial : MonoBehaviour
         _input.UI.Disable();
 
         if (Time.timeScale == 0f) Time.timeScale = 1f; // 念のため復旧
+
+        // （追加）購読解除
+        if (Spawners != null)
+        {
+            for (int i = 0; i < Spawners.Count; i++)
+                if (Spawners[i]) Spawners[i].OnGhostSpawned.RemoveListener(OnAnyGhostSpawned_FirstTime);
+        }
     }
 
     private void Start()
@@ -192,8 +223,8 @@ public class Tutorial : MonoBehaviour
 
         if (!_pauseGate) HandleLockedDoorTapFeedback(); // パネル中は抑止
 
-        // ミッション3：声を聞いた後、有効なドアへのインタラクトで完了
-        if (EnableDoorMission && _doorMission == DoorMissionStage.HearVoiceGoNext && !_pauseGate)
+        // ミッション3：声を聞いた後、有効なドアにして完了
+        if (EnableDoorMission && _doorMission == DoorMissionStage.HearVoiceGoNext && !_pauseGate && IsEventAllowed()) // （追加）ゲート
         {
             TryCompleteDoorMissionByEnabledDoorInteract();
         }
@@ -202,6 +233,9 @@ public class Tutorial : MonoBehaviour
     // ========== Step2：ドアロック文言 → その後Step3（抽選開始） ==========
     private void HandleLockedDoorTapFeedback()
     {
+        // （追加）前段が未完了なら何も起こさない
+        if (!IsEventAllowed()) return;
+
         if (!Player) return;
         if (_doorMsgCD > 0f) { _doorMsgCD -= Time.deltaTime; return; }
 
@@ -231,6 +265,9 @@ public class Tutorial : MonoBehaviour
                 if (dot < DoorFacingDotThreshold) continue;
             }
 
+            // （追加）Step1 などの読み上げ中なら一旦スキップして次イベントへ進められる状態にする
+            SkipCurrentTyping();
+
             // Step2：ロック文言（OneShot）
             ShowOneShot(DoorLockedMessage);
             _doorMsgCD = DoorLockedCooldown;
@@ -259,7 +296,7 @@ public class Tutorial : MonoBehaviour
         // 少し間を置く
         yield return new WaitForSeconds(StartSpawnDelayAfterStep2);
 
-        // Step3 実行（抽選開始＋文言）
+        // Step3 実行（抽選開始のみ：テキストは1回目生成時に出す）
         DoStep3();
     }
 
@@ -268,22 +305,43 @@ public class Tutorial : MonoBehaviour
         if (_didStep3) return;
         _didStep3 = true;
 
+        // （追加）安全側：前段未完了なら開始しない（通常はここに来ないが二重ガード）
+        if (!IsEventAllowed()) return;
+
         // 1) 抽選開始（EnemyAIにBeginSpawningを呼ぶ）
         for (int i = 0; i < Spawners.Count; i++)
             if (Spawners[i]) Spawners[i].BeginSpawning();
 
-        // 2) 文言を流す（音が鳴った演出は実際のスポーンとズレないよう、開始合図だけ）
+        // 2) （削除）ここでは Step3Lines を出さない
+        //    最初の生成イベント(OnGhostSpawned)で OnAnyGhostSpawned_FirstTime() が表示する
+    }
+
+    // （追加）最初の生成時に一度だけ Step3Lines を表示
+    private void OnAnyGhostSpawned_FirstTime()
+    {
+        // 前段が未完了の間は表示しない
+        if (!IsEventAllowed()) return;
+
+        if (_step3TextShown) return;
+        _step3TextShown = true;
+
         if (Step3Lines != null && Step3Lines.Length > 0)
         {
             if (_typing != null) StopCoroutine(_typing);
-            BottomText.gameObject.SetActive(true);
-            _typing = StartCoroutine(CoTypeLines(Step3Lines));
+            if (BottomText)
+            {
+                BottomText.gameObject.SetActive(true);
+                _typing = StartCoroutine(CoTypeLines(Step3Lines));
+            }
         }
     }
 
     // ========== Step4/5/6：既存 UI ==========
     public void Step4_ShowPanel()
     {
+        // （追加）前段が未完了なら発火しない
+        if (!IsEventAllowed()) return;
+
         if (_didStep4) return;
         _didStep4 = true;
         if (_pauseGate) return;
@@ -296,6 +354,9 @@ public class Tutorial : MonoBehaviour
 
     public void Step5_ShowPanel()
     {
+        // （追加）前段が未完了なら発火しない
+        if (!IsEventAllowed()) return;
+
         if (_didStep5) return;
         _didStep5 = true;
         if (_pauseGate) return;
@@ -311,6 +372,9 @@ public class Tutorial : MonoBehaviour
 
     public void ShowHidePanelOnce()
     {
+        // （追加）前段が未完了なら発火しない
+        if (!IsEventAllowed()) return;
+
         if (_didHidePanel) return;
         _didHidePanel = true;
         if (_pauseGate) return;
@@ -529,8 +593,6 @@ public class Tutorial : MonoBehaviour
     }
 
     // ========== ここから追加：ドア用ミッション制御（別テキストUI） ==========
-    // ========== ここから追加：ドア用ミッション制御（別テキストUI） ==========
-    // ※ 既存のメソッドをこの内容に差し替え
     private void StartDoorMissionIfNeeded()
     {
         // すでに開始していたら何もしない
