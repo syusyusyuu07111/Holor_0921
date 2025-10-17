@@ -55,6 +55,9 @@ public class Tutorial : MonoBehaviour
     public GameObject HidePanel;             // 隠れチュートリアル画像
     private bool _didHidePanel = false;
 
+    // （追加）保留フラグ：前段未完了やポーズ中に初回イベントが来たらいったん貯める
+    private bool _pendingHidePanel = false;
+
     // ========== パネル共通：一時停止のゲート ==========
     private bool _pauseGate = false;         // パネル表示中は入力/演出を止めたい時に使う
 
@@ -386,11 +389,16 @@ public class Tutorial : MonoBehaviour
 
     public void ShowHidePanelOnce()
     {
-        if (!IsEventAllowed()) return;
-
         if (_didHidePanel) return;
+
+        // パネル中 or 前段未完了なら、今は出さず“保留”にする
+        if (_pauseGate || !IsEventAllowed())
+        {
+            _pendingHidePanel = true;
+            return;
+        }
+
         _didHidePanel = true;
-        if (_pauseGate) return;
         StartCoroutine(CoShowPausePanel(HidePanel));
     }
 
@@ -414,6 +422,17 @@ public class Tutorial : MonoBehaviour
         Time.timeScale = prevScale;
 
         _pauseGate = false;
+
+        // （任意）解除後に保留があれば出す
+        if (_pendingHidePanel && IsEventAllowed())
+        {
+            _pendingHidePanel = false;
+            if (!_didHidePanel && HidePanel)
+            {
+                _didHidePanel = true;
+                StartCoroutine(CoShowPausePanel(HidePanel));
+            }
+        }
     }
 
     // ========== ドア制御 ==========
@@ -601,15 +620,25 @@ public class Tutorial : MonoBehaviour
             yield return null;
         }
 
-        // 完了
+        // 完了（即時表示・待ち時間ゼロ）
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
         BottomText.gameObject.SetActive(true);
-        yield return StartCoroutine(CoTypeOne(BasicDoneText));
-        yield return new WaitForSeconds(LineInterval);
-        if (HideWhenDone) BottomText.gameObject.SetActive(false);
+        BottomText.text = BasicDoneText;  // ← このフレームで一気に表示（タイプ演出しない）
+        // ※ 表示後の待機・自動非表示は行わない（必要ならここで明示的に消す）
 
         _basicDone = true;
         _basicRunning = false;
+
+        // （追加）保留されていたらこのタイミングで表示
+        if (_pendingHidePanel)
+        {
+            _pendingHidePanel = false;
+            if (!_pauseGate && !_didHidePanel && HidePanel)
+            {
+                _didHidePanel = true;
+                StartCoroutine(CoShowPausePanel(HidePanel));
+            }
+        }
 
         // 本編チュートリアルへ
         Step1();
