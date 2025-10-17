@@ -121,6 +121,13 @@ public class Tutorial : MonoBehaviour
     private bool _heardVoice = false; // state=2 検知フラグ
     // ===================================================================================
 
+    // ========== ここから追加：ライトの表示タイミング制御 ==========
+    [Header("チュートリアル中は非表示にするライト")]
+    public List<GameObject> LightsToToggle = new List<GameObject>(); // 最初に隠したいライト（親ごとでも可）
+    public bool HideLightsUntilMission3 = true;                       // ミッション3まで隠す
+    private bool _lightsActivatedAfterM3 = false;                      // 二重防止
+    // ========== 追加ここまで ==========
+
     // （追加）前段が未完了の間は一切のイベント/進行を出さないための共通ゲート
     private bool IsEventAllowed() => !EnableBasicTutorial || _basicDone;
 
@@ -218,6 +225,13 @@ public class Tutorial : MonoBehaviour
 
         // MissionText 初期化
         if (MissionText) { MissionText.text = ""; MissionText.gameObject.SetActive(false); }
+
+        // （追加）ミッション3までライトは非表示に
+        if (HideLightsUntilMission3 && LightsToToggle != null)
+        {
+            for (int i = 0; i < LightsToToggle.Count; i++)
+                if (LightsToToggle[i]) LightsToToggle[i].SetActive(false);
+        }
     }
 
     private void Update()
@@ -276,7 +290,7 @@ public class Tutorial : MonoBehaviour
             ShowOneShot(DoorLockedMessage);
             _doorMsgCD = DoorLockedCooldown;
 
-            // ドア用ミッション：ステージ1達成（ロック中のドアを調べた）
+            // ★ ドア用ミッション：ステージ1達成（ロック中のドアを調べた）
             if (EnableDoorMission && _doorMission == DoorMissionStage.DoorCheck)
             {
                 AdvanceDoorMissionTo(DoorMissionStage.FindGhost);
@@ -590,10 +604,9 @@ public class Tutorial : MonoBehaviour
         // 完了
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
         BottomText.gameObject.SetActive(true);
-        BottomText.text = BasicDoneText;                         // ← 文字を一気に出す
-        yield return new WaitForSeconds(LineInterval);           // ← この余韻は必要なら0に
+        yield return StartCoroutine(CoTypeOne(BasicDoneText));
+        yield return new WaitForSeconds(LineInterval);
         if (HideWhenDone) BottomText.gameObject.SetActive(false);
-
 
         _basicDone = true;
         _basicRunning = false;
@@ -628,9 +641,13 @@ public class Tutorial : MonoBehaviour
             case DoorMissionStage.FindGhost:
                 ShowMissionText(Mission_FindGhost);
                 break;
+
             case DoorMissionStage.HearVoiceGoNext:
                 ShowMissionText(Mission_HearVoiceGoNext);
+                // ★ このタイミングでライトをアクティブにする
+                if (HideLightsUntilMission3) ActivateLightsAfterMission3();
                 break;
+
             case DoorMissionStage.AllDone:
                 ShowMissionText(Mission_AllDone);
                 if (MissionHideWhenDone && MissionText) StartCoroutine(CoHideMissionAfter(MissionLineInterval));
@@ -705,6 +722,17 @@ public class Tutorial : MonoBehaviour
             AdvanceDoorMissionTo(DoorMissionStage.AllDone);
             break;
         }
+    }
+
+    // ========== ここから追加：ライト有効化ヘルパー ==========
+    private void ActivateLightsAfterMission3()
+    {
+        if (_lightsActivatedAfterM3) return;
+        _lightsActivatedAfterM3 = true;
+
+        if (LightsToToggle == null) return;
+        for (int i = 0; i < LightsToToggle.Count; i++)
+            if (LightsToToggle[i]) LightsToToggle[i].SetActive(true);
     }
     // ========== 追加ここまで ==========
 }
