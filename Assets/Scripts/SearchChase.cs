@@ -5,7 +5,7 @@ using UnityEngine.AI;
 using Unity.AI.Navigation;
 using TMPro;                 // TextMeshPro
 using UnityEngine.UI;        // 旧UI.Text
-using System.Collections;    // ← コルーチン用
+using System.Collections;    // コルーチン用
 
 public class SearchChase : MonoBehaviour
 {
@@ -28,9 +28,12 @@ public class SearchChase : MonoBehaviour
     public List<Transform> targetlist = new List<Transform>();
     int CurrenTtargetNum = 0;
 
+    // ★追加：発見状態の立ち上がり検出用（ログ用）
+    private bool _foundPrev = false;
+
     // --------------- 状態(1 or 2) ---------------
-    [SerializeField] private int fixedState = 1;
-    private bool _stateOverridden = false;
+    [SerializeField] private int fixedState = 1;     // 内部保持
+    private bool _stateOverridden = false;           // 外部強制が入ったらtrue
     public int GetState() => fixedState;
 
     // --------------- 隠れ状態参照 ---------------
@@ -55,12 +58,13 @@ public class SearchChase : MonoBehaviour
     public void ForceState(int state)
     {
         fixedState = Mathf.Clamp(state, 1, 2);
-        _stateOverridden = true;
+        _stateOverridden = true;      // Start()のランダム決定を無効化
         UpdateStateLabel();
     }
 
     void Start()
     {
+        // NavMesh 準備
         if (surface)
         {
             surface.navMeshData = new NavMeshData(surface.agentTypeID);
@@ -68,31 +72,41 @@ public class SearchChase : MonoBehaviour
             surface.collectObjects = CollectObjects.All;
         }
 
+        // ★ 外部から未指定のときだけランダム
         if (!_stateOverridden)
         {
-            fixedState = Random.Range(1, 3);
+            fixedState = Random.Range(1, 3); // 1 or 2（上限は排他的）
         }
         UpdateStateLabel();
 
+        // 追跡寄りのチューニング
         if (agent)
         {
-            agent.stoppingDistance = 0f;
-            agent.autoBraking = false;
+            agent.stoppingDistance = 0f;  // 追跡時に手前で止まらない
+            agent.autoBraking = false;    // 減速抑制
         }
     }
 
     void Update()
     {
+        // 状態別（必要なら追加）
         if (fixedState == 1)
         {
-            // 状態1
+            // 状態1：隠れていれば見つからない
         }
         else if (fixedState == 2)
         {
-            // 状態2
+            // 状態2：必ず見つかる
         }
 
-        IsPlayerHit(); // 発見判定
+        IsPlayerHit(); // 発見判定（状態ルール込み）
+
+        // ★追加：false→true になった瞬間だけログ
+        if (isDiscovery && !_foundPrev)
+        {
+            Debug.Log("見つかってる状態");
+        }
+        _foundPrev = isDiscovery;
 
         // ---- 見渡しトリガ ----
         if (!isDiscovery)
@@ -106,13 +120,15 @@ public class SearchChase : MonoBehaviour
                 }
                 else
                 {
+                    // NavMesh外などで開始できない場合はリセットだけ
                     lookTimer = 0f;
                 }
             }
         }
         else
         {
-            lookTimer = 0f; // 発見中はリセット
+            // 発見中は間隔をリセット
+            lookTimer = 0f;
         }
 
         repathtimer += Time.deltaTime;
@@ -134,7 +150,7 @@ public class SearchChase : MonoBehaviour
         {
             if (isDiscovery)
             {
-                agent.isStopped = false;
+                agent.isStopped = false; // 追跡中は突っ込む
             }
             else
             {
@@ -189,18 +205,20 @@ public class SearchChase : MonoBehaviour
             return;
         }
 
+        // 状態ルールを最優先
         if (fixedState == 1 && HideRef && HideRef.hide)
         {
-            isDiscovery = false;
+            isDiscovery = false; // 隠れている間は絶対に見つからない
             return;
         }
         if (fixedState == 2)
         {
-            isDiscovery = true;
+            isDiscovery = true;  // 何をしても見つかる
             if (lostposition) { lostposition.position = Player.position; target = lostposition; }
             return;
         }
 
+        // 通常のレイ判定（状態1で未隠れ時）
         var _dir = Player.position - transform.position;
         if (Physics.Raycast(transform.position, _dir, out RaycastHit hit, 10f))
         {
@@ -234,6 +252,7 @@ public class SearchChase : MonoBehaviour
         float elapsed = 0f;
         float turnSpeed = (LookDuration > 0f) ? (LookAngle / LookDuration) : 0f;
 
+        // ウェイポイント切替のInvokeが重ならないように
         CancelInvoke(nameof(TargetChange));
 
         if (agent)
@@ -244,6 +263,7 @@ public class SearchChase : MonoBehaviour
             agent.updateRotation = false;      // 自動回頭OFF（手動で回す）
         }
 
+        // その間も発見判定は継続（見つけたら即中断）
         while (elapsed < LookDuration)
         {
             IsPlayerHit();

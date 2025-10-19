@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine.UI;
@@ -6,19 +6,17 @@ using UnityEngine.Events;
 
 public class HintText : MonoBehaviour
 {
-    public Transform Player;                               // ƒvƒŒƒCƒ„[
-    public Transform Ghost;                                // ƒS[ƒXƒg’†Si©“®’Ç”ö‚Åã‘‚«‚³‚ê‚é‚±‚Æ‚ ‚èj
-    public SearchChase ChaseRef;                           // ƒS[ƒXƒgó‘Ô(1/2)
-    public HideCroset HideRef;                             // ‰B‚êó‘Ôi”CˆÓj
+    public Transform Player;
+    public Transform Ghost;
+    public SearchChase ChaseRef;
+    public HideCroset HideRef;
 
-    // ---- ‰Œ©ƒCƒxƒ“ƒgiTutorial ‚©‚çw“Çj ----
-    [Header("‰Œ©ƒCƒxƒ“ƒg")]
-    public UnityEvent OnFirstGhostSeen;                    // ‰‚ß‚ÄgƒS[ƒXƒg‚ªŒ©‚¦‚½huŠÔ
-    public UnityEvent OnFirstState2Seen;                   // ‰‚ß‚Ägstate=2h‚ğŒ©‚½uŠÔ
-    public UnityEvent<int> OnProgressChanged;              // is“x‚ª•Ï‚í‚Á‚½
+    [Header("åˆè¦‹ã‚¤ãƒ™ãƒ³ãƒˆ")]
+    public UnityEvent OnFirstGhostSeen;
+    public UnityEvent OnFirstState2Seen;
+    public UnityEvent<int> OnProgressChanged;
 
-    // ---- ƒNƒ[ƒ“’Ç”ö ----
-    [Header("ƒS[ƒXƒg©“®’Ç”ö")]
+    [Header("ã‚´ãƒ¼ã‚¹ãƒˆè‡ªå‹•è¿½å°¾")]
     public bool AutoTrackNearestGhost = true;
     public string GhostTag = "Ghost";
     public float RetargetInterval = 0.3f;
@@ -26,49 +24,61 @@ public class HintText : MonoBehaviour
     private float _retargetTimer = 0f;
     private Transform _lastGhost;
 
-    // ---- •\¦iUI/3D —¼‘Î‰j----
-    [Header("•\¦")]
+    [Header("è¡¨ç¤º")]
     public TMP_Text[] HintLabels = new TMP_Text[5];
     public Canvas UICanvas;
     public bool ScreenSpaceUI = true;
 
-    // ---- isŠÇ— ----
+    // â˜… è¦‹ã¤ã‹ã£ãŸæ™‚ã®ä¸€æ‹¬ä¸Šæ›¸ãï¼ˆå³ãƒ»å…¨é–‹ç¤ºï¼‰
+    [Header("è¦‹ã¤ã‹ã£ãŸæ™‚ã®ä¸Šæ›¸ã")]
+    [TextArea] public string FoundOverrideText = "çµ¶å¯¾è¦‹ã¤ã‘ã‚‹";
+    public bool EnableFoundOverride = true;
+    public bool FoundInstantReveal = true;
+
+    // â˜… è¿½åŠ ï¼šè‰²è¨­å®šï¼ˆé€šå¸¸æ™‚ã¯è¡Œã”ã¨ã€è¦‹ã¤ã‹ã£ãŸæ™‚ã¯ä¸€æ‹¬ or è¡Œã”ã¨ï¼‰
+    [Header("è‰²è¨­å®šï¼ˆé€šå¸¸æ™‚ï¼‰")]
+    public Color[] LineColors = new Color[5] { Color.white, Color.white, Color.white, Color.white, Color.white };
+
+    [Header("è‰²è¨­å®šï¼ˆè¦‹ã¤ã‹ã£ãŸæ™‚ï¼‰")]
+    public bool UseFoundSingleColor = true;    // true: å…¨è¡ŒåŒè‰² / false: ä¸‹ã®ãƒ•ãƒ©ã‚°ã‚’è¦‹ã‚‹
+    public Color FoundOverrideColor = Color.red;
+
+    public bool UseFoundPerLineColors = false; // true: è¡Œã”ã¨ã®è‰²ã‚’ä½¿ã†
+    public Color[] FoundLineColors = new Color[5] { Color.red, Color.red, Color.red, Color.red, Color.red };
+
     [System.Serializable] public class HintSet { [TextArea] public string[] State1 = new string[5]; [TextArea] public string[] State2 = new string[5]; }
     public List<HintSet> Stages = new List<HintSet>();
     public int ProgressStage = 0;
 
-    // ---- ‹——£/ŠJ¦ ----
-    [Header("ŠJ¦ƒ‹[ƒ‹")]
+    [Header("é–‹ç¤ºãƒ«ãƒ¼ãƒ«")]
     public float VisibleDistance = 10f;
     public float RevealDistance = 7f;
     public float RevealCharsPerSecond = 6f;
-    public char MaskChar = '¡';
+    public char MaskChar = 'â– ';
 
-    [Header("sŠÔƒN[ƒ‹ƒ^ƒCƒ€")]
+    [Header("è¡Œé–“ã‚¯ãƒ¼ãƒ«ã‚¿ã‚¤ãƒ ")]
     public float NextHintCooldown = 1.0f;
 
-    [Header("©“®isi5s‚·‚×‚ÄŠJ¦Œãj")]
+    [Header("è‡ªå‹•é€²è¡Œï¼ˆ5è¡Œã™ã¹ã¦é–‹ç¤ºå¾Œï¼‰")]
     public bool AutoAdvanceWhenAllRevealed = true;
     public float AutoAdvanceDelay = 1.0f;
     private float _autoAdvanceTimer = -1f;
 
-    // ---- ”z’u‰‰o ----
-    [Header("ƒŒƒCƒAƒEƒgiƒŠƒ“ƒOj")]
+    [Header("ãƒ¬ã‚¤ã‚¢ã‚¦ãƒˆï¼ˆãƒªãƒ³ã‚°ï¼‰")]
     public float RingRadius = 1.8f;
     public float OrbitSpeed = 20f;
     public float BobAmplitude = 0.15f;
     public float BobSpeed = 2.0f;
     public float HeightOffset = 1.6f;
 
-    // ---- ‰æ–Ê‚É‰f‚Á‚Ä‚¢‚é‚¾‚¯•\¦ ----
-    [Header("‰æ–Ê“àƒ`ƒFƒbƒN")]
+    [Header("ç”»é¢å†…ãƒã‚§ãƒƒã‚¯")]
     public bool OnlyWhenGhostOnScreen = true;
     public float OnScreenMargin = 0.05f;
     public bool CheckOcclusion = false;
     public LayerMask Occluders;
     public float CameraEyeHeight = 0.0f;
 
-    // ---- “à•” ----
+    // ---- å†…éƒ¨ ----
     private string[] activeLines = new string[5];
     private int currentIndex = 0;
     private float revealProgressChars = 0f;
@@ -76,23 +86,33 @@ public class HintText : MonoBehaviour
     private float cooldownTimer = 0f;
     private int cachedState = -1, cachedStage = -1;
 
-    // ---- ‰Œ©ŒŸo—p ----
-    private bool _seenAnyOnce = false;        // ‚¢‚¸‚ê‚©‚Ìó‘Ô‚ğ‰‚ß‚Ä‹”F‚µ‚½‚©
-    private bool _seenState2Once = false;     // state=2 ‚ğ‰‚ß‚Ä‹”F‚µ‚½‚©
-    private bool _visiblePrev = false;        // ‘OƒtƒŒ[ƒ€‚ÌuŒ©‚¦‚Ä‚¢‚½‚©v
+    private bool _seenAnyOnce = false;
+    private bool _seenState2Once = false;
+    private bool _visiblePrev = false;
+
+    private bool _foundOverrideActive = false; // â€œè¦‹ã¤ã‹ã£ãŸç”¨â€ãƒ†ã‚­ã‚¹ãƒˆå·®ã—æ›¿ãˆä¸­ã‹
+    private bool _foundPrev = false;           // falseâ†’true / trueâ†’false æ¤œå‡ºç”¨
 
     void Start()
     {
+        // é…åˆ—ã®é•·ã•ã‚±ã‚¢ï¼ˆç ´æã—ã¦ã‚‚è½ã¡ãªã„ã‚ˆã†ã«ï¼‰
+        EnsureColorArraySize(ref LineColors, 5, Color.white);
+        EnsureColorArraySize(ref FoundLineColors, 5, Color.red);
+
         ProgressStage = Mathf.Max(0, ProgressStage);
         SelectLinesByStageAndState();
         ApplyMaskedAll();
+
+        // åˆæœŸè‰²ï¼ˆé€šå¸¸è‰²ï¼‰ã‚’ä¸€æ‹¬é©ç”¨
+        ApplyTextColorsProfile(foundActive: false);
+
         for (int i = 0; i < HintLabels.Length; i++)
             if (HintLabels[i]) HintLabels[i].gameObject.SetActive(false);
     }
 
     void Update()
     {
-        // ====== ’Ç”öiˆê’èŠÔŠu‚ÅÅŠñ‚è‚ğE‚¢’¼‚·j ======
+        // ====== è¿½å°¾ ======
         if (AutoTrackNearestGhost)
         {
             _retargetTimer -= Time.deltaTime;
@@ -108,12 +128,7 @@ public class HintText : MonoBehaviour
                     if (AutoDeriveChaseRefFromGhost)
                         ChaseRef = Ghost ? Ghost.GetComponent<SearchChase>() : null;
 
-                    // Ø‚è‘Ö‚¦‚ÍŠJ¦‚ğƒŠƒZƒbƒg
-                    currentIndex = 0;
-                    revealProgressChars = 0f;
-                    waitingCooldown = false;
-                    cooldownTimer = 0f;
-                    _autoAdvanceTimer = -1f;
+                    ResetRevealProgress();
                     ApplyMaskedAll();
                     SelectLinesByStageAndState();
                 }
@@ -122,55 +137,70 @@ public class HintText : MonoBehaviour
 
         if (!Player || !Ghost)
         {
-            // •sİ‚È‚çUI”ñ•\¦
             for (int i = 0; i < HintLabels.Length; i++)
                 if (HintLabels[i]) HintLabels[i].gameObject.SetActive(false);
-            // ‰Â‹ƒtƒ‰ƒO‚à—‚Æ‚·i—§‚¿‰º‚ª‚èˆµ‚¢j
+
             _visiblePrev = false;
+
+            if (_foundOverrideActive) ClearFoundOverride();
+            if (_foundPrev) { _foundPrev = false; ApplyTextColorsProfile(foundActive: false); }
             return;
         }
 
-        // ====== ‰Â‹”»’èi‚Ü‚¸‚ÍƒCƒxƒ“ƒg—p‚ÉŒvZj ======
+        // ====== å¯è¦–åˆ¤å®š ======
         float dist = Vector3.Distance(Player.position, Ghost.position);
         bool visibleByDistance = dist <= VisibleDistance;
         bool onScreen = !OnlyWhenGhostOnScreen || IsGhostOnScreen();
         bool visible = visibleByDistance && onScreen;
 
-        // ‰B‚ê‚Ä‚¢‚éŠÔ‚ÍgŒ©‚½h‚±‚Æ‚É‚µ‚È‚¢
         bool isHiding = (HideRef && HideRef.hide);
 
-        // š —§‚¿ã‚ª‚èifalse¨truej‚©‚Âg‰B‚ê‚Ä‚¢‚È‚¢h‚¾‚¯‰Œ©ƒCƒxƒ“ƒg”­‰Î
         if (visible && !_visiblePrev && !isHiding)
         {
-            if (!_seenAnyOnce)
-            {
-                _seenAnyOnce = true;
-                OnFirstGhostSeen?.Invoke();
-            }
-
+            if (!_seenAnyOnce) { _seenAnyOnce = true; OnFirstGhostSeen?.Invoke(); }
             int st = (ChaseRef ? ChaseRef.GetState() : 1);
-            if (st == 2 && !_seenState2Once)
-            {
-                _seenState2Once = true;
-                OnFirstState2Seen?.Invoke();
-            }
+            if (st == 2 && !_seenState2Once) { _seenState2Once = true; OnFirstState2Seen?.Invoke(); }
         }
         _visiblePrev = visible;
 
-        // ====== •¶Œ¾EUIˆ—i•\¦/”ñ•\¦j ======
+        // ====== æ–‡è¨€é¸æŠï¼ˆé€šå¸¸ï¼‰ ======
         CheckAndMaybeAdvanceProgress();
         SelectLinesByStageAndState();
 
-        // •\¦ƒtƒ‰ƒOi‹——£•‰æ–Ê“àj
+        // ====== è¦‹ã¤ã‹ã£ã¦ã„ã‚‹ã‹ï¼Ÿ â†’ ãƒ†ã‚­ã‚¹ãƒˆä¸Šæ›¸ãï¼è§£é™¤ ======
+        bool found = (ChaseRef && ChaseRef.isDiscovery);
+        if (EnableFoundOverride)
+        {
+            if (found && !_foundOverrideActive) ApplyFoundOverrideInstant();
+            else if (!found && _foundOverrideActive) ClearFoundOverride();
+        }
+
+        // â˜… è‰²åˆ‡æ›¿ï¼ˆè¡Œã”ã¨ or ä¸€æ‹¬ï¼‰â€”â€”çŠ¶æ…‹ãŒå¤‰ã‚ã£ãŸç¬é–“ã ã‘åæ˜ 
+        if (found != _foundPrev)
+        {
+            ApplyTextColorsProfile(foundActive: found);
+        }
+        _foundPrev = found;
+
+        // è¡¨ç¤ºãƒ•ãƒ©ã‚°
         bool show = visible;
         for (int i = 0; i < HintLabels.Length; i++)
             if (HintLabels[i]) HintLabels[i].gameObject.SetActive(show);
         if (!show) return;
 
-        // ƒŒƒCƒAƒEƒgXV
+        // ãƒ¬ã‚¤ã‚¢ã‚¦ãƒˆ
         AnimateRingLayout();
 
-        // ====== •¶šŠJ¦iƒN[ƒ‹ƒ^ƒCƒ€•t‚«j ======
+        // ====== è¡¨ç¤ºæ›´æ–° ======
+        if (_foundOverrideActive)
+        {
+            // è¦‹ã¤ã‹ã£ã¦ã‚‹é–“ã¯å³ãƒ»å…¨é–‹ç¤ºï¼†å¸¸ã«åŒã˜ãƒ†ã‚­ã‚¹ãƒˆï¼ˆè‰²ã¯åˆ‡æ›¿æ¸ˆã¿ï¼‰
+            for (int i = 0; i < 5; i++)
+                if (HintLabels[i]) HintLabels[i].text = activeLines[i];
+            return;
+        }
+
+        // ====== é€šå¸¸ã®æ–‡å­—é–‹ç¤º ======
         if (dist <= RevealDistance && currentIndex < 5)
         {
             if (waitingCooldown)
@@ -193,24 +223,24 @@ public class HintText : MonoBehaviour
             }
         }
 
-        // s‚ÌÅI”½‰fiŠJ¦Ï/–¢’…è/is’†j
+        // è¡Œã®æœ€çµ‚åæ˜ ï¼ˆé€šå¸¸æ™‚ï¼‰
         for (int i = 0; i < 5; i++)
         {
             if (!HintLabels[i]) continue;
 
-            if (i < currentIndex) HintLabels[i].text = activeLines[i];  // Š®‘SŠJ¦
+            if (i < currentIndex) HintLabels[i].text = activeLines[i];  // å®Œå…¨é–‹ç¤º
             else if (i == currentIndex && !waitingCooldown)
             {
-                // is’†‚Í UpdateMaskedLine ‚ª”½‰f
+                // é€²è¡Œä¸­ã¯ UpdateMaskedLine ãŒåæ˜ æ¸ˆã¿
             }
             else
             {
-                HintLabels[i].text = MaskAll(activeLines[i]);            // –¢’…è or CT’†
+                HintLabels[i].text = MaskAll(activeLines[i]);            // æœªç€æ‰‹ or CTä¸­
             }
         }
     }
 
-    // ====== ‹ß‚¢ƒS[ƒXƒg‚ğ’T‚· ======
+    // ====== è¿‘ã„ã‚´ãƒ¼ã‚¹ãƒˆã‚’æ¢ã™ ======
     private Transform FindNearestGhostByTag()
     {
         if (string.IsNullOrEmpty(GhostTag) || !Player) return Ghost;
@@ -232,7 +262,7 @@ public class HintText : MonoBehaviour
         return best;
     }
 
-    // ====== ‰æ–Ê“àƒ`ƒFƒbƒN ======
+    // ====== ç”»é¢å†…ãƒã‚§ãƒƒã‚¯ ======
     private bool IsGhostOnScreen()
     {
         Camera cam = Camera.main;
@@ -251,7 +281,7 @@ public class HintText : MonoBehaviour
         return true;
     }
 
-    // ====== ƒXƒe[ƒW•ó‘Ô‚Å•¶Œ¾‚ğ‘I‘ğ ======
+    // ====== ã‚¹ãƒ†ãƒ¼ã‚¸ï¼†çŠ¶æ…‹ã§æ–‡è¨€ã‚’é¸æŠ ======
     private void SelectLinesByStageAndState()
     {
         int state = (ChaseRef ? ChaseRef.GetState() : 1);
@@ -261,22 +291,21 @@ public class HintText : MonoBehaviour
         var set = Stages[stage];
         var source = (state == 2) ? set.State2 : set.State1;
 
-        if (cachedState == state && cachedStage == stage && IsSameLines(activeLines, source)) return;
+        if (!_foundOverrideActive) // ä¸Šæ›¸ãä¸­ã¯é€šå¸¸è¡Œã®æ›´æ–°ã‚’æŠ‘æ­¢
+        {
+            if (cachedState == state && cachedStage == stage && IsSameLines(activeLines, source)) return;
 
-        for (int i = 0; i < 5; i++)
-            activeLines[i] = (source != null && i < source.Length && !string.IsNullOrEmpty(source[i])) ? source[i] : "";
+            for (int i = 0; i < 5; i++)
+                activeLines[i] = (source != null && i < source.Length && !string.IsNullOrEmpty(source[i])) ? source[i] : "";
 
-        // •¶Œ¾‚ª•Ï‚í‚Á‚½‚çƒŠƒZƒbƒg
-        currentIndex = 0;
-        revealProgressChars = 0f;
-        waitingCooldown = false;
-        cooldownTimer = 0f;
-        _autoAdvanceTimer = -1f;
+            // æ–‡è¨€ãŒå¤‰ã‚ã£ãŸã‚‰ãƒªã‚»ãƒƒãƒˆï¼ˆé€šå¸¸æ™‚ã®ã¿ï¼‰
+            ResetRevealProgress();
 
-        ApplyMaskedAll();
+            ApplyMaskedAll();
 
-        cachedState = state;
-        cachedStage = stage;
+            cachedState = state;
+            cachedStage = stage;
+        }
     }
 
     private bool IsSameLines(string[] a, string[] b)
@@ -293,9 +322,11 @@ public class HintText : MonoBehaviour
 
     private void EnsureActiveEmpty() { for (int i = 0; i < 5; i++) activeLines[i] = ""; }
 
-    // ====== isi©“®j ======
+    // ====== é€²è¡Œï¼ˆè‡ªå‹•ï¼‰ ======
     private void CheckAndMaybeAdvanceProgress()
     {
+        if (_foundOverrideActive) return;
+
         if (!AutoAdvanceWhenAllRevealed) return;
         if (!AllFiveRevealed()) { _autoAdvanceTimer = -1f; return; }
 
@@ -319,15 +350,12 @@ public class HintText : MonoBehaviour
         if (clamped == ProgressStage) return;
         ProgressStage = clamped;
 
-        currentIndex = 0; revealProgressChars = 0f;
-        waitingCooldown = false; cooldownTimer = 0f;
-        _autoAdvanceTimer = -1f;
-
+        ResetRevealProgress();
         SelectLinesByStageAndState();
         OnProgressChanged?.Invoke(ProgressStage);
     }
 
-    // ====== •\¦ƒ†[ƒeƒBƒŠƒeƒB ======
+    // ====== è¡¨ç¤ºãƒ¦ãƒ¼ãƒ†ã‚£ãƒªãƒ†ã‚£ ======
     private void ApplyMaskedAll()
     {
         for (int i = 0; i < HintLabels.Length; i++)
@@ -355,7 +383,7 @@ public class HintText : MonoBehaviour
         return IsFullyRevealed(activeLines[4], revealProgressChars) || string.IsNullOrEmpty(activeLines[4]);
     }
 
-    // ====== ƒŠƒ“ƒO”z’u ======
+    // ====== ãƒªãƒ³ã‚°é…ç½® ======
     private void AnimateRingLayout()
     {
         float t = Time.time;
@@ -391,5 +419,104 @@ public class HintText : MonoBehaviour
         if (!Ghost) return;
         Gizmos.color = Color.white; Gizmos.DrawWireSphere(Ghost.position, VisibleDistance);
         Gizmos.color = Color.green; Gizmos.DrawWireSphere(Ghost.position, RevealDistance);
+    }
+
+    // ===== ä¸Šæ›¸ãåˆ¶å¾¡ =====
+    private void ApplyFoundOverrideInstant()
+    {
+        _foundOverrideActive = true;
+
+        // 5è¡Œã™ã¹ã¦ã‚’â€œè¦‹ã¤ã‹ã£ãŸç”¨ãƒ†ã‚­ã‚¹ãƒˆâ€ã§çµ±ä¸€
+        for (int i = 0; i < 5; i++)
+            activeLines[i] = FoundOverrideText ?? "";
+
+        // å³ãƒ»å…¨é–‹ç¤º
+        if (FoundInstantReveal)
+        {
+            currentIndex = 4;
+            revealProgressChars = (activeLines[4]?.Length ?? 0);
+            waitingCooldown = false;
+            cooldownTimer = 0f;
+            _autoAdvanceTimer = -1f;
+
+            for (int i = 0; i < 5; i++)
+                if (HintLabels[i]) HintLabels[i].text = activeLines[i];
+        }
+        else
+        {
+            ResetRevealProgress();
+            ApplyMaskedAll();
+        }
+    }
+
+    private void ClearFoundOverride()
+    {
+        _foundOverrideActive = false;
+
+        // å…ƒã®ã‚¹ãƒ†ãƒ¼ã‚¸/çŠ¶æ…‹ã«åŸºã¥ãæ–‡è¨€ã¸æˆ»ã™
+        SelectLinesByStageAndState();
+
+        // é€šå¸¸ã®é–‹ç¤ºã‚¢ãƒ‹ãƒ¡ã¸å¾©å¸°
+        ResetRevealProgress();
+        ApplyMaskedAll();
+    }
+
+    private void ResetRevealProgress()
+    {
+        currentIndex = 0;
+        revealProgressChars = 0f;
+        waitingCooldown = false;
+        cooldownTimer = 0f;
+        _autoAdvanceTimer = -1f;
+    }
+
+    // ===== è‰²é©ç”¨ã¾ã‚ã‚Š =====
+    private void ApplyTextColorsProfile(bool foundActive)
+    {
+        if (HintLabels == null) return;
+
+        if (foundActive)
+        {
+            if (UseFoundSingleColor)
+            {
+                // è¦‹ã¤ã‹ã£ãŸæ™‚ã¯å…¨è¡ŒåŒã˜è‰²
+                for (int i = 0; i < HintLabels.Length; i++)
+                    if (HintLabels[i]) HintLabels[i].color = FoundOverrideColor;
+            }
+            else if (UseFoundPerLineColors)
+            {
+                EnsureColorArraySize(ref FoundLineColors, 5, Color.red);
+                for (int i = 0; i < HintLabels.Length; i++)
+                    if (HintLabels[i]) HintLabels[i].color = FoundLineColors[Mathf.Clamp(i, 0, FoundLineColors.Length - 1)];
+            }
+            else
+            {
+                // åˆ‡æ›¿ã—ãªã„ â†’ é€šå¸¸è‰²é©ç”¨
+                ApplyLineColors(LineColors);
+            }
+        }
+        else
+        {
+            // é€šå¸¸è‰²é©ç”¨
+            ApplyLineColors(LineColors);
+        }
+    }
+
+    private void ApplyLineColors(Color[] colors)
+    {
+        EnsureColorArraySize(ref colors, 5, Color.white);
+        for (int i = 0; i < HintLabels.Length; i++)
+            if (HintLabels[i]) HintLabels[i].color = colors[Mathf.Clamp(i, 0, colors.Length - 1)];
+    }
+
+    private void EnsureColorArraySize(ref Color[] arr, int need, Color fill)
+    {
+        if (arr == null || arr.Length != need)
+        {
+            var newArr = new Color[need];
+            for (int i = 0; i < need; i++)
+                newArr[i] = (arr != null && i < arr.Length) ? arr[i] : fill;
+            arr = newArr;
+        }
     }
 }

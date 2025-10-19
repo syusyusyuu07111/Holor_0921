@@ -20873,8 +20873,8 @@ Transform:
   m_GameObject: {fileID: 1261375695}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -4.02, y: -0.249, z: -2.382}
-  m_LocalScale: {x: 9.66, y: 0.000008158094, z: 13.09}
+  m_LocalPosition: {x: -4.02, y: -1.34, z: -2.382}
+  m_LocalScale: {x: 9.66, y: 2.17, z: 13.09}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -24777,6 +24777,24 @@ MonoBehaviour:
   - {fileID: 473823135}
   UICanvas: {fileID: 2139817262}
   ScreenSpaceUI: 1
+  FoundOverrideText: "\u597D\u304D"
+  EnableFoundOverride: 1
+  FoundInstantReveal: 1
+  LineColors:
+  - {r: 1, g: 1, b: 1, a: 1}
+  - {r: 1, g: 1, b: 1, a: 1}
+  - {r: 1, g: 1, b: 1, a: 1}
+  - {r: 1, g: 1, b: 1, a: 1}
+  - {r: 1, g: 1, b: 1, a: 1}
+  UseFoundSingleColor: 1
+  FoundOverrideColor: {r: 1, g: 0, b: 0, a: 1}
+  UseFoundPerLineColors: 0
+  FoundLineColors:
+  - {r: 1, g: 0, b: 0, a: 1}
+  - {r: 1, g: 0, b: 0, a: 1}
+  - {r: 1, g: 0, b: 0, a: 1}
+  - {r: 1, g: 0, b: 0, a: 1}
+  - {r: 1, g: 0, b: 0, a: 1}
   Stages:
   - State1:
     - "\u30BC\u30C3\u30BF\u30A4\u30C4\u30AB\u30DE\u30A8\u30EB\u30E8\u30FC"
@@ -29251,7 +29269,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 155acdbe93e54154db61ec6b57355331, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -8.123
+      value: -7.995
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 155acdbe93e54154db61ec6b57355331, type: 3}
       propertyPath: m_LocalRotation.w
