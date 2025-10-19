@@ -9935,6 +9935,12 @@ MonoBehaviour:
   CheckInterval: 0.05
   GameoverScene: 
   StopAgentsOnGameOver: 1
+  PostVolume: {fileID: 0}
+  EdgeColor: {r: 1, g: 0, b: 0, a: 1}
+  WarnDistance: 2
+  MaxVignette: 0.45
+  FadeSpeed: 6
+  AlsoShakeChromatic: 0
 --- !u!1 &612255066
 GameObject:
   m_ObjectHideFlags: 0
@@ -16611,6 +16617,12 @@ MonoBehaviour:
   CheckInterval: 0.05
   GameoverScene: 
   StopAgentsOnGameOver: 1
+  PostVolume: {fileID: 0}
+  EdgeColor: {r: 1, g: 0, b: 0, a: 1}
+  WarnDistance: 2
+  MaxVignette: 0.45
+  FadeSpeed: 6
+  AlsoShakeChromatic: 0
 --- !u!54 &1010361197
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -17891,6 +17903,12 @@ MonoBehaviour:
   CheckInterval: 0.01
   GameoverScene: GameoverScene
   StopAgentsOnGameOver: 1
+  PostVolume: {fileID: 1194267842}
+  EdgeColor: {r: 1, g: 0, b: 0, a: 1}
+  WarnDistance: 3
+  MaxVignette: 1
+  FadeSpeed: 6
+  AlsoShakeChromatic: 0
 --- !u!1001 &1092411333
 PrefabInstance:
   m_ObjectHideFlags: 0
