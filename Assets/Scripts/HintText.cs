@@ -29,24 +29,42 @@ public class HintText : MonoBehaviour
     public Canvas UICanvas;
     public bool ScreenSpaceUI = true;
 
-    // ★ 見つかった時の一括上書き（即・全開示）
+    // 見つかった時の一括上書き（即・全開示）
     [Header("見つかった時の上書き")]
     [TextArea] public string FoundOverrideText = "絶対見つける";
     public bool EnableFoundOverride = true;
     public bool FoundInstantReveal = true;
 
-    // ★ 追加：色設定（通常時は行ごと、見つかった時は一括 or 行ごと）
-    [Header("色設定（通常時）")]
+    // 色設定（通常時の全体デフォルト）
+    [Header("色設定（通常時・デフォルト）")]
     public Color[] LineColors = new Color[5] { Color.white, Color.white, Color.white, Color.white, Color.white };
 
     [Header("色設定（見つかった時）")]
-    public bool UseFoundSingleColor = true;    // true: 全行同色 / false: 下のフラグを見る
+    public bool UseFoundSingleColor = true;    // true: 全行同色
     public Color FoundOverrideColor = Color.red;
-
     public bool UseFoundPerLineColors = false; // true: 行ごとの色を使う
     public Color[] FoundLineColors = new Color[5] { Color.red, Color.red, Color.red, Color.red, Color.red };
 
-    [System.Serializable] public class HintSet { [TextArea] public string[] State1 = new string[5]; [TextArea] public string[] State2 = new string[5]; }
+    // ▼ ステージごとに「ステート別の色」を持てるよう拡張
+    [System.Serializable]
+    public class HintSet
+    {
+        [Header("State 1")]
+        [TextArea] public string[] State1 = new string[5];
+        [Tooltip("State1 の各行に対応する色（未設定は白→全体デフォルトへフォールバック）")]
+        public Color[] State1Colors = new Color[5] { Color.white, Color.white, Color.white, Color.white, Color.white };
+
+        [Header("State 2")]
+        [TextArea] public string[] State2 = new string[5];
+        [Tooltip("State2 の各行に対応する色（未設定は白→全体デフォルトへフォールバック）")]
+        public Color[] State2Colors = new Color[5] { Color.white, Color.white, Color.white, Color.white, Color.white };
+
+        [Header("State 3（任意）")]
+        [TextArea] public string[] State3 = new string[5];
+        [Tooltip("State3 の各行に対応する色（未設定は白→全体デフォルトへフォールバック）")]
+        public Color[] State3Colors = new Color[5] { Color.white, Color.white, Color.white, Color.white, Color.white };
+    }
+
     public List<HintSet> Stages = new List<HintSet>();
     public int ProgressStage = 0;
 
@@ -93,9 +111,12 @@ public class HintText : MonoBehaviour
     private bool _foundOverrideActive = false; // “見つかった用”テキスト差し替え中か
     private bool _foundPrev = false;           // false→true / true→false 検出用
 
+    // 現在の「ステージ×ステート」に対応する色配列参照（通常時のみ使用）
+    private Color[] _activeStateColors = null;
+
     void Start()
     {
-        // 配列の長さケア（破損しても落ちないように）
+        // 配列の長さケア
         EnsureColorArraySize(ref LineColors, 5, Color.white);
         EnsureColorArraySize(ref FoundLineColors, 5, Color.red);
 
@@ -158,8 +179,8 @@ public class HintText : MonoBehaviour
         if (visible && !_visiblePrev && !isHiding)
         {
             if (!_seenAnyOnce) { _seenAnyOnce = true; OnFirstGhostSeen?.Invoke(); }
-            int st = (ChaseRef ? ChaseRef.GetState() : 1);
-            if (st == 2 && !_seenState2Once) { _seenState2Once = true; OnFirstState2Seen?.Invoke(); }
+            int st0 = (ChaseRef ? ChaseRef.GetState() : 1);
+            if (st0 == 2 && !_seenState2Once) { _seenState2Once = true; OnFirstState2Seen?.Invoke(); }
         }
         _visiblePrev = visible;
 
@@ -175,7 +196,7 @@ public class HintText : MonoBehaviour
             else if (!found && _foundOverrideActive) ClearFoundOverride();
         }
 
-        // ★ 色切替（行ごと or 一括）——状態が変わった瞬間だけ反映
+        // 色切替（状態変化の瞬間のみ）
         if (found != _foundPrev)
         {
             ApplyTextColorsProfile(foundActive: found);
@@ -281,30 +302,65 @@ public class HintText : MonoBehaviour
         return true;
     }
 
-    // ====== ステージ＆状態で文言を選択 ======
+    // ====== ステージ＆状態で文言を選択 + 色配列の選択 ======
     private void SelectLinesByStageAndState()
     {
         int state = (ChaseRef ? ChaseRef.GetState() : 1);
-        if (Stages == null || Stages.Count == 0) { EnsureActiveEmpty(); return; }
+        if (Stages == null || Stages.Count == 0) { EnsureActiveEmpty(); _activeStateColors = null; return; }
 
         int stage = Mathf.Clamp(ProgressStage, 0, Stages.Count - 1);
         var set = Stages[stage];
-        var source = (state == 2) ? set.State2 : set.State1;
 
-        if (!_foundOverrideActive) // 上書き中は通常行の更新を抑止
+        // 安全化：各色配列の長さ
+        if (set != null)
+        {
+            EnsureColorArraySize(ref set.State1Colors, 5, Color.white);
+            EnsureColorArraySize(ref set.State2Colors, 5, Color.white);
+            EnsureColorArraySize(ref set.State3Colors, 5, Color.white);
+        }
+
+        string[] source = null;
+        Color[] stateColors = null;
+
+        switch (state)
+        {
+            case 1:
+                source = set.State1;
+                stateColors = set.State1Colors;
+                break;
+            case 2:
+                source = set.State2;
+                stateColors = set.State2Colors;
+                break;
+            case 3: // 任意
+                source = (set.State3 != null && set.State3.Length > 0) ? set.State3
+                       : (set.State2 != null && set.State2.Length > 0) ? set.State2
+                       : set.State1;
+                stateColors = set.State3Colors;
+                break;
+            default:
+                source = set.State1;
+                stateColors = set.State1Colors;
+                break;
+        }
+
+        if (!_foundOverrideActive)
         {
             if (cachedState == state && cachedStage == stage && IsSameLines(activeLines, source)) return;
 
             for (int i = 0; i < 5; i++)
                 activeLines[i] = (source != null && i < source.Length && !string.IsNullOrEmpty(source[i])) ? source[i] : "";
 
-            // 文言が変わったらリセット（通常時のみ）
-            ResetRevealProgress();
+            _activeStateColors = stateColors; // ← このステートの色を通常時に使う
 
+            ResetRevealProgress();
             ApplyMaskedAll();
 
             cachedState = state;
             cachedStage = stage;
+
+            // state/ステージ切替時に色も即反映
+            ApplyTextColorsProfile(foundActive: _foundPrev);
         }
     }
 
@@ -479,7 +535,6 @@ public class HintText : MonoBehaviour
         {
             if (UseFoundSingleColor)
             {
-                // 見つかった時は全行同じ色
                 for (int i = 0; i < HintLabels.Length; i++)
                     if (HintLabels[i]) HintLabels[i].color = FoundOverrideColor;
             }
@@ -491,14 +546,23 @@ public class HintText : MonoBehaviour
             }
             else
             {
-                // 切替しない → 通常色適用
+                // 切替しない → 通常色（= 下のブランチに委ねる）
                 ApplyLineColors(LineColors);
             }
         }
         else
         {
-            // 通常色適用
-            ApplyLineColors(LineColors);
+            // 通常：現在の「ステージ×ステート」の色配列があれば優先、なければ全体デフォルト
+            if (_activeStateColors != null)
+            {
+                EnsureColorArraySize(ref _activeStateColors, 5, Color.white);
+                for (int i = 0; i < HintLabels.Length; i++)
+                    if (HintLabels[i]) HintLabels[i].color = _activeStateColors[Mathf.Clamp(i, 0, _activeStateColors.Length - 1)];
+            }
+            else
+            {
+                ApplyLineColors(LineColors);
+            }
         }
     }
 
