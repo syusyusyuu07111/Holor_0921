@@ -9,7 +9,7 @@ public class GameOver : MonoBehaviour
     public Transform Ghost;                     // 幽霊（追跡側）
 
     [Header("判定設定")]
-    public float TriggerDistance = 0.735f;          // 距離がこの値以下でゲームオーバー（デフォルト: 0）
+    public float TriggerDistance = 0.735f;          // 距離がこの値以下でゲームオーバー
     public float CheckInterval = 0.05f;         // 距離チェック間隔（秒）
 
     [Header("シーン遷移")]
@@ -20,7 +20,7 @@ public class GameOver : MonoBehaviour
 
     void Awake()
     {
-        // 参照の自動補完（未設定なら Tag を頼る）
+        // 参照の自動補完
         if (!Player)
         {
             var p = GameObject.FindGameObjectWithTag("Player");
@@ -28,7 +28,7 @@ public class GameOver : MonoBehaviour
         }
         if (!Ghost)
         {
-            var g = GameObject.FindGameObjectWithTag("Ghost"); // 幽霊に "Ghost" タグがある前提（無ければ手動割当）
+            var g = GameObject.FindGameObjectWithTag("Ghost"); //タグ割り当てる
             if (g) Ghost = g.transform;
         }
     }
@@ -65,7 +65,7 @@ public class GameOver : MonoBehaviour
         if (_gameOverFired) return;
         _gameOverFired = true;
 
-        // 遷移前にNavMeshAgentを止めて暴れ防止（任意）
+        // 遷移前にNavMeshAgentを止めて暴れ防止
         if (StopAgentsOnGameOver)
         {
             var a1 = Player ? Player.GetComponent<NavMeshAgent>() : null;
@@ -87,7 +87,7 @@ public class GameOver : MonoBehaviour
         }
     }
 
-    // デバッグ可視化（任意）
+
     private void OnDrawGizmosSelected()
     {
         if (Player && Ghost)
