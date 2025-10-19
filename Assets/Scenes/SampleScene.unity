@@ -2128,7 +2128,7 @@ MonoBehaviour:
   - {fileID: 1885083059}
   - {fileID: 1597277479}
   hide: 0
-  OffsetForward: 0.1
+  OffsetForward: 0
   OffsetRight: 0
   OffsetUp: 0
   InteractRadius: 1
@@ -2139,6 +2139,9 @@ MonoBehaviour:
   OnFirstHidePromptShown:
     m_PersistentCalls:
       m_Calls: []
+  HiddenYOffset: 0.2
+  DisableGravityWhileHidden: 1
+  MakeKinematicWhileHidden: 1
 --- !u!4 &143505020
 Transform:
   m_ObjectHideFlags: 0

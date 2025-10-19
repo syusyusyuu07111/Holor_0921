@@ -6,24 +6,30 @@ using UnityEngine.Events;
 
 public class HideCroset : MonoBehaviour
 {
-    public Transform Player;                                 // プレイヤー
+    public Transform Player;                                   // プレイヤー
     public List<Transform> CrosetLists = new List<Transform>(); // クローゼット候補
-    public bool hide = false;                                 // 隠れ中か
-    public InputSystem_Actions Input;                         // 新InputSystem
+    public bool hide = false;                                   // 隠れ中か
+    public InputSystem_Actions Input;                           // 新InputSystem
 
     [Header("位置調整（Inspectorで変更可・実行中も可）")]
-    public float OffsetForward = 0.30f;                       // 奥方向（+で内側）
-    public float OffsetRight = 0.00f;                         // 右
-    public float OffsetUp = 0.00f;                            // 上
-    public float InteractRadius = 1.6f;                       // 隠れられる半径
-    public MonoBehaviour[] MovementScriptsToDisable;          // 隠れ中だけ無効化する移動系
+    public float OffsetForward = 0.30f;                         // 奥方向（+で内側）
+    public float OffsetRight = 0.00f;                           // 右
+    public float OffsetUp = 0.00f;                              // 上（ベース）
+    public float InteractRadius = 1.6f;                         // 隠れられる半径
+    public MonoBehaviour[] MovementScriptsToDisable;            // 隠れ中だけ無効化する移動系
 
     [Header("UI（隠れ案内）")]
-    public TextMeshProUGUI PromptText;                        // 「【E】隠れる」
+    public TextMeshProUGUI PromptText;                          // 「【E】隠れる」
     public string PromptMessage = "【E】隠れる";
 
     [Header("イベント（Tutorialが購読）")]
-    public UnityEvent OnFirstHidePromptShown;                 // 初めて案内が出た瞬間に発火
+    public UnityEvent OnFirstHidePromptShown;                   // 初めて案内が出た瞬間
+
+    // ★ 追加：クローゼット内の“浮き”と重力制御
+    [Header("クローゼット内の浮き/重力")]
+    public float HiddenYOffset = 0.20f;                         // 隠れ時のY持ち上げ（台座ぶん）
+    public bool DisableGravityWhileHidden = true;               // 隠れ中は重力を切る
+    public bool MakeKinematicWhileHidden = true;                // 隠れ中はkinematic化（任意）
 
     // 内部
     private Transform _currentCloset;
@@ -31,13 +37,20 @@ public class HideCroset : MonoBehaviour
     private Vector3 _lockedInsidePos;
     private Collider[] _playerCols;
     private readonly List<Collider> _closetCols = new List<Collider>();
-    private bool _hidePromptEverShown = false;                // 初回フラグ
+    private bool _hidePromptEverShown = false;
+
+    // ★ 追加：Rigidbody状態の退避
+    private Rigidbody[] _playerRBs;
+    private readonly List<bool> _rbPrevUseGravity = new List<bool>();
+    private readonly List<bool> _rbPrevKinematic = new List<bool>();
 
     private void Awake()
     {
         Input = new InputSystem_Actions();
         if (!Player) Player = transform;
+
         _playerCols = Player.GetComponentsInChildren<Collider>(true);
+        _playerRBs = Player.GetComponentsInChildren<Rigidbody>(true);
 
         if (PromptText)
         {
@@ -49,7 +62,7 @@ public class HideCroset : MonoBehaviour
     private void OnEnable()
     {
         Input.Player.Enable();
-        Input.Player.Interact.performed += OnInterect;        // 「E」など
+        Input.Player.Interact.performed += OnInterect; // 「E」など
     }
 
     private void OnDisable()
@@ -72,14 +85,12 @@ public class HideCroset : MonoBehaviour
     {
         if (!PromptText) return;
 
-        // 隠れ中は案内を消す
         if (hide)
         {
             if (PromptText.gameObject.activeSelf) PromptText.gameObject.SetActive(false);
             return;
         }
 
-        // 半径内にクローゼットがある？
         var closet = FindNearestCloset();
         bool canHideHere = closet && (Player.position - GetClosetCenter(closet)).sqrMagnitude <= InteractRadius * InteractRadius;
 
@@ -87,14 +98,13 @@ public class HideCroset : MonoBehaviour
         {
             PromptText.text = string.IsNullOrEmpty(PromptMessage) ? "【E】隠れる" : PromptMessage;
 
-            // 初回だけイベント発火
             if (!PromptText.gameObject.activeSelf)
             {
                 PromptText.gameObject.SetActive(true);
                 if (!_hidePromptEverShown)
                 {
                     _hidePromptEverShown = true;
-                    OnFirstHidePromptShown?.Invoke();         // ★ Tutorial がパネル表示して一時停止
+                    OnFirstHidePromptShown?.Invoke();
                 }
             }
         }
@@ -141,7 +151,6 @@ public class HideCroset : MonoBehaviour
                 if (d < best) { best = d; pick = t; }
             }
         }
-
         return pick;
     }
 
@@ -159,11 +168,17 @@ public class HideCroset : MonoBehaviour
         Vector3 offset =
               (closet.forward * -OffsetForward)
             + (closet.right * OffsetRight)
-            + (Vector3.up * OffsetUp);
+            + (Vector3.up * (OffsetUp + HiddenYOffset)); // ★ 隠れ時はYをさらに持ち上げ
 
         Vector3 targetPos = center + offset;
         Player.position = targetPos;
         _lockedInsidePos = targetPos;
+
+        // ★ 重力/運動制御（子含むRigidbody）
+        if (DisableGravityWhileHidden || MakeKinematicWhileHidden)
+        {
+            CacheAndApplyRBState(disableGravity: DisableGravityWhileHidden, makeKinematic: MakeKinematicWhileHidden);
+        }
 
         SetMovementEnabled(false);
         hide = true;
@@ -177,6 +192,9 @@ public class HideCroset : MonoBehaviour
         Player.position = _cachedPos;
         ToggleIgnoreClosetCollision(false);
         _closetCols.Clear();
+
+        // ★ 重力/運動を復元
+        RestoreRBState();
 
         SetMovementEnabled(true);
         _currentCloset = null;
@@ -216,6 +234,61 @@ public class HideCroset : MonoBehaviour
             var m = MovementScriptsToDisable[i];
             if (m) m.enabled = enabled;
         }
+    }
+
+    // ★ Rigidbody状態のキャッシュ＆適用
+    // ★ Rigidbody状態のキャッシュ＆適用
+    private void CacheAndApplyRBState(bool disableGravity, bool makeKinematic)
+    {
+        if (_playerRBs == null || _playerRBs.Length == 0) return;
+
+        _rbPrevUseGravity.Clear();
+        _rbPrevKinematic.Clear();
+        _rbPrevUseGravity.Capacity = _playerRBs.Length;
+        _rbPrevKinematic.Capacity = _playerRBs.Length;
+
+        for (int i = 0; i < _playerRBs.Length; i++)
+        {
+            var rb = _playerRBs[i];
+            if (!rb) { _rbPrevUseGravity.Add(true); _rbPrevKinematic.Add(false); continue; }
+
+            _rbPrevUseGravity.Add(rb.useGravity);
+            _rbPrevKinematic.Add(rb.isKinematic);
+
+            if (disableGravity) rb.useGravity = false;
+            if (makeKinematic) rb.isKinematic = true;
+
+            // 慣性を止める（その場で固定）
+#if UNITY_6000_0_OR_NEWER
+            rb.linearVelocity = Vector3.zero;
+#else
+        rb.velocity = Vector3.zero;
+#endif
+            rb.angularVelocity = Vector3.zero;
+        }
+    }
+
+
+    // ★ Rigidbody状態の復元
+    private void RestoreRBState()
+    {
+        if (_playerRBs == null || _playerRBs.Length == 0) return;
+
+        for (int i = 0; i < _playerRBs.Length; i++)
+        {
+            var rb = _playerRBs[i];
+            if (!rb) continue;
+
+            // セーフティ：記録がなければデフォルトに戻す
+            bool useG = (i < _rbPrevUseGravity.Count) ? _rbPrevUseGravity[i] : true;
+            bool kin = (i < _rbPrevKinematic.Count) ? _rbPrevKinematic[i] : false;
+
+            rb.useGravity = useG;
+            rb.isKinematic = kin;
+        }
+
+        _rbPrevUseGravity.Clear();
+        _rbPrevKinematic.Clear();
     }
 
     private void OnDrawGizmosSelected()
