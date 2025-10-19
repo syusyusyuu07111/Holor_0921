@@ -65,7 +65,7 @@ public class TPSCamera : MonoBehaviour
     public float FOVNormal = 60f;
     public float FOVAim = 50f;
     public float FOVLerp = 10f;
-    public bool IsAiming = false;                // あなたのInputに合わせて切り替え
+    public bool IsAiming = false;
 
     // ===== ここから追記（UI表示用）=====
     [Header("UI")]
@@ -99,7 +99,7 @@ public class TPSCamera : MonoBehaviour
     void Start()
     {
         //カメラの回転の初期パラメータを取得しておく==========================================================
-        if (cam == null) cam = transform; // ← null のときだけ代入に修正（コメントは既存のまま）
+        if (cam == null) cam = transform;
         yaw = cam.eulerAngles.y;
         prevplayerrow = Player.eulerAngles.y;
 
@@ -126,16 +126,15 @@ public class TPSCamera : MonoBehaviour
         bool usingGamepad = (Gamepad.current != null && Gamepad.current.wasUpdatedThisFrame);
         float deviceSense = usingGamepad ? GamepadSense : MouseSense;
 
-        // ショルダー切替（任意）
+        // ショルダー切替
         if (ShoulderSwapKey != KeyCode.None && Input.GetKeyDown(ShoulderSwapKey)) ShoulderOffset.x *= -1f;
 
         // 視点回転==========================================================================---
-        // ※ マウスのLookは既にフレーム積分されているため deltaTime は掛けない
         float dx = LookInput.x;
         float ly = InvertY ? -LookInput.y : LookInput.y;
         if (Mathf.Abs(ly) < MouseYDeadZone) ly = 0f; // 微小入力カット
 
-        // 毎フレーム、上限/下限を同期（逆転しないようにクリップ）
+        // 毎フレーム、上限/下限を同期
         PitchUpLimit = Mathf.Clamp(PitchUpLimit, 0f, 80f);
         PitchDownLimit = Mathf.Clamp(PitchDownLimit, 0f, 80f);
         PitchClamp.x = -PitchDownLimit;
@@ -190,7 +189,7 @@ public class TPSCamera : MonoBehaviour
         }
     }
 
-    // ===== ここから追記（IMGUIでバー表示）=====
+    // （IMGUIでバー表示）===================================================
     void OnGUI()
     {
         if (!ShowBar) return;
