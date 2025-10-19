@@ -270,7 +270,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 6b63bb204d045ff40ae944655cd795a2, type: 3}
       propertyPath: m_Name
-      value: closet1 (1)
+      value: closet19
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -2111,27 +2111,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Player: {fileID: 956023712}
   CrosetLists:
+  - {fileID: 1597277479}
   - {fileID: 91933230}
-  - {fileID: 1892882803}
+  - {fileID: 1075852452}
+  - {fileID: 1468099319}
+  - {fileID: 1735597751}
   - {fileID: 516354766}
-  - {fileID: 1613578775}
+  - {fileID: 491878280}
   - {fileID: 659086929}
   - {fileID: 1836523329}
-  - {fileID: 819515405}
   - {fileID: 685633575}
-  - {fileID: 1728745435}
-  - {fileID: 316920324}
-  - {fileID: 1288165321}
-  - {fileID: 1593317903}
-  - {fileID: 491878280}
-  - {fileID: 1735597751}
-  - {fileID: 1885083059}
-  - {fileID: 1597277479}
   hide: 0
   OffsetForward: 0
   OffsetRight: 0
   OffsetUp: 0
-  InteractRadius: 0.5
+  InteractRadius: 0.7
   MovementScriptsToDisable:
   - {fileID: 956023713}
   PromptText: {fileID: 664555790}
@@ -3011,7 +3005,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 6b63bb204d045ff40ae944655cd795a2, type: 3}
       propertyPath: m_Name
-      value: closet1 (2)
+      value: closet18
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -5967,7 +5961,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 6b63bb204d045ff40ae944655cd795a2, type: 3}
       propertyPath: m_Name
-      value: closet1
+      value: closet17
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -14157,7 +14151,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: -27.7, y: -384.1}
-  m_SizeDelta: {x: 1080, y: 50}
+  m_SizeDelta: {x: 1920, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &890327098
 MonoBehaviour:
@@ -17424,6 +17418,10 @@ PrefabInstance:
     - target: {fileID: -8679921383154817045, guid: 9264ced940604ee408e2f6a99db9ad07, type: 3}
       propertyPath: m_ConstrainProportionsScale
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -7697514981439877554, guid: 9264ced940604ee408e2f6a99db9ad07, type: 3}
+      propertyPath: m_Name
+      value: BgMD_room_plane0202_Front_hole&hantei
       objectReference: {fileID: 0}
     - target: {fileID: -7697514981439877554, guid: 9264ced940604ee408e2f6a99db9ad07, type: 3}
       propertyPath: m_Layer
@@ -30830,7 +30828,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 77.5, y: -267.5}
-  m_SizeDelta: {x: 1145.4, y: 192.1}
+  m_SizeDelta: {x: 1920, y: 192.1}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1855151775
 GameObject:
@@ -32465,7 +32463,7 @@ GameObject:
   - component: {fileID: 1951316715}
   - component: {fileID: 1951316714}
   m_Layer: 0
-  m_Name: Cube
+  m_Name: closet5
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
