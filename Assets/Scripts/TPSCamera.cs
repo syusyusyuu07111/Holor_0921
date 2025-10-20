@@ -2,187 +2,205 @@
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
+using TMPro;
+
 public class TPSCamera : MonoBehaviour
 {
-    InputSystem_Actions input;
-    //カメラ入力設定==============================================================================--
-    public float yaw = 90;//向いている角度
-    public float RotateSpeed = 1.0f;
-    public Transform Camera;
-    public Transform Pivot;
-    public float Distance = 3.0f;
-    public Transform cam;
-    [Header("キャラクター（プレイヤー）")]
-    public Transform Player;
-    public float AimSpeed = 5.0f;
-    public float YawPlayer;
-    public float prevplayerrow;//前フレームのプレイヤーの向いている角度
-    public float Deadyaw = 0.5f;//無視する角度　少しの角度は回転に考慮しない
-    [Range(0f, 1f)] float RowAmount = 1.0f;//キャラクターとカメラをどのくらい追従させるか
+    private InputSystem_Actions input;
 
-    //このカメラ制御機能のon off切り替え
+    // ===== カメラ入力/基本 =====
+    [Header("基本")]
     public bool ControlEnable = true;
+    public Transform cam;                 // カメラ本体（通常は this.transform）
+    public Transform Pivot;               // 注視点（プレイヤー頭等）
+    public float Distance = 3.0f;         // Pivot からの距離
 
-    // ===== ここから追記（TPS向けの追加パラメータ）=====
-    [Header("視点（縦回転/pitch）")]
-    public float pitch = 0f;
+    [Header("回転（横/Yaw）")]
+    public float yaw = 90f;               // 向いている角度（水平）
+    public float RotateSpeed = 1.0f;      // 感度（水平共通）
+
+    [Header("回転（縦/Pitch）")]
+    public float pitch = 0f;              // 現在のピッチ
     public Vector2 PitchClamp = new Vector2(-40f, 70f);
+    public float PitchSmoothTime = 0.06f; // スムーズ追従
+    public float MaxPitchSpeed = 360f;    // 最大角速度（deg/s）
+    public float MouseYDeadZone = 0.02f;  // 縦の微小入力カット
+    public float PitchUpLimit = 35f;      // 上限
+    public float PitchDownLimit = 10f;    // 下限
+    [Range(0.1f, 1.0f)] public float VerticalAmount = 0.5f; // 縦の感度係数
+    public bool InvertY = false;
 
-    // 縦揺れ対策（ターゲット＋平滑化＋デッドゾーン＋最大角速度）
-    public float PitchSmoothTime = 0.06f;   // 縦の追従の滑らかさ（小さいほどキビキビ）
-    public float MaxPitchSpeed = 360f;    // 縦回転の最大角速度（度/秒）
-    public float MouseYDeadZone = 0.02f;   // 微小入力を無視（0〜0.05 くらい）
-    float _pitchVel;                        // SmoothDamp用
-    float _pitchTarget;                     // 目標角（生入力はここに反映）
+    private float _pitchVel;              // SmoothDamp用
+    private float _pitchTarget;           // 目標ピッチ
 
-    // 縦の可動域（真上/真下に行きすぎないための上限・下限）＋ 縦だけ感度控えめ
-    public float PitchUpLimit = 35f;      // 上の上限（真上NG）
-    public float PitchDownLimit = 10f;      // 下の上限（見下ろし控えめ）
-    public float VerticalAmount = 0.5f;     // 縦だけ感度を抑える係数（0.2〜0.7推奨）
+    [Header("デバイス別 感度係数")]
+    public float MouseSense = 1.0f;
+    public float GamepadSense = 3.0f;
 
-    [Header("感度（デバイス別）")]
-    public float MouseSense = 1.0f;      // マウス用の係数
-    public float GamepadSense = 3.0f;    // ゲームパッド用の係数
-    public bool InvertY = false;         // 縦反転
+    [Header("プレイヤー追従")]
+    public Transform Player;
+    public bool RotatePlayerWithCamera = false;
+    public float AimSpeed = 5.0f;         // プレイヤー回転追従の速さ
+    public float Deadyaw = 0.5f;          // 微小角の無視
 
-    [Header("ショルダー/カメラ配置")]
-    public Vector3 ShoulderOffset = new Vector3(0.4f, 0.0f, 0f); // 右肩
-    public KeyCode ShoulderSwapKey = KeyCode.E;                   // 左右切替（任意）
-    public KeyCode QuickTurnKey = KeyCode.None;                   // クイックターンは使わない（None）
+    [Header("ショルダー/配置")]
+    public Vector3 ShoulderOffset = new Vector3(0.4f, 0.0f, 0f);
+    public KeyCode ShoulderSwapKey = KeyCode.E;
+    public KeyCode QuickTurnKey = KeyCode.None; // 未使用
 
     [Header("カメラ衝突処理")]
-    public LayerMask CollisionMask = ~0;        // ぶつかり判定の対象
-    public float CollisionBuffer = 0.05f;       // 壁から少し離す
-    public float MinCameraDistance = 0.1f;      // 最短距離
-    public bool KeepFixedDistance = true;       // 距離固定（奥に寄らない）
+    public LayerMask CollisionMask = ~0;
+    public float CollisionBuffer = 0.05f;
+    public float MinCameraDistance = 0.1f;
+    public bool KeepFixedDistance = true;
 
     [Header("スムージング")]
-    public float PositionSmoothTime = 0.08f;    // カメラ位置スムーズ
-    Vector3 _camVel;                             // SmoothDamp用
+    public float PositionSmoothTime = 0.08f;
+    private Vector3 _camVel;
 
     [Header("FOV")]
     public Camera UCam;
     public float FOVNormal = 60f;
     public float FOVAim = 50f;
     public float FOVLerp = 10f;
-    public bool IsAiming = false;                // あなたのInputに合わせて切り替え
+    public bool IsAiming = false;
 
-    // ===== ここから追記（UI表示用）=====
-    [Header("UI")]
-    public bool ShowBar = true;
-    public Vector2 UIPos = new Vector2(20f, 40f);
-    public Vector2 UISize = new Vector2(320f, 24f);
-    public float MinRotateSpeed = 0.1f;
-    public float MaxRotateSpeed = 10f;
-    public int UIFontSize = 18;
-    public float SliderHeight = 28f;   // バーの高さ
-    public float ThumbWidth = 22f;     // つまみの幅
-    public float ThumbHeight = 28f;    // つまみの高さ
-    public Font UIFont;                // ← 日本語対応フォント（NotoSansCJK 等を割当て）
-    // ===== 追記ここまで =====
+    // ===== UI: 感度（uGUI Sliderのみ） =====
+    [Header("UI: 感度（Slider）")]
+    public Slider RotateSpeedSlider;            // uGUI の Slider を割り当て
+    public float MinRotateSpeed = 0.1f;         // レンジ下限
+    public float MaxRotateSpeed = 10f;          // レンジ上限
+    public TMP_Text RotateSpeedLabel;           // 任意: 数値表示（TMP）
 
-    [Header("プレイヤー追従")]
-    public bool RotatePlayerWithCamera = false; // ← デフォルトで回さない
+    [Tooltip("UIの値を保存する（PlayerPrefs）")]
+    public bool SaveSensitivity = true;
+    public string SensitivityPrefsKey = "Camera.RotateSpeed";
 
     public void Awake()
     {
         input = new InputSystem_Actions();
+        if (cam == null) cam = transform;
     }
+
     public void OnEnable()
     {
         input.Player.Enable();
+
+        // --- 感度Sliderの初期設定 ---
+        if (RotateSpeedSlider)
+        {
+            RotateSpeedSlider.minValue = MinRotateSpeed;
+            RotateSpeedSlider.maxValue = MaxRotateSpeed;
+
+            // 設定読み込み
+            float init = RotateSpeed;
+            if (SaveSensitivity && PlayerPrefs.HasKey(SensitivityPrefsKey))
+                init = Mathf.Clamp(PlayerPrefs.GetFloat(SensitivityPrefsKey), MinRotateSpeed, MaxRotateSpeed);
+
+            RotateSpeed = init;
+            RotateSpeedSlider.SetValueWithoutNotify(init);
+            RotateSpeedSlider.onValueChanged.AddListener(OnRotateSpeedChanged);
+        }
+        RefreshSensitivityLabel();
     }
+
     public void OnDisable()
     {
         input?.Player.Disable();
+
+        if (RotateSpeedSlider)
+            RotateSpeedSlider.onValueChanged.RemoveListener(OnRotateSpeedChanged);
+
+        if (SaveSensitivity)
+        {
+            PlayerPrefs.SetFloat(SensitivityPrefsKey, RotateSpeed);
+            PlayerPrefs.Save();
+        }
     }
+
     void Start()
     {
-        //カメラの回転の初期パラメータを取得しておく==========================================================
-        if (cam == null) cam = transform; // ← null のときだけ代入に修正（コメントは既存のまま）
+        // 初期角
         yaw = cam.eulerAngles.y;
-        prevplayerrow = Player.eulerAngles.y;
-
-        // 初期FOV
-        if (UCam == null)
-        {
-            UCam = GetComponentInChildren<Camera>();
-        }
-        if (UCam != null) UCam.fieldOfView = FOVNormal;
-
-        // 縦揺れ対策の初期化
         _pitchTarget = pitch;
+
+        // FOV 初期化
+        if (UCam == null) UCam = GetComponentInChildren<Camera>();
+        if (UCam != null) UCam.fieldOfView = FOVNormal;
 
         // 上下制限の初期同期
         PitchClamp = new Vector2(-PitchDownLimit, PitchUpLimit);
+
+        // 起動直後の表示合わせ
+        if (RotateSpeedSlider)
+            RotateSpeedSlider.SetValueWithoutNotify(RotateSpeed);
+        RefreshSensitivityLabel();
     }
+
     void Update()
     {
-        if (!ControlEnable || cam == null || Pivot == null) return;//カメラ制御をオフにする
+        if (!ControlEnable || cam == null || Pivot == null) return;
 
-        // 入力読み取り
-        Vector2 LookInput = input.Player.Look.ReadValue<Vector2>();
-        // デバイス別係数（パッド優先検出）
-        bool usingGamepad = (Gamepad.current != null && Gamepad.current.wasUpdatedThisFrame);
+        // 入力
+        Vector2 look = input.Player.Look.ReadValue<Vector2>();
+        bool usingGamepad =
+            (Gamepad.current != null && Gamepad.current.wasUpdatedThisFrame);
         float deviceSense = usingGamepad ? GamepadSense : MouseSense;
 
-        // ショルダー切替（任意）
-        if (ShoulderSwapKey != KeyCode.None && Input.GetKeyDown(ShoulderSwapKey)) ShoulderOffset.x *= -1f;
-
-        // 視点回転==========================================================================---
-        // ※ マウスのLookは既にフレーム積分されているため deltaTime は掛けない
-        float dx = LookInput.x;
-        float ly = InvertY ? -LookInput.y : LookInput.y;
-        if (Mathf.Abs(ly) < MouseYDeadZone) ly = 0f; // 微小入力カット
-
-        // 毎フレーム、上限/下限を同期（逆転しないようにクリップ）
+      //  // ショルダー切替
+      //  if (ShoulderSwapKey != KeyCode.None && Input.GetKeyDown(ShoulderSwapKey))
+      //      ShoulderOffset.x *= -1f;
+      //
+        // 毎フレーム、上下限同期
         PitchUpLimit = Mathf.Clamp(PitchUpLimit, 0f, 80f);
         PitchDownLimit = Mathf.Clamp(PitchDownLimit, 0f, 80f);
         PitchClamp.x = -PitchDownLimit;
         PitchClamp.y = PitchUpLimit;
 
+        // 回転更新
+        float dx = look.x;
+        float ly = InvertY ? -look.y : look.y;
+        if (Mathf.Abs(ly) < MouseYDeadZone) ly = 0f;
+
         yaw += dx * RotateSpeed * deviceSense;
 
-        // 縦は抑えめ（VerticalAmount）で目標角に反映 → 目標をClamp
         _pitchTarget = Mathf.Clamp(
             _pitchTarget - ly * RotateSpeed * deviceSense * Mathf.Clamp01(VerticalAmount),
             PitchClamp.x, PitchClamp.y
         );
-        // 実角はスムーズに追従（最大角速度で揺れ止め）
         pitch = Mathf.SmoothDamp(pitch, _pitchTarget, ref _pitchVel, PitchSmoothTime, MaxPitchSpeed);
 
-        Quaternion rot = Quaternion.Euler(pitch, yaw, 0);
+        Quaternion rot = Quaternion.Euler(pitch, yaw, 0f);
 
-        // 距離・衝突補正（距離固定なら短縮しない）
+        // 衝突補正
         float d = Distance;
         if (!KeepFixedDistance)
         {
-            Vector3 backDir = rot * Vector3.back; // rot * (0,0,-1)
+            Vector3 backDir = rot * Vector3.back;
             if (Physics.Raycast(Pivot.position, backDir, out RaycastHit hit, Distance, CollisionMask, QueryTriggerInteraction.Ignore))
-            {
                 d = Mathf.Max(MinCameraDistance, hit.distance - CollisionBuffer);
-            }
         }
 
-        // 目標カメラ位置（ショルダーオフセットも rot 空間で適用：半径一定）
-        Vector3 desiredPos = Pivot.transform.position + rot * new Vector3(ShoulderOffset.x, ShoulderOffset.y, -d);
+        // 目標位置（ショルダーオフセットは回転空間で適用）
+        Vector3 desiredPos = Pivot.position + rot * new Vector3(ShoulderOffset.x, ShoulderOffset.y, -d);
 
-        // 位置反映（スムージング）
+        // 位置スムーズ
         cam.position = Vector3.SmoothDamp(cam.position, desiredPos, ref _camVel, Mathf.Max(0f, PositionSmoothTime));
-        cam.LookAt(Pivot.transform.position, Vector3.up);
+        cam.LookAt(Pivot.position, Vector3.up);
 
-        //カメラを回転させたらキャラも回転させる--------------------------------------------------
-        if (RotatePlayerWithCamera && Player != null) // ← デフォルトOFF（回さない）
+        // プレイヤー回転追従（任意）
+        if (RotatePlayerWithCamera && Player != null)
         {
             float diff = Mathf.Abs(Mathf.DeltaAngle(Player.eulerAngles.y, cam.eulerAngles.y));
-            if (diff > Mathf.Max(Deadyaw, 3f)) // 微小揺れを抑える
+            if (diff > Mathf.Max(Deadyaw, 3f))
             {
-                Quaternion target = Quaternion.Euler(0f, cam.eulerAngles.y, 0f);
-                Player.rotation = Quaternion.Slerp(Player.rotation, target, AimSpeed * Time.deltaTime);
+                Quaternion t = Quaternion.Euler(0f, cam.eulerAngles.y, 0f);
+                Player.rotation = Quaternion.Slerp(Player.rotation, t, AimSpeed * Time.deltaTime);
             }
         }
 
-        // FOV（エイム時に絞る）----------------------------------------------------------------
+        // FOV
         if (UCam != null)
         {
             float targetFov = IsAiming ? FOVAim : FOVNormal;
@@ -190,76 +208,21 @@ public class TPSCamera : MonoBehaviour
         }
     }
 
-    // ===== ここから追記（IMGUIでバー表示）=====
-    void OnGUI()
+    // ===== Slider イベント =====
+    private void OnRotateSpeedChanged(float v)
     {
-        if (!ShowBar) return;
+        RotateSpeed = Mathf.Clamp(v, MinRotateSpeed, MaxRotateSpeed);
 
-        Rect r = new Rect(UIPos.x, UIPos.y, UISize.x, UISize.y);
+        if (SaveSensitivity)
+            PlayerPrefs.SetFloat(SensitivityPrefsKey, RotateSpeed);
 
-        // ラベル用スタイルを日本語フォント＆適正高さで設定
-        if (_labelStyle == null || _labelStyle.fontSize != UIFontSize || _labelStyle.font != UIFont)
-        {
-            _labelStyle = new GUIStyle(GUI.skin.label);
-            _labelStyle.font = (UIFont != null) ? UIFont : GUI.skin.label.font; // 日本語対応フォント
-            _labelStyle.fontSize = Mathf.RoundToInt(UIFontSize);
-            _labelStyle.alignment = TextAnchor.UpperLeft;
-            _labelStyle.richText = false;
-        }
-
-        float pad = 4f;
-        float labelH = Mathf.Ceil(_labelStyle.lineHeight) + 4f;  // 行高ベースで潰れ防止
-
-        Rect labelRect = new Rect(r.x, r.y, r.width, labelH);
-        Rect sliderRect = new Rect(r.x, r.y + labelH + pad, r.width, Mathf.Max(UISize.y, SliderHeight));
-
-        GUI.Label(labelRect, $"Sensitivity : {RotateSpeed:0.00}", _labelStyle);
-
-        // ===== ここから一時的にサイズを上書き =====
-        float prevH = GUI.skin.horizontalSlider.fixedHeight;
-        float prevTW = GUI.skin.horizontalSliderThumb.fixedWidth;
-        float prevTH = GUI.skin.horizontalSliderThumb.fixedHeight;
-        bool prevSW = GUI.skin.horizontalSlider.stretchWidth;
-        bool prevTsw = GUI.skin.horizontalSliderThumb.stretchWidth;
-
-        GUI.skin.horizontalSlider.fixedHeight = SliderHeight;
-        GUI.skin.horizontalSlider.stretchWidth = true;   // 横は伸縮OK
-        GUI.skin.horizontalSliderThumb.fixedWidth = ThumbWidth;
-        GUI.skin.horizontalSliderThumb.fixedHeight = ThumbHeight;
-        GUI.skin.horizontalSliderThumb.stretchWidth = false;  // 幅は固定
-                                                              // ===== 上書きここまで =====
-
-        // 感度スライダー
-        float v = GUI.HorizontalSlider(sliderRect, RotateSpeed, MinRotateSpeed, MaxRotateSpeed);
-        if (Mathf.Abs(v - RotateSpeed) > 0.0001f) RotateSpeed = v;
-
-        // ===== 復元 =====
-        GUI.skin.horizontalSlider.fixedHeight = prevH;
-        GUI.skin.horizontalSlider.stretchWidth = prevSW;
-        GUI.skin.horizontalSliderThumb.fixedWidth = prevTW;
-        GUI.skin.horizontalSliderThumb.fixedHeight = prevTH;
-        GUI.skin.horizontalSliderThumb.stretchWidth = prevTsw;
-
-        // ---- （任意）上下可動域と縦係数の調整UI ----
-        float y = sliderRect.yMax + 10f;
-
-        Rect upLbl = new Rect(r.x, y, 160f, labelH);
-        Rect upSld = new Rect(r.x + 160f, y, r.width - 160f, 20f);
-        GUI.Label(upLbl, "Pitch UpLimit", _labelStyle);
-        PitchUpLimit = GUI.HorizontalSlider(upSld, PitchUpLimit, 0f, 80f);
-
-        y += labelH + 4f;
-        Rect dnLbl = new Rect(r.x, y, 160f, labelH);
-        Rect dnSld = new Rect(r.x + 160f, y, r.width - 160f, 20f);
-        GUI.Label(dnLbl, "Pitch DownLimit", _labelStyle);
-        PitchDownLimit = GUI.HorizontalSlider(dnSld, PitchDownLimit, 0f, 80f);
-
-        y += labelH + 4f;
-        Rect vaLbl = new Rect(r.x, y, 160f, labelH);
-        Rect vaSld = new Rect(r.x + 160f, y, r.width - 160f, 20f);
-        GUI.Label(vaLbl, "Vertical Amount", _labelStyle);
-        VerticalAmount = GUI.HorizontalSlider(vaSld, VerticalAmount, 0.1f, 1.0f);
-        // ---- 調整UIここまで ----
+        RefreshSensitivityLabel();
     }
-    GUIStyle _labelStyle; // 既にあるなら不要
+
+    // ===== ラベル更新（任意）=====
+    private void RefreshSensitivityLabel()
+    {
+        if (RotateSpeedLabel)
+            RotateSpeedLabel.text = $"Sensitivity : {RotateSpeed:0.00}";
+    }
 }

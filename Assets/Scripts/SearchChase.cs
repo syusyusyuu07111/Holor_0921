@@ -5,6 +5,7 @@ using UnityEngine.AI;
 using Unity.AI.Navigation;
 using TMPro;                 // TextMeshPro
 using UnityEngine.UI;        // 旧UI.Text
+using System.Collections;    // コルーチン用
 
 public class SearchChase : MonoBehaviour
 {
@@ -27,6 +28,9 @@ public class SearchChase : MonoBehaviour
     public List<Transform> targetlist = new List<Transform>();
     int CurrenTtargetNum = 0;
 
+    // ★追加：発見状態の立ち上がり検出用（ログ用）
+    private bool _foundPrev = false;
+
     // --------------- 状態(1 or 2) ---------------
     [SerializeField] private int fixedState = 1;     // 内部保持
     private bool _stateOverridden = false;           // 外部強制が入ったらtrue
@@ -41,6 +45,14 @@ public class SearchChase : MonoBehaviour
     public Text StateLabelLegacy;
     public string State1Text = "STATE: 1  隠れている間は見つからない";
     public string State2Text = "STATE: 2  何をしても見つかる";
+
+    // ===== 見渡し（サーチ） =====
+    [Header("見渡し（サーチ）")]
+    public float LookInterval = 5.0f;    // 何秒ごとに見渡すか
+    public float LookDuration = 2.0f;    // 何秒間見渡すか
+    public float LookAngle = 360f;       // その間の総回転角（度）
+    private float lookTimer = 0f;
+    private bool isLooking = false;      // 見渡し中フラグ
 
     // ===== 外部から状態を固定するAPI（最重要） =====
     public void ForceState(int state)
@@ -89,12 +101,47 @@ public class SearchChase : MonoBehaviour
 
         IsPlayerHit(); // 発見判定（状態ルール込み）
 
+        // ★追加：false→true になった瞬間だけログ
+        if (isDiscovery && !_foundPrev)
+        {
+            Debug.Log("見つかってる状態");
+        }
+        _foundPrev = isDiscovery;
+
+        // ---- 見渡しトリガ ----
+        if (!isDiscovery)
+        {
+            lookTimer += Time.deltaTime;
+            if (!isLooking && lookTimer >= LookInterval)
+            {
+                if (agent && agent.isOnNavMesh)
+                {
+                    StartCoroutine(LookAround());
+                }
+                else
+                {
+                    // NavMesh外などで開始できない場合はリセットだけ
+                    lookTimer = 0f;
+                }
+            }
+        }
+        else
+        {
+            // 発見中は間隔をリセット
+            lookTimer = 0f;
+        }
+
         repathtimer += Time.deltaTime;
         if (repathtimer > repathInterval)
         {
             repathtimer = 0f;
             if (surface) surface.UpdateNavMesh(surface.navMeshData);
-            Chase();
+
+            // ★見渡し中は経路更新で動かないように抑止
+            if (!isLooking)
+            {
+                Chase();
+            }
         }
         EnsureAgentOnNavMesh();
 
@@ -196,5 +243,47 @@ public class SearchChase : MonoBehaviour
         string msg = (fixedState == 1) ? State1Text : State2Text;
         if (StateLabelTMP) StateLabelTMP.text = msg;
         if (StateLabelLegacy) StateLabelLegacy.text = msg;
+    }
+
+    // ===== 見渡しコルーチン（停止して回頭） =====
+    IEnumerator LookAround()
+    {
+        isLooking = true;
+        float elapsed = 0f;
+        float turnSpeed = (LookDuration > 0f) ? (LookAngle / LookDuration) : 0f;
+
+        // ウェイポイント切替のInvokeが重ならないように
+        CancelInvoke(nameof(TargetChange));
+
+        if (agent)
+        {
+            agent.isStopped = true;            // その場で停止
+            agent.ResetPath();                 // 経路破棄
+            agent.velocity = Vector3.zero;     // 慣性を即座に殺す
+            agent.updateRotation = false;      // 自動回頭OFF（手動で回す）
+        }
+
+        // その間も発見判定は継続（見つけたら即中断）
+        while (elapsed < LookDuration)
+        {
+            IsPlayerHit();
+            if (isDiscovery) break;
+
+            transform.Rotate(0f, turnSpeed * Time.deltaTime, 0f);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        isLooking = false;
+        lookTimer = 0f;
+
+        if (agent)
+        {
+            agent.updateRotation = true;       // 復帰
+            agent.isStopped = false;           // 再開
+        }
+
+        // 現在のtargetへ復帰（発見していればlostpositionへ）
+        Chase();
     }
 }
