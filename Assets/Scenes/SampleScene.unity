@@ -2132,6 +2132,15 @@ MonoBehaviour:
   OnFirstHidePromptShown:
     m_PersistentCalls:
       m_Calls: []
+  HiddenPromptMessage: "E\u3000\u5916\u306B\u51FA\u308B\n"
+  RewriteTextWhileHidden: 1
+  RestoreTextOnExit: 1
+  OnPromptRewritten:
+    m_PersistentCalls:
+      m_Calls: []
+  OnPromptRestored:
+    m_PersistentCalls:
+      m_Calls: []
   HiddenYOffset: 0.2
   DisableGravityWhileHidden: 1
   MakeKinematicWhileHidden: 1
