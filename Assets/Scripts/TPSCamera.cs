@@ -77,7 +77,6 @@ public class TPSCamera : MonoBehaviour
     public bool SaveSensitivity = true;
     public string SensitivityPrefsKey = "Camera.RotateSpeed";
 
-    // ===== ライフサイクル =====
     public void Awake()
     {
         input = new InputSystem_Actions();
@@ -88,13 +87,13 @@ public class TPSCamera : MonoBehaviour
     {
         input.Player.Enable();
 
-        // --- 感度Sliderの初期セットアップ ---
+        // --- 感度Sliderの初期設定 ---
         if (RotateSpeedSlider)
         {
             RotateSpeedSlider.minValue = MinRotateSpeed;
             RotateSpeedSlider.maxValue = MaxRotateSpeed;
 
-            // 既存保存があれば読み込み
+            // 設定読み込み
             float init = RotateSpeed;
             if (SaveSensitivity && PlayerPrefs.HasKey(SensitivityPrefsKey))
                 init = Mathf.Clamp(PlayerPrefs.GetFloat(SensitivityPrefsKey), MinRotateSpeed, MaxRotateSpeed);
@@ -149,10 +148,10 @@ public class TPSCamera : MonoBehaviour
             (Gamepad.current != null && Gamepad.current.wasUpdatedThisFrame);
         float deviceSense = usingGamepad ? GamepadSense : MouseSense;
 
-        // ショルダー切替
-        if (ShoulderSwapKey != KeyCode.None && Input.GetKeyDown(ShoulderSwapKey))
-            ShoulderOffset.x *= -1f;
-
+      //  // ショルダー切替
+      //  if (ShoulderSwapKey != KeyCode.None && Input.GetKeyDown(ShoulderSwapKey))
+      //      ShoulderOffset.x *= -1f;
+      //
         // 毎フレーム、上下限同期
         PitchUpLimit = Mathf.Clamp(PitchUpLimit, 0f, 80f);
         PitchDownLimit = Mathf.Clamp(PitchDownLimit, 0f, 80f);
