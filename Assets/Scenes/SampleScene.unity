@@ -403,11 +403,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 2feec511fe739a94ba74e818deac6d7d, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -11.38
+      value: -9.03
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 2feec511fe739a94ba74e818deac6d7d, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.33
+      value: -2.06
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 2feec511fe739a94ba74e818deac6d7d, type: 3}
       propertyPath: m_LocalPosition.z
@@ -686,7 +686,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9d1f8f2207025b849b5dd37e26abac76, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  audioSource: {fileID: 1862806369}
+  audioSource: {fileID: 0}
   KnockSe: {fileID: 8300000, guid: b0f667ecc2f979641a808c6f072dab8d, type: 3}
   KnockVoice: {fileID: 8300000, guid: c61144c3bddf3e04f851f265b840ca6b, type: 3}
   Hide: 0
@@ -1053,7 +1053,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 2feec511fe739a94ba74e818deac6d7d, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.59
+      value: -2.16
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 2feec511fe739a94ba74e818deac6d7d, type: 3}
       propertyPath: m_LocalPosition.z
@@ -4283,6 +4283,7 @@ GameObject:
   - component: {fileID: 282616568}
   - component: {fileID: 282616570}
   - component: {fileID: 282616569}
+  - component: {fileID: 282616571}
   m_Layer: 0
   m_Name: Point Light (1)
   m_TagString: Untagged
@@ -4393,6 +4394,27 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &282616571
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 282616567}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  intensityRange: {x: 0, y: 10}
+  changeInterval: {x: 0.05, y: 0.7}
+  lerpSpeed: {x: 3, y: 15}
+  goDarkChance: 0.3
+  noiseAmount: 0.3
+  noiseSpeed: 2
+  noiseSeed: 0
+  blackoutChance: 0.04
+  blackoutDuration: {x: 0.4, y: 1.2}
 --- !u!1 &283357547
 GameObject:
   m_ObjectHideFlags: 0
@@ -4528,27 +4550,19 @@ MonoBehaviour:
   Ghost: {fileID: 1088747850}
   GhostPosition: {x: 0, y: 0, z: 0}
   GhostEncountChance: 0
-  MinX: -8
-  MaxX: 4.4
-  MinZ: -7.5
-  MaxZ: 2.7
+  MinX: 0
+  MaxX: 0
+  MinZ: 0
+  MaxZ: 0
   SpawnYOffset: 0
-  MinSpawnDistance: 15
+  MinSpawnDistance: 8
   MaxPickTrials: 16
   CurrentGhost: {fileID: 0}
   GhostLifetime: 30
   RespawnDelayAfterDespawn: 5
-  RetryIntervalWhileAlive: 2
-  SpawnSE: {fileID: 8300000, guid: 13000b57fc449ff4e952548651cdf2df, type: 3}
-  SpawnSEVolume: 1
-  SpawnSEPitchRange: {x: 20, y: 20}
-  Force2D: 1
-  SE_MinDistance: 30
-  SE_MaxDistance: 35
-  SE_Rolloff: 1
-  LogSpawnSE: 1
-  SpawnVfxPrefab: {fileID: 0}
-  SpawnVfxLifetime: 2
+  RetryIntervalWhileAlive: 0.25
+  AudioSource: {fileID: 285738715}
+  AudioClip: {fileID: 8300000, guid: 13000b57fc449ff4e952548651cdf2df, type: 3}
   OnGhostSpawned:
     m_PersistentCalls:
       m_Calls:
@@ -4566,6 +4580,8 @@ MonoBehaviour:
         m_CallState: 2
   AutoStart: 0
   ResetCounterOnStart: 1
+  GuaranteeFirstRoll: 1
+  ForceUnpauseAudioListener: 1
 --- !u!4 &285738714
 Transform:
   m_ObjectHideFlags: 0
@@ -4918,7 +4934,6 @@ GameObject:
   m_Component:
   - component: {fileID: 303955939}
   - component: {fileID: 303955938}
-  - component: {fileID: 303955937}
   - component: {fileID: 303955936}
   m_Layer: 0
   m_Name: hideCamera
@@ -4971,14 +4986,6 @@ MonoBehaviour:
     m_MipBias: 0
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
---- !u!81 &303955937
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 303955935}
-  m_Enabled: 1
 --- !u!20 &303955938
 Camera:
   m_ObjectHideFlags: 0
@@ -6384,6 +6391,7 @@ GameObject:
   - component: {fileID: 357938704}
   - component: {fileID: 357938706}
   - component: {fileID: 357938705}
+  - component: {fileID: 357938707}
   m_Layer: 0
   m_Name: Point Light (2)
   m_TagString: Untagged
@@ -6494,6 +6502,27 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &357938707
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 357938703}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  intensityRange: {x: 0, y: 10}
+  changeInterval: {x: 0.05, y: 0.7}
+  lerpSpeed: {x: 3, y: 15}
+  goDarkChance: 0.3
+  noiseAmount: 0.3
+  noiseSpeed: 2
+  noiseSeed: 0
+  blackoutChance: 0.04
+  blackoutDuration: {x: 0.4, y: 1.2}
 --- !u!1 &373192910
 GameObject:
   m_ObjectHideFlags: 0
@@ -6505,6 +6534,7 @@ GameObject:
   - component: {fileID: 373192911}
   - component: {fileID: 373192913}
   - component: {fileID: 373192912}
+  - component: {fileID: 373192914}
   m_Layer: 0
   m_Name: Point Light (1)
   m_TagString: Untagged
@@ -6615,6 +6645,156 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &373192914
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 373192910}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  intensityRange: {x: 0, y: 10}
+  changeInterval: {x: 0.05, y: 0.7}
+  lerpSpeed: {x: 3, y: 15}
+  goDarkChance: 0.3
+  noiseAmount: 0.3
+  noiseSpeed: 2
+  noiseSeed: 0
+  blackoutChance: 0.04
+  blackoutDuration: {x: 0.4, y: 1.2}
+--- !u!1 &374886578
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 374886580}
+  - component: {fileID: 374886579}
+  m_Layer: 0
+  m_Name: Audio Source (1)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!82 &374886579
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 374886578}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 8300000, guid: 13000b57fc449ff4e952548651cdf2df, type: 3}
+  m_Resource: {fileID: 8300000, guid: 13000b57fc449ff4e952548651cdf2df, type: 3}
+  m_PlayOnAwake: 0
+  m_Volume: 1
+  m_Pitch: 1
+  Loop: 0
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 1
+  MinDistance: 1
+  MaxDistance: 500
+  Pan2D: 0
+  rolloffMode: 0
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+  rolloffCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  spreadCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  reverbZoneMixCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+--- !u!4 &374886580
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 374886578}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 1.9859412, y: 2.3611376, z: -6.0341845}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &378098843
 GameObject:
   m_ObjectHideFlags: 0
@@ -7999,6 +8179,11 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 5d389062dcf1a554e8eda7aa08d34afa, type: 3}
   m_PrefabInstance: {fileID: 1843032784}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &441762875 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 2feec511fe739a94ba74e818deac6d7d, type: 3}
+  m_PrefabInstance: {fileID: 2087589770}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &444446033
 GameObject:
   m_ObjectHideFlags: 0
@@ -8280,7 +8465,6 @@ GameObject:
   m_Component:
   - component: {fileID: 446601664}
   - component: {fileID: 446601667}
-  - component: {fileID: 446601666}
   - component: {fileID: 446601665}
   m_Layer: 0
   m_Name: lightoffcamera
@@ -8348,14 +8532,6 @@ MonoBehaviour:
     m_MipBias: 0
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
---- !u!81 &446601666
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 446601663}
-  m_Enabled: 1
 --- !u!20 &446601667
 Camera:
   m_ObjectHideFlags: 0
@@ -14027,6 +14203,7 @@ GameObject:
   - component: {fileID: 845605904}
   - component: {fileID: 845605906}
   - component: {fileID: 845605905}
+  - component: {fileID: 845605907}
   m_Layer: 0
   m_Name: Point Light (2)
   m_TagString: Untagged
@@ -14137,6 +14314,27 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &845605907
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 845605903}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  intensityRange: {x: 0, y: 10}
+  changeInterval: {x: 0.05, y: 0.7}
+  lerpSpeed: {x: 3, y: 15}
+  goDarkChance: 0.3
+  noiseAmount: 0.3
+  noiseSpeed: 2
+  noiseSeed: 0
+  blackoutChance: 0.04
+  blackoutDuration: {x: 0.4, y: 1.2}
 --- !u!1 &845719444 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 933320475683634964, guid: 9264ced940604ee408e2f6a99db9ad07, type: 3}
@@ -14168,6 +14366,27 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 2feec511fe739a94ba74e818deac6d7d, type: 3}
   m_PrefabInstance: {fileID: 2087589770}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &845767680
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 441762875}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  intensityRange: {x: 0, y: 10}
+  changeInterval: {x: 0.05, y: 0.7}
+  lerpSpeed: {x: 3, y: 15}
+  goDarkChance: 0.3
+  noiseAmount: 0.3
+  noiseSpeed: 2
+  noiseSeed: 0
+  blackoutChance: 0.04
+  blackoutDuration: {x: 0.4, y: 1.2}
 --- !u!4 &845929632 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 6b63bb204d045ff40ae944655cd795a2, type: 3}
@@ -15231,6 +15450,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 901311486}
+  - component: {fileID: 901311487}
   m_Layer: 0
   m_Name: right
   m_TagString: Untagged
@@ -15259,6 +15479,27 @@ Transform:
   - {fileID: 283357548}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &901311487
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 901311485}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  intensityRange: {x: 0, y: 10}
+  changeInterval: {x: 0.05, y: 0.7}
+  lerpSpeed: {x: 3, y: 15}
+  goDarkChance: 0.3
+  noiseAmount: 0.3
+  noiseSpeed: 2
+  noiseSeed: 0
+  blackoutChance: 0.04
+  blackoutDuration: {x: 0.4, y: 1.2}
 --- !u!1 &924504100
 GameObject:
   m_ObjectHideFlags: 0
@@ -15270,6 +15511,7 @@ GameObject:
   - component: {fileID: 924504101}
   - component: {fileID: 924504103}
   - component: {fileID: 924504102}
+  - component: {fileID: 924504104}
   m_Layer: 0
   m_Name: Point Light (2)
   m_TagString: Untagged
@@ -15380,6 +15622,27 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &924504104
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 924504100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  intensityRange: {x: 0, y: 10}
+  changeInterval: {x: 0.05, y: 0.7}
+  lerpSpeed: {x: 3, y: 15}
+  goDarkChance: 0.3
+  noiseAmount: 0.3
+  noiseSpeed: 2
+  noiseSeed: 0
+  blackoutChance: 0.04
+  blackoutDuration: {x: 0.4, y: 1.2}
 --- !u!1001 &925509764
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -16616,6 +16879,7 @@ GameObject:
   - component: {fileID: 991880521}
   - component: {fileID: 991880523}
   - component: {fileID: 991880522}
+  - component: {fileID: 991880524}
   m_Layer: 0
   m_Name: Point Light
   m_TagString: Untagged
@@ -16726,6 +16990,27 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &991880524
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 991880520}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  intensityRange: {x: 0, y: 10}
+  changeInterval: {x: 0.05, y: 0.7}
+  lerpSpeed: {x: 3, y: 15}
+  goDarkChance: 0.3
+  noiseAmount: 0.3
+  noiseSpeed: 2
+  noiseSeed: 0
+  blackoutChance: 0.148
+  blackoutDuration: {x: 0.4, y: 1.2}
 --- !u!1001 &998740444
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -18597,6 +18882,103 @@ MonoBehaviour:
   MaxVignette: 1
   FadeSpeed: 6
   AlsoShakeChromatic: 0
+--- !u!82 &1088747864
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1088747850}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 8300000, guid: 13000b57fc449ff4e952548651cdf2df, type: 3}
+  m_Resource: {fileID: 8300000, guid: 13000b57fc449ff4e952548651cdf2df, type: 3}
+  m_PlayOnAwake: 0
+  m_Volume: 1
+  m_Pitch: 1
+  Loop: 0
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 1
+  MinDistance: 1
+  MaxDistance: 500
+  Pan2D: 0
+  rolloffMode: 0
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+  rolloffCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  spreadCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  reverbZoneMixCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!1001 &1092411333
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -22170,7 +22552,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1297618380}
   - component: {fileID: 1297618383}
-  - component: {fileID: 1297618382}
   - component: {fileID: 1297618381}
   m_Layer: 0
   m_Name: ChaseCamera
@@ -22238,14 +22619,6 @@ MonoBehaviour:
     m_MipBias: 0
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
---- !u!81 &1297618382
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1297618379}
-  m_Enabled: 1
 --- !u!20 &1297618383
 Camera:
   m_ObjectHideFlags: 0
@@ -22686,6 +23059,7 @@ GameObject:
   - component: {fileID: 1312124098}
   - component: {fileID: 1312124100}
   - component: {fileID: 1312124099}
+  - component: {fileID: 1312124101}
   m_Layer: 0
   m_Name: Point Light
   m_TagString: Untagged
@@ -22796,6 +23170,27 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &1312124101
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1312124097}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  intensityRange: {x: 0, y: 10}
+  changeInterval: {x: 0.05, y: 0.7}
+  lerpSpeed: {x: 3, y: 15}
+  goDarkChance: 0.3
+  noiseAmount: 0.3
+  noiseSpeed: 2
+  noiseSeed: 0
+  blackoutChance: 0.04
+  blackoutDuration: {x: 0.4, y: 1.2}
 --- !u!4 &1318291676 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 327059411245217200, guid: 01d007dca455c864eac2c521d2a24108, type: 3}
@@ -24156,7 +24551,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 2feec511fe739a94ba74e818deac6d7d, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.48
+      value: -2.16
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 2feec511fe739a94ba74e818deac6d7d, type: 3}
       propertyPath: m_LocalPosition.z
@@ -24981,7 +25376,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1510880884}
   - component: {fileID: 1510880887}
-  - component: {fileID: 1510880886}
   - component: {fileID: 1510880885}
   m_Layer: 0
   m_Name: TestCamera
@@ -25049,14 +25443,6 @@ MonoBehaviour:
     m_MipBias: 0
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
---- !u!81 &1510880886
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1510880883}
-  m_Enabled: 1
 --- !u!20 &1510880887
 Camera:
   m_ObjectHideFlags: 0
@@ -25177,6 +25563,7 @@ GameObject:
   - component: {fileID: 1521313958}
   - component: {fileID: 1521313960}
   - component: {fileID: 1521313959}
+  - component: {fileID: 1521313961}
   m_Layer: 0
   m_Name: Point Light (1)
   m_TagString: Untagged
@@ -25287,6 +25674,27 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &1521313961
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1521313957}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  intensityRange: {x: 0, y: 10}
+  changeInterval: {x: 0.05, y: 0.7}
+  lerpSpeed: {x: 3, y: 15}
+  goDarkChance: 0.3
+  noiseAmount: 0.3
+  noiseSpeed: 2
+  noiseSeed: 0
+  blackoutChance: 0.04
+  blackoutDuration: {x: 0.4, y: 1.2}
 --- !u!1001 &1527323715
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -25903,6 +26311,7 @@ MonoBehaviour:
   BasicMoveTotalDistanceRequired: 1.5
   BasicMoveCountOnlyWhenInput: 1
   BasicMoveMaxStepPerFrame: 2
+  PauseAudioWhilePanel: 1
   EnableDoorMission: 1
   MissionText: {fileID: 1966298018}
   MissionCharsPerSecond: 40
@@ -29064,6 +29473,7 @@ GameObject:
   - component: {fileID: 1686598729}
   - component: {fileID: 1686598731}
   - component: {fileID: 1686598730}
+  - component: {fileID: 1686598732}
   m_Layer: 0
   m_Name: Point Light
   m_TagString: Untagged
@@ -29174,6 +29584,27 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &1686598732
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1686598728}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  intensityRange: {x: 0, y: 10}
+  changeInterval: {x: 0.05, y: 0.7}
+  lerpSpeed: {x: 3, y: 15}
+  goDarkChance: 0.3
+  noiseAmount: 0.3
+  noiseSpeed: 2
+  noiseSeed: 0
+  blackoutChance: 0.04
+  blackoutDuration: {x: 0.4, y: 1.2}
 --- !u!1 &1689751872
 GameObject:
   m_ObjectHideFlags: 0
@@ -29761,6 +30192,7 @@ GameObject:
   - component: {fileID: 1705857235}
   - component: {fileID: 1705857237}
   - component: {fileID: 1705857236}
+  - component: {fileID: 1705857238}
   m_Layer: 0
   m_Name: Point Light (1)
   m_TagString: Untagged
@@ -29777,7 +30209,7 @@ Transform:
   m_GameObject: {fileID: 1705857234}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.005, y: 0.08, z: 0.164}
+  m_LocalPosition: {x: -0.201, y: 0.1757, z: 0.137}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -29871,6 +30303,27 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &1705857238
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1705857234}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  intensityRange: {x: 0, y: 10}
+  changeInterval: {x: 0.05, y: 0.7}
+  lerpSpeed: {x: 3, y: 15}
+  goDarkChance: 0.3
+  noiseAmount: 0.3
+  noiseSpeed: 2
+  noiseSeed: 0
+  blackoutChance: 0.148
+  blackoutDuration: {x: 0.4, y: 1.2}
 --- !u!1 &1707533796
 GameObject:
   m_ObjectHideFlags: 0
@@ -32355,135 +32808,6 @@ Transform:
   - {fileID: 1144130938}
   m_Father: {fileID: 1532791024}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1862806368
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1862806370}
-  - component: {fileID: 1862806369}
-  m_Layer: 0
-  m_Name: Audio Source
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!82 &1862806369
-AudioSource:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1862806368}
-  m_Enabled: 1
-  serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
-  m_audioClip: {fileID: 0}
-  m_Resource: {fileID: 0}
-  m_PlayOnAwake: 1
-  m_Volume: 1
-  m_Pitch: 1
-  Loop: 0
-  Mute: 0
-  Spatialize: 0
-  SpatializePostEffects: 0
-  Priority: 128
-  DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
-  Pan2D: 0
-  rolloffMode: 0
-  BypassEffects: 0
-  BypassListenerEffects: 0
-  BypassReverbZones: 0
-  rolloffCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    - serializedVersion: 3
-      time: 1
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  panLevelCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  spreadCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  reverbZoneMixCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
---- !u!4 &1862806370
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1862806368}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 23.404001, y: 1.2578791, z: -5.5180645}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1866074286
 GameObject:
   m_ObjectHideFlags: 0
@@ -32882,7 +33206,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1886452243}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1be17481bc322ec4da497395d705fcff, type: 3}
   m_Name: 
@@ -34607,7 +34931,6 @@ GameObject:
   m_Component:
   - component: {fileID: 2010155930}
   - component: {fileID: 2010155927}
-  - component: {fileID: 2010155929}
   - component: {fileID: 2010155928}
   m_Layer: 0
   m_Name: bREAK
@@ -34711,14 +35034,6 @@ MonoBehaviour:
     m_MipBias: 0
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
---- !u!81 &2010155929
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2010155926}
-  m_Enabled: 1
 --- !u!4 &2010155930
 Transform:
   m_ObjectHideFlags: 0
@@ -35436,7 +35751,10 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 2feec511fe739a94ba74e818deac6d7d, type: 3}
       insertIndex: -1
       addedObject: {fileID: 357938704}
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 2feec511fe739a94ba74e818deac6d7d, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 845767680}
   m_SourcePrefab: {fileID: 100100000, guid: 2feec511fe739a94ba74e818deac6d7d, type: 3}
 --- !u!1 &2095808392
 GameObject:
@@ -35874,6 +36192,7 @@ GameObject:
   - component: {fileID: 2111509275}
   - component: {fileID: 2111509277}
   - component: {fileID: 2111509276}
+  - component: {fileID: 2111509278}
   m_Layer: 0
   m_Name: Point Light
   m_TagString: Untagged
@@ -35984,6 +36303,27 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &2111509278
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2111509274}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  intensityRange: {x: 0, y: 10}
+  changeInterval: {x: 0.05, y: 0.7}
+  lerpSpeed: {x: 3, y: 15}
+  goDarkChance: 0.3
+  noiseAmount: 0.3
+  noiseSpeed: 2
+  noiseSeed: 0
+  blackoutChance: 0.04
+  blackoutDuration: {x: 0.4, y: 1.2}
 --- !u!4 &2117808001 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 59029acc4d100724785fa8e7ae736c34, type: 3}
@@ -36833,6 +37173,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 2672928710479239448, guid: 6c37b82c80289b94a82523e1b940c2e4, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1088747858}
+    - targetCorrespondingSourceObject: {fileID: 2672928710479239448, guid: 6c37b82c80289b94a82523e1b940c2e4, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1088747864}
   m_SourcePrefab: {fileID: 100100000, guid: 6c37b82c80289b94a82523e1b940c2e4, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
@@ -36846,7 +37189,6 @@ SceneRoots:
   - {fileID: 952902075}
   - {fileID: 2023029309}
   - {fileID: 285738714}
-  - {fileID: 1862806370}
   - {fileID: 873000914}
   - {fileID: 901311486}
   - {fileID: 68349563}
@@ -36897,3 +37239,4 @@ SceneRoots:
   - {fileID: 2000470041}
   - {fileID: 1757263504}
   - {fileID: 188384155}
+  - {fileID: 374886580}

@@ -103,6 +103,12 @@ public class Tutorial : MonoBehaviour
     private Vector3 _basicMovePrevPos;
     private float _basicMoveTotal = 0f;
 
+    // Tutorial クラス内のフィールドに追加
+    [Header("ポーズ時のオーディオ制御")]
+    public bool PauseAudioWhilePanel = true;
+    private bool _prevListenerPause = false;
+
+
     // ========== ここから追加：ドア用ミッション（独立テキスト） ==========
     [Header("ドア用ミッション（別テキストUI）")]
     public bool EnableDoorMission = true;
@@ -403,6 +409,7 @@ public class Tutorial : MonoBehaviour
     }
 
     // ========== 共通：パネル表示→一時停止→UI.Submitで閉じる ==========
+    // 既存の CoShowPausePanel を置き換え（または中身を差し替え）
     private IEnumerator CoShowPausePanel(GameObject panel)
     {
         if (!panel) yield break;
@@ -410,6 +417,11 @@ public class Tutorial : MonoBehaviour
         _pauseGate = true;
 
         panel.SetActive(true);
+
+        // ★ ここで現在の AudioListener.pause を保存してからポーズ
+        _prevListenerPause = AudioListener.pause;
+        if (PauseAudioWhilePanel) AudioListener.pause = true;
+
         float prevScale = Time.timeScale;
         Time.timeScale = 0f;
 
@@ -419,8 +431,11 @@ public class Tutorial : MonoBehaviour
             yield return null;
 
         panel.SetActive(false);
-        Time.timeScale = prevScale;
 
+        // ★ 音声ポーズを元に戻す（ユーザが元々ミュートならそのまま）
+        if (PauseAudioWhilePanel) AudioListener.pause = _prevListenerPause;
+
+        Time.timeScale = prevScale;
         _pauseGate = false;
 
         // （任意）解除後に保留があれば出す
@@ -434,6 +449,7 @@ public class Tutorial : MonoBehaviour
             }
         }
     }
+
 
     // ========== ドア制御 ==========
     private void ApplyDoorEnableByProgress(int progress)
@@ -753,7 +769,7 @@ public class Tutorial : MonoBehaviour
         }
     }
 
-    // ========== ここから追加：ライト有効化ヘルパー ==========
+    // ========== ライト有効化==========
     private void ActivateLightsAfterMission3()
     {
         if (_lightsActivatedAfterM3) return;
@@ -763,5 +779,5 @@ public class Tutorial : MonoBehaviour
         for (int i = 0; i < LightsToToggle.Count; i++)
             if (LightsToToggle[i]) LightsToToggle[i].SetActive(true);
     }
-    // ========== 追加ここまで ==========
+    // ====================
 }
