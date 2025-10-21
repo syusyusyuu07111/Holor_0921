@@ -104,7 +104,7 @@ public class GameOver : MonoBehaviour
             {
                 // 距離計測 & ログ出力
                 float dist = Vector3.Distance(Player.position, Ghost.position);
-                Debug.Log($"[GameOver] distance = {dist:0.000}");
+               // Debug.Log($"[GameOver] distance = {dist:0.000}");
 
                 // 判定：距離がトリガー値以下
                 if (dist <= TriggerDistance)

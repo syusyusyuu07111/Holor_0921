@@ -26,7 +26,7 @@ public class PlayerController : MonoBehaviour
     public DashEvent OnDashEnd = new DashEvent();
     bool _prevDash = false;
 
-    // ★ ロック用（最後に“自分で動かした”座標/回転）
+    // 入力なし時のロック
     Vector3 _lockedPos;
     Quaternion _lockedRot;
 
@@ -38,8 +38,6 @@ public class PlayerController : MonoBehaviour
     void OnEnable()
     {
         Input.Player.Enable();
-
-        // 起動時点をロック基準に
         _lockedPos = transform.position;
         _lockedRot = transform.rotation;
     }
@@ -50,15 +48,14 @@ public class PlayerController : MonoBehaviour
         Vector2 move = Input.Player.Move.ReadValue<Vector2>();
         bool isSlowWalking = Input.Player.SlowWalk.IsPressed();
 
-        // deadZone 判定（スティック/キーボード両対応）
+        // deadZone 判定
         bool hasInput = (move.sqrMagnitude >= deadZone * deadZone);
 
-        // 入力なし：位置/回転をロック値に固定して終了
+        // 入力なし：ロック
         if (!hasInput)
         {
             transform.SetPositionAndRotation(_lockedPos, _lockedRot);
 
-            // アニメ処理（停止）
             noInputTimer += Time.deltaTime;
             if (noInputTimer >= stopGrace && animator && animator.GetBool("IsMoving"))
                 animator.SetBool("IsMoving", false);
@@ -68,16 +65,14 @@ public class PlayerController : MonoBehaviour
                 animator.SetBool("IsSlowWalking", false);
             }
 
-            // 公開状態
             IsMovingNow = false;
             IsDashingNow = false;
             IsSlowWalkingNow = false;
             if (_prevDash) { OnDashEnd.Invoke(); _prevDash = false; }
-
             return;
         }
 
-        // ここから“入力あり”処理
+        // 入力あり
         noInputTimer = 0f;
 
         // カメラ基準の平面向き
@@ -86,7 +81,7 @@ public class PlayerController : MonoBehaviour
         Vector3 right = Camera ? Camera.right : Vector3.right;
         right.y = 0f; right.Normalize();
 
-        // スピード決定（ダッシュは前進時のみ）
+        // 速度決定（ダッシュは前進時のみ）
         float currentSpeed = MoveSpeed;
         bool isDashing = Input.Player.Dash.IsPressed() && move.y >= 0f;
         if (isSlowWalking) { currentSpeed = SlowSpeed; isDashing = false; }
@@ -96,16 +91,23 @@ public class PlayerController : MonoBehaviour
         Vector3 moveDir = (forward * move.y + right * move.x);
         if (moveDir.sqrMagnitude > 0.0001f) moveDir.Normalize();
 
-        // 前進/後退どちらでも押されている入力に従って移動
+        // --- 後退判定（ここがポイント）---
+        bool isBackward = move.y < -deadZone;
+
         if (moveDir.sqrMagnitude > 0f)
         {
+            // 移動は常に入力通り
             transform.position += moveDir * currentSpeed * Time.deltaTime;
 
-            // 前進時のみ向きを合わせたいなら条件を付ける。ここでは常に向ける：
-            transform.rotation = Quaternion.LookRotation(moveDir, Vector3.up);
+            // 回転は「後退中はしない」。前進/横移動のときだけ向きを合わせる
+            if (!isBackward)
+            {
+                transform.rotation = Quaternion.LookRotation(moveDir, Vector3.up);
+            }
+            // isBackward のときは rotation を触らない＝向き維持で後退
         }
 
-        // ★ このフレームの結果を“ロック値”として記録
+        // このフレームの結果をロック
         _lockedPos = transform.position;
         _lockedRot = transform.rotation;
 

@@ -12,49 +12,28 @@ public class EnemyAI : MonoBehaviour
     [Tooltip("直近の抽選値（デバッグ用）")]
     public int GhostEncountChance;
 
-    // ====== スポーン範囲 ======
+    // ====== スポーン範囲（XZ矩形） ======
     [Header("スポーン範囲（XZ矩形）")]
     public float MinX, MaxX, MinZ, MaxZ;
-    public float SpawnYOffset = 0f;          // 高さ補正（地面がY=0でない時など）
+    public float SpawnYOffset = 0f;
 
     // ====== 距離/試行 ======
     [Header("距離/試行")]
-    public float MinSpawnDistance = 8f;      // プレイヤーから最低でもこの距離
-    public int MaxPickTrials = 16;           // ランダム試行回数
+    public float MinSpawnDistance = 8f;
+    public int MaxPickTrials = 16;
 
     // ====== 生成制御 ======
     [Header("生成制御")]
-    public GameObject CurrentGhost;          // 現在出ている個体（1体制限）
-    public float GhostLifetime = 30f;        // 出現から自壊まで
+    public GameObject CurrentGhost;          // 1体制限
+    public float GhostLifetime = 30f;
     public float RespawnDelayAfterDespawn = 5f;
     public float RetryIntervalWhileAlive = 0.25f;
     private bool _cooldown;
 
-    // ====== 登場演出（SE/VFX） ======
+    // ====== 登場SE ======
     [Header("登場SE")]
-    public AudioClip SpawnSE;
-    [Range(0f, 1f)] public float SpawnSEVolume = 1.0f;
-    public Vector2 SpawnSEPitchRange = new Vector2(0.98f, 1.02f);
-
-    [Tooltip("trueで必ず2D再生（距離減衰なし）")]
-    public bool Force2D = false;
-
-    [Tooltip("3D再生時の最小距離（これ以内は減衰しない）")]
-    public float SE_MinDistance = 2f;
-
-    [Tooltip("3D再生時の最大距離（これ以遠は聞こえない）")]
-    public float SE_MaxDistance = 35f;
-
-    public AudioRolloffMode SE_Rolloff = AudioRolloffMode.Linear;
-
-    [Tooltip("距離や再生成否をデバッグ出力")]
-    public bool LogSpawnSE = false;
-
-    [Header("登場VFX（任意）")]
-    public GameObject SpawnVfxPrefab;
-    public float SpawnVfxLifetime = 2f;
-
-    private AudioSource _sharedSource;       // 2D再生やフォールバックに使用
+    public AudioSource AudioSource;          // インスペクタでアタッチ
+    public AudioClip AudioClip;              // インスペクタでアタッチ（AudioSource.clip にも入れてOK）
 
     // ====== イベント：湧いた瞬間 ======
     [Header("イベント")]
@@ -62,33 +41,75 @@ public class EnemyAI : MonoBehaviour
 
     // ====== 抽選制御（外部操作） ======
     [Header("抽選制御")]
-    public bool AutoStart = false;           // Tutorial中はfalse推奨
+    public bool AutoStart = false;
     private Coroutine _spawnLoop;
     public bool IsSpawning => _spawnLoop != null;
 
-    // ====== 1回目=STATE1 / 2回目=STATE2 を保証する仕組み ======
-    private static int s_GlobalSpawnCount = 0;   // 全スポナー共通の累積カウンタ
+    // ====== 1回目=STATE1 / 2回目=STATE2 を保証 ======
+    private static int s_GlobalSpawnCount = 0;
     [Tooltip("Play開始時に1→2カウンタをリセット（通常はtrue）")]
     public bool ResetCounterOnStart = true;
 
-    // =========================================================
+    // ====== 最初の抽選は必ずスポーン ======
+    [Header("最初の抽選保証")]
+    public bool GuaranteeFirstRoll = true;
+    private bool _firstRollDone = false;
+
+    // ---- 小さな保険（Editorでミュートされがちな時用） ----
+    [Header("デバッグ/保険")]
+    [Tooltip("Start時に AudioListener.pause を解除する")]
+    public bool ForceUnpauseAudioListener = true;
+
+    // ================= ライフサイクル =================
 
     void Start()
     {
-        if (ResetCounterOnStart) s_GlobalSpawnCount = 0;   // ★最初にリセット
-        _sharedSource = GetComponent<AudioSource>();
+        if (ResetCounterOnStart) s_GlobalSpawnCount = 0;
+
+        if (AudioSource == null) AudioSource = GetComponent<AudioSource>();
+
+        // Inspectorで指定したClipをAudioSource.clipにも同期（見落とし防止）
+        if (AudioSource && AudioClip && AudioSource.clip != AudioClip)
+            AudioSource.clip = AudioClip;
+
+        if (ForceUnpauseAudioListener) AudioListener.pause = false;
+
+        // 参考ログ
+#if UNITY_2023_1_OR_NEWER
+        var listeners = Object.FindObjectsByType<AudioListener>(FindObjectsSortMode.None);
+#else
+        var listeners = Object.FindObjectsOfType<AudioListener>();
+#endif
+        Debug.Log($"[EnemyAI] Listeners={(listeners?.Length ?? 0)}, " +
+                  $"ASrc={(AudioSource ? "OK" : "null")}, " +
+                  $"Clip={(AudioClip ? AudioClip.name : "null")}, " +
+                  $"ASrc.Mute={(AudioSource ? AudioSource.mute : false)}, " +
+                  $"ASrc.Vol={(AudioSource ? AudioSource.volume : 0f):0.00}, " +
+                  $"Listener.pause={AudioListener.pause}");
+
         if (AutoStart) _spawnLoop = StartCoroutine(SpawnLoop());
+    }
+
+    void OnValidate()
+    {
+        // 編集中に差し替えたときも同期
+        if (AudioSource && AudioClip) AudioSource.clip = AudioClip;
     }
 
     void Update()
     {
-        GhostPosition = PickSpawnPointInRect(); // 候補は常時更新OK
+        GhostPosition = PickSpawnPointInRect();
     }
 
-    // ---- 外部公開：開始/停止 ----
+    // ================= 外部公開：開始/停止 =================
+
     public void BeginSpawning()
     {
-        if (_spawnLoop == null) _spawnLoop = StartCoroutine(SpawnLoop());
+        if (_spawnLoop == null)
+        {
+            _firstRollDone = false;
+            _spawnLoop = StartCoroutine(SpawnLoop());
+        }
     }
 
     public void StopSpawning()
@@ -96,86 +117,78 @@ public class EnemyAI : MonoBehaviour
         if (_spawnLoop != null) { StopCoroutine(_spawnLoop); _spawnLoop = null; }
     }
 
-    /// <summary>
-    /// 即時に1体だけ確定スポーンさせる（SE/VFXあり）。
-    /// 条件を満たさない（既に存在、クールダウン中、プレハブ未設定）なら false。
-    /// </summary>
+    // ================= スポーン処理 =================
+
+    // 即時に1体だけ確定スポーン
     public bool SpawnOnceImmediate()
     {
         if (CurrentGhost || _cooldown || !Ghost) return false;
 
-        // いまの候補を安全に再計算してから使う
         var pos = PickSpawnPointInRect();
-
         CurrentGhost = Instantiate(Ghost, pos, Quaternion.identity);
 
-        // ★最初の2体はSTATEを固定（1体目=1、2体目=2、以降は強制なし）
         ForceFirstTwoStates(CurrentGhost);
-
-        // イベント通知（Tutorialなどが受け取る）
         OnGhostSpawned?.Invoke();
 
-        // 演出
-        PlaySpawnSoundAt(pos);
-        if (SpawnVfxPrefab)
-        {
-            var vfx = Instantiate(SpawnVfxPrefab, pos, Quaternion.identity);
-            if (SpawnVfxLifetime > 0f) Destroy(vfx, SpawnVfxLifetime);
-        }
+        TryPlaySpawnSE();    // ★ 生成直後にSE
 
-        // 寿命管理
         StartCoroutine(GhostLifecycle(CurrentGhost));
+        _firstRollDone = true;
         return true;
     }
 
-    // ---- メインの抽選ループ ----
+    // 抽選ループ
     IEnumerator SpawnLoop()
     {
         while (true)
         {
-            // 1体制限 & クールダウン
             if (CurrentGhost || _cooldown)
             {
                 yield return new WaitForSeconds(RetryIntervalWhileAlive);
                 continue;
             }
 
-            // 抽選
-            GhostEncountChance = Random.Range(0, 50); // 0〜49
+            // 最初の抽選は必ずスポーン
+            if (GuaranteeFirstRoll && !_firstRollDone)
+            {
+                _firstRollDone = true;
+
+                if (!Ghost) { Debug.LogWarning("[EnemyAI] Ghost prefab 未設定。"); yield return new WaitForSeconds(5f); continue; }
+
+                var pos0 = PickSpawnPointInRect();
+                CurrentGhost = Instantiate(Ghost, pos0, Quaternion.identity);
+
+                ForceFirstTwoStates(CurrentGhost);
+                OnGhostSpawned?.Invoke();
+
+                TryPlaySpawnSE();    // ★ ここでもSE
+
+                StartCoroutine(GhostLifecycle(CurrentGhost));
+                yield return new WaitForSeconds(5f);
+                continue;
+            }
+
+            // 通常抽選
+            GhostEncountChance = Random.Range(0, 50);
             bool spawn = (GhostEncountChance > 30);
+            _firstRollDone = true;
 
             if (spawn && !CurrentGhost)
             {
-                if (!Ghost)
-                {
-                    Debug.LogWarning("[EnemyAI] Ghost prefab 未設定。生成スキップ。");
-                    yield return new WaitForSeconds(5f);
-                    continue;
-                }
+                if (!Ghost) { Debug.LogWarning("[EnemyAI] Ghost prefab 未設定。"); yield return new WaitForSeconds(5f); continue; }
 
-                // 生成
                 var pos = PickSpawnPointInRect();
                 CurrentGhost = Instantiate(Ghost, pos, Quaternion.identity);
 
-                // ★最初の2体はSTATEを固定（1体目=1、2体目=2、以降は強制なし）
                 ForceFirstTwoStates(CurrentGhost);
-
-                // イベント通知（Tutorialなどが受け取る）
                 OnGhostSpawned?.Invoke();
 
-                // 演出
-                PlaySpawnSoundAt(pos);
-                if (SpawnVfxPrefab)
-                {
-                    var vfx = Instantiate(SpawnVfxPrefab, pos, Quaternion.identity);
-                    if (SpawnVfxLifetime > 0f) Destroy(vfx, SpawnVfxLifetime);
-                }
+                TryPlaySpawnSE();    // ★ ここでもSE
 
-                // 寿命管理
                 StartCoroutine(GhostLifecycle(CurrentGhost));
             }
 
-            yield return new WaitForSeconds(5f); // 次回抽選まで
+            yield return new WaitForSeconds(5f);
         }
     }
 
@@ -190,75 +203,64 @@ public class EnemyAI : MonoBehaviour
         _cooldown = false;
     }
 
-    // ---- ★STATE固定（1回目=1、2回目=2） ----
+    // ================= STATE固定（1回目=1、2回目=2） =================
     private void ForceFirstTwoStates(GameObject ghostRoot)
     {
         if (!ghostRoot) return;
 
-        // ゴーストに付いている（子含む）SearchChaseを全部拾う
         var chasers = ghostRoot.GetComponentsInChildren<SearchChase>(true);
         if (chasers == null || chasers.Length == 0) { s_GlobalSpawnCount++; return; }
 
-        // 1体目=1, 2体目=2, 以降は強制なし
         int forced =
             (s_GlobalSpawnCount == 0) ? 1 :
             (s_GlobalSpawnCount == 1) ? 2 : 0;
 
         if (forced != 0)
-        {
             foreach (var sc in chasers) sc.ForceState(forced);
-        }
+
         s_GlobalSpawnCount++;
     }
 
-    // ---- SE再生：2D/3D 切替 & 3Dパラメータ明示 ----
-    private void PlaySpawnSoundAt(Vector3 pos)
+    // ================= SE再生（開始/終了ログ付き） =================
+
+    // 実際の再生処理
+    private void TryPlaySpawnSE()
     {
-        if (!SpawnSE) return;
+        // 他所でポーズされてても鳴るよう一応解除（任意）
+        if (ForceUnpauseAudioListener && AudioListener.pause) AudioListener.pause = false;
 
-        if (LogSpawnSE && Camera.main)
+        if (AudioSource != null && AudioClip != null)
         {
-            float d = Vector3.Distance(Camera.main.transform.position, pos);
-            Debug.Log($"[EnemyAI] SpawnSE: distance={d:F1}m 2D={Force2D}");
+            // 再生開始ログ
+            Debug.Log($"[EnemyAI] SE start: {AudioClip.name}  " +
+                      $"vol={AudioSource.volume:0.00}, pitch={AudioSource.pitch:0.00}, " +
+                      $"listener.pause={AudioListener.pause}, src.mute={AudioSource.mute}");
+
+            AudioSource.PlayOneShot(AudioClip);
+
+            // ピッチを考慮して長さを算出 → 実時間で終了ログ
+            float dur = AudioClip.length / Mathf.Max(0.01f, Mathf.Abs(AudioSource.pitch));
+            StartCoroutine(LogSEndAfter(dur, AudioClip.name));
         }
-
-        float pitch = Mathf.Clamp(Random.Range(SpawnSEPitchRange.x, SpawnSEPitchRange.y), 0.5f, 2f);
-
-        if (Force2D)
+        else
         {
-            // 2D（距離減衰なし）で確実に
-            if (!_sharedSource) _sharedSource = gameObject.AddComponent<AudioSource>();
-            _sharedSource.spatialBlend = 0f; // 2D
-            _sharedSource.pitch = pitch;
-            _sharedSource.PlayOneShot(SpawnSE, Mathf.Clamp01(SpawnSEVolume));
-            return;
+            Debug.LogWarning("[EnemyAI] SE 再生不可：AudioSource か AudioClip が未設定です。");
         }
-
-        // 一時的な3D AudioSourceを作って明示設定
-        GameObject go = new GameObject("SpawnSE_AudioTemp");
-        go.transform.position = pos;
-        var src = go.AddComponent<AudioSource>();
-        src.clip = SpawnSE;
-        src.spatialBlend = 1f;                         // 3D
-        src.rolloffMode = SE_Rolloff;
-        src.minDistance = Mathf.Max(0.01f, SE_MinDistance);
-        src.maxDistance = Mathf.Max(src.minDistance + 0.01f, SE_MaxDistance);
-        src.dopplerLevel = 0f;
-        src.spread = 0f;
-        src.priority = 128;
-        src.pitch = pitch;
-        src.volume = Mathf.Clamp01(SpawnSEVolume);
-
-        src.Play();
-        Destroy(go, SpawnSE.length / Mathf.Max(0.01f, src.pitch) + 0.1f);
     }
 
-    // ---- スポーン地点選定 ----
+    // 再生終了ログ用（timeScale=0でも確実に動く）
+    private IEnumerator LogSEndAfter(float seconds, string clipName)
+    {
+        yield return new WaitForSecondsRealtime(Mathf.Max(0.01f, seconds));
+        Debug.Log($"[EnemyAI] SE end: {clipName}");
+    }
+
+    // ================= スポーン地点選定 =================
+
     private Vector3 PickSpawnPointInRect()
     {
         if (!Player)
         {
-            // Player未設定でも落ちないフォールバック
             return new Vector3(
                 Mathf.Lerp(MinX, MaxX, 0.5f),
                 SpawnYOffset,
@@ -284,7 +286,6 @@ public class EnemyAI : MonoBehaviour
                 return pick; // 採用
         }
 
-        // フォールバック：最遠角
         Vector3 far = FarthestPointFromPlayerInRect(new Vector2(x0, z0), new Vector2(x1, z1));
         return new Vector3(far.x, Player.position.y + SpawnYOffset, far.z);
     }
@@ -307,27 +308,5 @@ public class EnemyAI : MonoBehaviour
             if (d > best) { best = d; bestPt = corners[i]; }
         }
         return new Vector3(bestPt.x, 0f, bestPt.y);
-    }
-
-    // ---- デバッグ可視化 ----
-    private void OnDrawGizmosSelected()
-    {
-        float x0 = Mathf.Min(MinX, MaxX);
-        float x1 = Mathf.Max(MinX, MaxX);
-        float z0 = Mathf.Min(MinZ, MaxZ);
-        float z1 = Mathf.Max(MinZ, MaxZ);
-
-        Vector3 center = new Vector3((x0 + x1) * 0.5f,
-                                     (Player ? Player.position.y : 0f) + SpawnYOffset,
-                                     (z0 + z1) * 0.5f);
-        Vector3 size = new Vector3(Mathf.Abs(x1 - x0), 0.05f, Mathf.Abs(z1 - z0));
-
-        Gizmos.color = Color.yellow; Gizmos.DrawWireCube(center, size);         // 生成範囲
-        Gizmos.color = Color.red; Gizmos.DrawWireSphere(GhostPosition, 0.25f); // 候補点
-        if (Player)
-        {
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawWireSphere(Player.position, MinSpawnDistance);           // 最小距離
-        }
     }
 }
