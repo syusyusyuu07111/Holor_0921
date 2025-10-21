@@ -24,9 +24,9 @@ public class TPSCamera : MonoBehaviour
     public float pitch = 0f;              // 現在のピッチ
     public Vector2 PitchClamp = new Vector2(-40f, 70f);
     public float PitchSmoothTime = 0.06f; // スムーズ追従
-    public float MaxPitchSpeed = 360f;    // 最大角速度（deg/s）
+    public float MaxPitchSpeed = 240f;    // 最大角速度（deg/s）※少し控えめで安定
     public float MouseYDeadZone = 0.02f;  // 縦の微小入力カット
-    public float PitchUpLimit = 35f;      // 上限
+    public float PitchUpLimit = 30f;      // 上限（天井衝突を避け気味に）
     public float PitchDownLimit = 10f;    // 下限
     [Range(0.1f, 1.0f)] public float VerticalAmount = 0.5f; // 縦の感度係数
     public bool InvertY = false;
@@ -44,6 +44,10 @@ public class TPSCamera : MonoBehaviour
     public float AimSpeed = 5.0f;         // プレイヤー回転追従の速さ
     public float Deadyaw = 0.5f;          // 微小角の無視
 
+    [Tooltip("移動入力（移動スクリプトから代入してもらう想定）")]
+    public Vector2 MoveInput;             // 0に近い時は“停止中”とみなす
+    public bool RotatePlayerOnlyWhenMoving = true;
+
     [Header("ショルダー/配置")]
     public Vector3 ShoulderOffset = new Vector3(0.4f, 0.0f, 0f);
     public KeyCode ShoulderSwapKey = KeyCode.E;
@@ -53,7 +57,8 @@ public class TPSCamera : MonoBehaviour
     public LayerMask CollisionMask = ~0;
     public float CollisionBuffer = 0.05f;
     public float MinCameraDistance = 0.1f;
-    public bool KeepFixedDistance = true;
+    public bool KeepFixedDistance = false;   // ★ デフォルトで短縮する
+    public float CameraCollisionRadius = 0.15f; // ★ SphereCast 半径
 
     [Header("スムージング")]
     public float PositionSmoothTime = 0.08f;
@@ -138,7 +143,8 @@ public class TPSCamera : MonoBehaviour
         RefreshSensitivityLabel();
     }
 
-    void Update()
+    // ===== 物理の後で追従：揺れのフィードバックを抑える =====
+    void LateUpdate()
     {
         if (!ControlEnable || cam == null || Pivot == null) return;
 
@@ -148,10 +154,10 @@ public class TPSCamera : MonoBehaviour
             (Gamepad.current != null && Gamepad.current.wasUpdatedThisFrame);
         float deviceSense = usingGamepad ? GamepadSense : MouseSense;
 
-      //  // ショルダー切替
-      //  if (ShoulderSwapKey != KeyCode.None && Input.GetKeyDown(ShoulderSwapKey))
-      //      ShoulderOffset.x *= -1f;
-      //
+        // ショルダー切替（任意）
+        if (ShoulderSwapKey != KeyCode.None && Input.GetKeyDown(ShoulderSwapKey))
+            ShoulderOffset.x *= -1f;
+
         // 毎フレーム、上下限同期
         PitchUpLimit = Mathf.Clamp(PitchUpLimit, 0f, 80f);
         PitchDownLimit = Mathf.Clamp(PitchDownLimit, 0f, 80f);
@@ -173,13 +179,16 @@ public class TPSCamera : MonoBehaviour
 
         Quaternion rot = Quaternion.Euler(pitch, yaw, 0f);
 
-        // 衝突補正
+        // ===== 衝突補正（SphereCastで距離短縮）=====
         float d = Distance;
         if (!KeepFixedDistance)
         {
             Vector3 backDir = rot * Vector3.back;
-            if (Physics.Raycast(Pivot.position, backDir, out RaycastHit hit, Distance, CollisionMask, QueryTriggerInteraction.Ignore))
+            if (Physics.SphereCast(Pivot.position, CameraCollisionRadius, backDir,
+                                   out RaycastHit hit, Distance, CollisionMask, QueryTriggerInteraction.Ignore))
+            {
                 d = Mathf.Max(MinCameraDistance, hit.distance - CollisionBuffer);
+            }
         }
 
         // 目標位置（ショルダーオフセットは回転空間で適用）
@@ -189,14 +198,18 @@ public class TPSCamera : MonoBehaviour
         cam.position = Vector3.SmoothDamp(cam.position, desiredPos, ref _camVel, Mathf.Max(0f, PositionSmoothTime));
         cam.LookAt(Pivot.position, Vector3.up);
 
-        // プレイヤー回転追従（任意）
+        // ===== プレイヤー回転追従（任意 / 停止中は回さないオプション）=====
         if (RotatePlayerWithCamera && Player != null)
         {
-            float diff = Mathf.Abs(Mathf.DeltaAngle(Player.eulerAngles.y, cam.eulerAngles.y));
-            if (diff > Mathf.Max(Deadyaw, 3f))
+            bool moving = MoveInput.sqrMagnitude > 0.0001f;
+            if (!RotatePlayerOnlyWhenMoving || moving)
             {
-                Quaternion t = Quaternion.Euler(0f, cam.eulerAngles.y, 0f);
-                Player.rotation = Quaternion.Slerp(Player.rotation, t, AimSpeed * Time.deltaTime);
+                float diff = Mathf.Abs(Mathf.DeltaAngle(Player.eulerAngles.y, cam.eulerAngles.y));
+                if (diff > Mathf.Max(Deadyaw, 3f))
+                {
+                    Quaternion t = Quaternion.Euler(0f, cam.eulerAngles.y, 0f);
+                    Player.rotation = Quaternion.Slerp(Player.rotation, t, AimSpeed * Time.deltaTime);
+                }
             }
         }
 

@@ -4541,9 +4541,9 @@ MonoBehaviour:
   RetryIntervalWhileAlive: 2
   SpawnSE: {fileID: 8300000, guid: 13000b57fc449ff4e952548651cdf2df, type: 3}
   SpawnSEVolume: 1
-  SpawnSEPitchRange: {x: 0.98, y: 1.02}
+  SpawnSEPitchRange: {x: 20, y: 20}
   Force2D: 1
-  SE_MinDistance: 2
+  SE_MinDistance: 30
   SE_MaxDistance: 35
   SE_Rolloff: 1
   LogSpawnSE: 1
@@ -5422,9 +5422,6 @@ GameObject:
   - component: {fileID: 330585544}
   - component: {fileID: 330585547}
   - component: {fileID: 330585548}
-  - component: {fileID: 330585549}
-  - component: {fileID: 330585550}
-  - component: {fileID: 330585551}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -5575,8 +5572,8 @@ MonoBehaviour:
   PitchSmoothTime: 0.06
   MaxPitchSpeed: 360
   MouseYDeadZone: 0.02
-  PitchUpLimit: 35
-  PitchDownLimit: 35
+  PitchUpLimit: 30
+  PitchDownLimit: 30
   VerticalAmount: 0.5
   InvertY: 0
   MouseSense: 0.1
@@ -5585,17 +5582,20 @@ MonoBehaviour:
   RotatePlayerWithCamera: 0
   AimSpeed: 0.5
   Deadyaw: 0.5
+  MoveInput: {x: 0, y: 0}
+  RotatePlayerOnlyWhenMoving: 1
   ShoulderOffset: {x: 0.4, y: 0, z: 0}
-  ShoulderSwapKey: 101
-  QuickTurnKey: 113
+  ShoulderSwapKey: 282
+  QuickTurnKey: 282
   CollisionMask:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 0
   CollisionBuffer: 0.05
   MinCameraDistance: 0.1
   KeepFixedDistance: 1
+  CameraCollisionRadius: 0.15
   PositionSmoothTime: 0.08
-  UCam: {fileID: 0}
+  UCam: {fileID: 330585545}
   FOVNormal: 60
   FOVAim: 50
   FOVLerp: 10
@@ -5606,70 +5606,6 @@ MonoBehaviour:
   RotateSpeedLabel: {fileID: 1586090372}
   SaveSensitivity: 1
   SensitivityPrefsKey: Camera.RotateSpeed
---- !u!114 &330585549
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 330585543}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c49b4cc203aa6414fae5c798d1d0e7d6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_EventMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_MaxRayIntersections: 0
---- !u!320 &330585550
-PlayableDirector:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 330585543}
-  m_Enabled: 1
-  serializedVersion: 3
-  m_PlayableAsset: {fileID: 11400000, guid: 7c2337c427a27f9469a52384f97abb1b, type: 2}
-  m_InitialState: 1
-  m_WrapMode: 2
-  m_DirectorUpdateMode: 1
-  m_InitialTime: 0
-  m_SceneBindings:
-  - key: {fileID: 0}
-    value: {fileID: 604898730}
-  - key: {fileID: 0}
-    value: {fileID: 604898730}
-  - key: {fileID: 1087159575542131124, guid: 7c2337c427a27f9469a52384f97abb1b, type: 2}
-    value: {fileID: 604898730}
-  m_ExposedReferences:
-    m_References:
-    - a61d1c8e363e9274e8b33cb5c3878a01: {fileID: 604898724}
-    - 5f3148975c1a036438299a28c924d940: {fileID: 604898724}
-    - d387d069b843360489ceb38669d5de90: {fileID: 604898724}
---- !u!95 &330585551
-Animator:
-  serializedVersion: 7
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 330585543}
-  m_Enabled: 1
-  m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 0}
-  m_CullingMode: 0
-  m_UpdateMode: 0
-  m_ApplyRootMotion: 0
-  m_LinearVelocityBlending: 0
-  m_StabilizeFeet: 0
-  m_AnimatePhysics: 0
-  m_WarningMessage: 
-  m_HasTransformHierarchy: 1
-  m_AllowConstantClipSamplingOptimization: 1
-  m_KeepAnimatorStateOnDisable: 0
-  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &333306004
 GameObject:
   m_ObjectHideFlags: 0
@@ -13452,13 +13388,7 @@ PrefabInstance:
       addedObject: {fileID: 956023716}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 956023717}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
-      insertIndex: -1
       addedObject: {fileID: 956023718}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 956023719}
   m_SourcePrefab: {fileID: 100100000, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
 --- !u!1 &808833883
 GameObject:
@@ -15862,13 +15792,6 @@ MonoBehaviour:
   animator: {fileID: 956023716}
   deadZone: 0.12
   stopGrace: 0.08
-  stepHeight: 0.4
-  stepCheckDistance: 0.3
-  stepSnapUpSpeed: 4
-  stepMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  col: {fileID: 0}
   OnDashStart:
     m_PersistentCalls:
       m_Calls: []
@@ -15900,7 +15823,7 @@ Rigidbody:
   m_UseGravity: 1
   m_IsKinematic: 0
   m_Interpolate: 0
-  m_Constraints: 112
+  m_Constraints: 116
   m_CollisionDetection: 0
 --- !u!65 &956023715
 BoxCollider:
@@ -15945,31 +15868,6 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
---- !u!143 &956023717
-CharacterController:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 956023711}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 0
-  serializedVersion: 3
-  m_Height: 2
-  m_Radius: 0.3
-  m_SlopeLimit: 90
-  m_StepOffset: 0.25
-  m_SkinWidth: 0.01
-  m_MinMoveDistance: 0.001
-  m_Center: {x: 0, y: 1, z: 0}
 --- !u!114 &956023718
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15988,31 +15886,6 @@ MonoBehaviour:
   layerMask:
     serializedVersion: 2
     m_Bits: 4294967295
---- !u!114 &956023719
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 956023711}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b7d9e8b6072268844a9d49d8a3ce71ac, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  onesfeet: {fileID: 2139808019}
-  rayDistance: 0.2
-  hitMask:
-    serializedVersion: 2
-    m_Bits: 1024
-  footRadius: 0.03
-  raiseAmount: 0.1
-  forwardNudge: 0.1
-  contactEpsilon: 0.01
-  minMoveSpeed: 0.02
-  stepCooldown: 0.08
-  snapDownDist: 0.15
-  snapDownSpeed: 0.2
 --- !u!4 &958501860 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 9ccb15c75ac03544f9afb6cdbe628d46, type: 3}
@@ -27599,7 +27472,7 @@ GameObject:
   - component: {fileID: 1586090373}
   - component: {fileID: 1586090372}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: SettingText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
