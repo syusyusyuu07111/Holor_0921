@@ -63,10 +63,19 @@ public class HintText : MonoBehaviour
         [TextArea] public string[] State3 = new string[5];
         [Tooltip("State3 の各行に対応する色（未設定は白→全体デフォルトへフォールバック）")]
         public Color[] State3Colors = new Color[5] { Color.white, Color.white, Color.white, Color.white, Color.white };
+
+        [Header("チュートリアル表示（全文開示時）")]
+        [TextArea]
+        public string[] TutorialLinesOnFullyRevealed = new string[0];
     }
 
     public List<HintSet> Stages = new List<HintSet>();
     public int ProgressStage = 0;
+
+    [System.Serializable] public class HintTutorialLinesEvent : UnityEvent<string[]> { }
+
+    [Header("チュートリアル連携")]
+    public HintTutorialLinesEvent OnHintTutorialLinesRequested = new HintTutorialLinesEvent();
 
     [Header("開示ルール")]
     public float VisibleDistance = 10f;
@@ -113,6 +122,9 @@ public class HintText : MonoBehaviour
 
     // 現在の「ステージ×ステート」に対応する色配列参照（通常時のみ使用）
     private Color[] _activeStateColors = null;
+
+    // ヒント全文開示時のチュートリアル表示制御
+    private readonly HashSet<int> _tutorialShownStages = new HashSet<int>();
 
     void Start()
     {
@@ -383,8 +395,11 @@ public class HintText : MonoBehaviour
     {
         if (_foundOverrideActive) return;
 
+        bool allRevealed = AllFiveRevealed();
+        if (allRevealed) TrySendTutorialLinesForStage();
+
         if (!AutoAdvanceWhenAllRevealed) return;
-        if (!AllFiveRevealed()) { _autoAdvanceTimer = -1f; return; }
+        if (!allRevealed) { _autoAdvanceTimer = -1f; return; }
 
         if (_autoAdvanceTimer < 0f) _autoAdvanceTimer = AutoAdvanceDelay;
         else
@@ -437,6 +452,33 @@ public class HintText : MonoBehaviour
     {
         if (currentIndex < 4) return false;
         return IsFullyRevealed(activeLines[4], revealProgressChars) || string.IsNullOrEmpty(activeLines[4]);
+    }
+
+    private void TrySendTutorialLinesForStage()
+    {
+        if (_foundOverrideActive) return;
+        if (Stages == null || Stages.Count == 0) return;
+
+        int stageIndex = Mathf.Clamp(ProgressStage, 0, Stages.Count - 1);
+        if (_tutorialShownStages.Contains(stageIndex)) return;
+
+        var set = Stages[stageIndex];
+        if (set == null || set.TutorialLinesOnFullyRevealed == null) return;
+
+        bool hasContent = false;
+        for (int i = 0; i < set.TutorialLinesOnFullyRevealed.Length; i++)
+        {
+            if (!string.IsNullOrWhiteSpace(set.TutorialLinesOnFullyRevealed[i]))
+            {
+                hasContent = true;
+                break;
+            }
+        }
+
+        if (!hasContent) return;
+
+        _tutorialShownStages.Add(stageIndex);
+        OnHintTutorialLinesRequested?.Invoke((string[])set.TutorialLinesOnFullyRevealed.Clone());
     }
 
     // ====== リング配置 ======
