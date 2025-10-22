@@ -112,6 +112,18 @@ public class Tutorial : MonoBehaviour
     // ========== ヒント（外部要求された台詞）の遅延表示 ==========
     private readonly Queue<string[]> _queuedHintTutorials = new Queue<string[]>();
 
+    [Serializable]
+    public class LineCue
+    {
+        public string Id;
+        [TextArea] public string[] Lines;
+    }
+
+    [Header("行開示→台詞マッピング")]
+    public List<LineCue> LineCues = new List<LineCue>();
+
+    private Dictionary<string, string[]> _cueMap;
+
     // ========== ドア用ミッション（独立テキスト） ==========
     [Header("ドア用ミッション（別テキストUI）")]
     public bool EnableDoorMission = true;
@@ -164,6 +176,23 @@ public class Tutorial : MonoBehaviour
 #endif
         }
         _input = new InputSystem_Actions();
+        BuildCueMap();
+    }
+
+    private void BuildCueMap()
+    {
+        _cueMap = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        if (LineCues == null) return;
+
+        for (int i = 0; i < LineCues.Count; i++)
+        {
+            var cue = LineCues[i];
+            if (cue == null) continue;
+            if (string.IsNullOrWhiteSpace(cue.Id)) continue;
+            if (cue.Lines == null) continue;
+
+            _cueMap[cue.Id.Trim()] = (string[])cue.Lines.Clone();
+        }
     }
 
     private void OnEnable()
@@ -180,6 +209,7 @@ public class Tutorial : MonoBehaviour
 
             // ★ ここに移動（イベント購読はクラス直下では不可）
             HintRef.OnHintTutorialLinesRequested.AddListener(OnHintTutorialLinesRequested);
+            HintRef.OnLineFullyRevealed.AddListener(OnHintLineFullyRevealed);
         }
 
         // 隠れ案内 初回表示イベント（HideCroset側から）
@@ -209,6 +239,7 @@ public class Tutorial : MonoBehaviour
 
             // ★ 購読解除もここで
             HintRef.OnHintTutorialLinesRequested.RemoveListener(OnHintTutorialLinesRequested);
+            HintRef.OnLineFullyRevealed.RemoveListener(OnHintLineFullyRevealed);
         }
         if (HideRef) HideRef.OnFirstHidePromptShown.RemoveListener(ShowHidePanelOnce);
 
@@ -780,6 +811,21 @@ public class Tutorial : MonoBehaviour
     }
 
     // ========== ヒント（外部要求の台詞）表示キュー ==========
+    private void OnHintLineFullyRevealed(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+        if (_cueMap == null || !_cueMap.TryGetValue(id, out var lines)) return;
+        if (lines == null || lines.Length == 0) return;
+
+        if (!IsEventAllowed() || _pauseGate || _typing != null)
+        {
+            _queuedHintTutorials.Enqueue(DuplicateLines(lines));
+            return;
+        }
+
+        ShowHintTutorialLinesNow(lines);
+    }
+
     private void OnHintTutorialLinesRequested(string[] lines)
     {
         if (!HasAnyContent(lines)) return;
