@@ -77,6 +77,11 @@ public class HintText : MonoBehaviour
     [Header("チュートリアル連携")]
     public HintTutorialLinesEvent OnHintTutorialLinesRequested = new HintTutorialLinesEvent();
 
+    // ★追加：全文開示トリガ（state×element）
+    [Header("全部開示トリガ（ステート識別つき）")]
+    public UnityEvent<string> OnAllLinesRevealed = new UnityEvent<string>();
+    private readonly HashSet<string> _firedRevealKeys = new HashSet<string>();
+
     [Header("開示ルール")]
     public float VisibleDistance = 10f;
     public float RevealDistance = 7f;
@@ -454,30 +459,35 @@ public class HintText : MonoBehaviour
         return IsFullyRevealed(activeLines[4], revealProgressChars) || string.IsNullOrEmpty(activeLines[4]);
     }
 
+    // ★ここを差し替え：全文開示時のイベント発火（state×element ごとに一度）
     private void TrySendTutorialLinesForStage()
     {
         if (_foundOverrideActive) return;
         if (Stages == null || Stages.Count == 0) return;
 
         int stageIndex = Mathf.Clamp(ProgressStage, 0, Stages.Count - 1);
-        if (_tutorialShownStages.Contains(stageIndex)) return;
+        int state = (ChaseRef ? ChaseRef.GetState() : 1);
 
+        // ① ステージ×ステートで一度だけ
+        string key = $"{stageIndex}:s{state}";
+        if (_firedRevealKeys.Contains(key)) return;
+        _firedRevealKeys.Add(key);
+
+        // ② 「全部開いた」IDを投げる（例：state1.element0）
+        string id = $"state{state}.element{stageIndex}";
+        OnAllLinesRevealed?.Invoke(id);
+
+        // ③ 従来のチュートリアル行送出（任意）
         var set = Stages[stageIndex];
         if (set == null || set.TutorialLinesOnFullyRevealed == null) return;
 
         bool hasContent = false;
         for (int i = 0; i < set.TutorialLinesOnFullyRevealed.Length; i++)
         {
-            if (!string.IsNullOrWhiteSpace(set.TutorialLinesOnFullyRevealed[i]))
-            {
-                hasContent = true;
-                break;
-            }
+            if (!string.IsNullOrWhiteSpace(set.TutorialLinesOnFullyRevealed[i])) { hasContent = true; break; }
         }
-
         if (!hasContent) return;
 
-        _tutorialShownStages.Add(stageIndex);
         OnHintTutorialLinesRequested?.Invoke((string[])set.TutorialLinesOnFullyRevealed.Clone());
     }
 
