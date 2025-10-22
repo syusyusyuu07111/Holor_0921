@@ -1,126 +1,98 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 
 public class flashing : MonoBehaviour
 {
-    // ==== ’²®—piInspectorj ====
-    [Header("–¾‚é‚³ƒŒƒ“ƒW")]
-    public Vector2 intensityRange = new Vector2(0f, 10f);
+    // ==== èª¿æ•´ç”¨ï¼ˆInspectorï¼‰ ====
+    [Header("äºŒå€¤ãƒ•ãƒ©ãƒƒã‚·ãƒ¥ï¼ˆ0/100ï¼‰")]
+    public float offIntensity = 0f;     // æš—è»¢ï¼ˆ0ï¼‰
+    public float onIntensity = 100f;   // ç‚¹ç¯ï¼ˆ100ï¼‰
 
-    [Header("ƒ^[ƒQƒbƒgXVi•s‹K‘¥j")]
-    public Vector2 changeInterval = new Vector2(0.05f, 0.7f); // Ÿ‚Ì–Ú•W‹­“x‚ÖØ‚è‘Ö‚¦‚é‚Ü‚Å‚ÌŠÔ
-    public Vector2 lerpSpeed = new Vector2(3f, 15f);          // –Ú•W‚É‹ß‚Ã‚­‘¬“x‚Ìƒ‰ƒ“ƒ_ƒ€”ÍˆÍ
-    [Range(0f, 1f)] public float goDarkChance = 0.3f;         // ˆÃ‚ß‚ğ‘_‚¤Šm—¦
+    [Header("åŸºæœ¬ãƒ†ãƒ³ãƒ")]
+    public float baseInterval = 5.0f;   // 1ç™ºã”ã¨ã®åŸºæº–é–“éš”ï¼ˆç§’ï¼‰â€¦ã€Œ5ç§’ã«ä¸€å›ã€
+    [Range(0f, 0.9f)] public float intervalJitter = 0.2f; // é–“éš”ã®ãƒ–ãƒ¬ç‡ï¼ˆÂ±20%ï¼‰
 
-    [Header("”÷×‚ä‚ç‚¬iPerlinj")]
-    public float noiseAmount = 0.3f;  // •t‰ÁƒmƒCƒY—Ê
-    public float noiseSpeed = 2.0f;   // ƒmƒCƒY‘¬“x
-    public float noiseSeed = 0f;      // 0‚È‚ç©“®
+    [Header("ç‚¹ç¯æ™‚é–“ï¼ˆãƒã‚«ãƒƒã¨ï¼‰")]
+    public Vector2 onHold = new Vector2(0.06f, 0.12f); // æ˜ã‚‹ã„çŠ¶æ…‹ã®ä¿æŒæ™‚é–“ï¼ˆçŸ­ã‚ï¼‰
 
-    [Header("‚½‚Ü‚ÉŠ®‘SÁ“”")]
-    [Range(0f, 0.2f)] public float blackoutChance = 0.04f;     // ‹H‚É”­¶
-    public Vector2 blackoutDuration = new Vector2(0.4f, 1.2f); // Á“”ŠÔ
+    [Header("æ™‚é–“ã®ç¨®é¡")]
+    public bool useUnscaledTime = false; // ãƒãƒ¼ã‚ºä¸­ã‚‚å‹•ã‹ã™ãªã‚‰ true
 
-    // ==== “à•” ====
+    // ==== å†…éƒ¨ ====
     private Light _light;
-    private float lightStrength;  // Œ»İ‹­“xiŒ³ƒXƒNƒŠƒvƒg‚Ì•Ï”–¼‚ğ—¬—pj
-    private float _target;        // Ÿ‚ÉŒü‚©‚¤‹­“x
-    private float _timer;         // Ÿ‚ÌØ‚è‘Ö‚¦‚Ü‚Å
-    private float _speed;         // ‚±‚Ì‹æŠÔ‚ÌˆÚ“®‘¬“x
-    private bool _inBlackout;    // Š®‘SÁ“”’†‚©
+    private float lightStrength;   // ç¾åœ¨å¼·åº¦ï¼ˆ0 or 100ï¼‰
+    private bool _isOn;           // ç¾åœ¨ãŒç‚¹ç¯ã‹
+    private float _tNext;          // æ¬¡ã«åˆ‡ã‚Šæ›¿ãˆã‚‹æ™‚åˆ»
 
     void Start()
     {
         _light = GetComponent<Light>();
         if (!_light) { enabled = false; return; }
 
-        // ‰Šú‰»
-        if (noiseSeed == 0f) noiseSeed = Random.value * 1000f;
-
-        intensityRange.x = Mathf.Max(0f, intensityRange.x);
-        intensityRange.y = Mathf.Max(intensityRange.x + 0.01f, intensityRange.y);
-
-        // ŠJn’l‚ÍƒŒƒ“ƒW“àƒ‰ƒ“ƒ_ƒ€
-        lightStrength = Random.Range(intensityRange.x, intensityRange.y);
-        _target = lightStrength;
-        ScheduleNext();
+        // åˆæœŸåŒ–ï¼ˆé–‹å§‹ã¯æš—è»¢ï¼‰
+        _isOn = false;
+        lightStrength = offIntensity;
         Apply(lightStrength);
+
+        // æœ€åˆã®ã€Œæ¬¡ã®ç‚¹ç¯ã€ã‚’äºˆç´„ï¼ˆ= baseInterval ä»˜è¿‘ã§1ç™ºç›®ï¼‰
+        _tNext = Now() + NextOffDuration();
     }
 
     void Update()
     {
         if (!_light) return;
 
-        // ‹H‚Éu’·‚¢Š®‘SˆÃ“]v‚ğ·‚µ‚Ş
-        if (!_inBlackout && Random.value < blackoutChance * Time.deltaTime)
+        if (Now() >= _tNext)
         {
-            _inBlackout = true;
-            _target = 0f;
-            _speed = Random.Range(lerpSpeed.x, lerpSpeed.y);
-            _timer = Random.Range(blackoutDuration.x, blackoutDuration.y);
-        }
-
-        // –Ú•WXVƒ^ƒCƒ~ƒ“ƒO
-        _timer -= Time.deltaTime;
-        if (_timer <= 0f)
-        {
-            if (_inBlackout)
+            if (_isOn)
             {
-                // ˆÃ“]‚©‚ç•œ‹A ¨ ’ÊíƒXƒPƒWƒ…[ƒ‹
-                _inBlackout = false;
-                ScheduleNext();
+                // ç‚¹ç¯çµ‚äº† â†’ æ¶ˆç¯ã«æˆ»ã™ â†’ æ¬¡ã®ç‚¹ç¯ã¾ã§ã®â€œé•·ã„é–“â€ã‚’äºˆç´„
+                _isOn = false;
+                lightStrength = offIntensity;
+                Apply(lightStrength);
+                _tNext = Now() + NextOffDuration();
             }
             else
             {
-                // Ÿ‚Ì–Ú•W‹­“x‚ğƒ‰ƒ“ƒ_ƒ€‚ÉŒˆ’èiˆÃ‚ß‚ğ‘_‚¤Šm—¦‚à¬‚º‚éj
-                bool goDark = Random.value < goDarkChance;
-                float min = intensityRange.x;
-                float max = intensityRange.y;
-                _target = goDark
-                    ? Random.Range(min, Mathf.Lerp(min, max, 0.35f))
-                    : Random.Range(Mathf.Lerp(min, max, 0.3f), max);
-
-                _speed = Random.Range(lerpSpeed.x, lerpSpeed.y);
-                _timer = Random.Range(changeInterval.x, changeInterval.y);
+                // æ¶ˆç¯ â†’ ä¸€ç¬ã ã‘ç‚¹ç¯ â†’ ç‚¹ç¯çµ‚ã‚ã‚Šæ™‚åˆ»ã‚’äºˆç´„
+                _isOn = true;
+                lightStrength = onIntensity;
+                Apply(lightStrength);
+                _tNext = Now() + Random.Range(onHold.x, onHold.y);
             }
         }
-
-        // PerlinƒmƒCƒY‚Å”÷×‚ä‚ç‚¬‚ğ•t—^
-        float n = Mathf.PerlinNoise(noiseSeed, Time.time * noiseSpeed) * 2f - 1f;
-
-        // –Ú•W‚Ö•s“™‘¬‚ÅŠñ‚¹‚é
-        lightStrength = Mathf.MoveTowards(lightStrength, _target, _speed * Time.deltaTime);
-
-        // ƒmƒCƒY‰ÁZ•ƒNƒ‰ƒ“ƒv
-        float finalIntensity = Mathf.Clamp(lightStrength + n * noiseAmount, intensityRange.x, intensityRange.y);
-
-        Apply(finalIntensity);
     }
 
-    // Ÿ‚Ì‹æŠÔ‚Ì‘¬“xEŠÔE–Ú•W‚ğ‘g‚Ş
-    void ScheduleNext()
+    // æ¬¡ã®ã€Œæ¶ˆç¯ä¸­ã®é•·ã„é–“éš”ã€ã‚’æ±ºã‚ã‚‹ï¼ˆ5ç§’Â±ã‚¸ãƒƒã‚¿ãƒ¼ï¼‰
+    float NextOffDuration()
     {
-        _speed = Random.Range(lerpSpeed.x, lerpSpeed.y);
-        _timer = Random.Range(changeInterval.x, changeInterval.y);
-
-        float span = intensityRange.y - intensityRange.x;
-        _target = Mathf.Clamp(lightStrength + Random.Range(-span, span) * 0.5f, intensityRange.x, intensityRange.y);
+        float jitter = 1f + Random.Range(-intervalJitter, intervalJitter);
+        float dur = Mathf.Max(0.001f, baseInterval * jitter);
+        // onHold åˆ†ã¯â€œç‚¹ç¯å´â€ã§æ¶ˆè²»ã™ã‚‹ã®ã§ã€ãã®ã¾ã¾ dur ã‚’ä½¿ã†ï¼ˆ= ãƒã‚«ãƒƒãŒ5ç§’ã”ã¨ã«æ¥ã‚‹ä½“æ„Ÿï¼‰
+        return dur;
     }
 
+    // ç¾åœ¨æ™‚åˆ»ï¼ˆscaled / unscaled åˆ‡æ›¿ï¼‰
+    float Now() => useUnscaledTime ? Time.unscaledTime : Time.time;
+
+    // å¼·åº¦ã‚’åæ˜ ï¼ˆå®Œå…¨äºŒå€¤ï¼šè£œé–“ãªã—ï¼‰
     void Apply(float value)
     {
         _light.intensity = value;
     }
 
-#if UNITY_EDITOR
     void OnValidate()
     {
-        if (intensityRange.y < intensityRange.x) intensityRange.y = intensityRange.x + 0.01f;
-        if (changeInterval.x < 0f) changeInterval.x = 0f;
-        if (changeInterval.y < changeInterval.x) changeInterval.y = changeInterval.x + 0.01f;
-        if (lerpSpeed.x < 0f) lerpSpeed.x = 0f;
-        if (lerpSpeed.y < lerpSpeed.x) lerpSpeed.y = lerpSpeed.x + 0.01f;
-        if (blackoutDuration.x < 0f) blackoutDuration.x = 0f;
-        if (blackoutDuration.y < blackoutDuration.x) blackoutDuration.y = blackoutDuration.x + 0.01f;
+        // å¼·åº¦ã®å¦¥å½“åŒ–
+        if (offIntensity < 0f) offIntensity = 0f;
+        if (onIntensity < 0f) onIntensity = 0f;
+
+        // ç‚¹ç¯æ™‚é–“ã®å¦¥å½“åŒ–
+        if (onHold.x < 0f) onHold.x = 0f;
+        if (onHold.y < onHold.x) onHold.y = onHold.x + 0.001f;
+
+        // é–“éš”ã®å¦¥å½“åŒ–
+        if (baseInterval < 0.01f) baseInterval = 0.01f;
+        if (intervalJitter < 0f) intervalJitter = 0f;
+        if (intervalJitter > 0.9f) intervalJitter = 0.9f;
     }
-#endif
 }
