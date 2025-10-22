@@ -16856,6 +16856,7 @@ MonoBehaviour:
   DashSpeed: 1.5
   SlowSpeed: 2
   animator: {fileID: 956023716}
+  analogPressPoint: 0.5
   deadZone: 0.12
   stopGrace: 0.08
   OnDashStart:
@@ -20264,13 +20265,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Player: {fileID: 956023712}
   Ghost: {fileID: 1088747856}
-  HideRef: {fileID: 0}
-  GhostChase: {fileID: 0}
+  HideRef: {fileID: 143505019}
+  GhostChase: {fileID: 1088747857}
   TriggerDistance: 0.8
   CheckInterval: 0.01
   GameoverScene: GameoverScene
   StopAgentsOnGameOver: 1
-  PostVolume: {fileID: 1194267842}
+  PostVolume: {fileID: 832575518}
   EdgeColor: {r: 1, g: 0, b: 0, a: 1}
   WarnDistance: 3
   MaxVignette: 1
@@ -22767,7 +22768,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1194267840}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 172515602e62fb746b5d573b38a5fe58, type: 3}
   m_Name: 
@@ -27991,6 +27992,7 @@ GameObject:
   - component: {fileID: 1534714871}
   - component: {fileID: 1534714873}
   - component: {fileID: 1534714874}
+  - component: {fileID: 1534714875}
   m_Layer: 5
   m_Name: tutorial
   m_TagString: Untagged
@@ -28171,43 +28173,16 @@ MonoBehaviour:
     - {r: 1, g: 1, b: 1, a: 1}
     - {r: 1, g: 1, b: 1, a: 1}
     - {r: 1, g: 1, b: 1, a: 1}
-  - State1:
-    - aaaaaaaaaaa
-    - aaaaaaaaaaa
-    - aaaaaaaaa
-    - aaaaaaaaa
-    - aaaaaaaaaaa
-    State1Colors:
-    - {r: 1, g: 1, b: 1, a: 1}
-    - {r: 1, g: 1, b: 1, a: 1}
-    - {r: 1, g: 1, b: 1, a: 1}
-    - {r: 1, g: 1, b: 1, a: 1}
-    - {r: 1, g: 1, b: 1, a: 1}
-    State2:
-    - aaaaaaaaaaaaa
-    - aaaaaaaaaaaaa
-    - aaaaaaaaaaa
-    - aaaaaaaaaaa
-    - aaaaaaaaaaaa
-    State2Colors:
-    - {r: 1, g: 1, b: 1, a: 1}
-    - {r: 1, g: 1, b: 1, a: 1}
-    - {r: 1, g: 1, b: 1, a: 1}
-    - {r: 1, g: 1, b: 1, a: 1}
-    - {r: 1, g: 1, b: 1, a: 1}
-    State3:
+    TutorialLinesOnFullyRevealed:
     - 
     - 
-    - 
-    - 
-    - 
-    State3Colors:
-    - {r: 1, g: 1, b: 1, a: 1}
-    - {r: 1, g: 1, b: 1, a: 1}
-    - {r: 1, g: 1, b: 1, a: 1}
-    - {r: 1, g: 1, b: 1, a: 1}
-    - {r: 1, g: 1, b: 1, a: 1}
   ProgressStage: 0
+  OnHintTutorialLinesRequested:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLineFullyRevealed:
+    m_PersistentCalls:
+      m_Calls: []
   VisibleDistance: 10
   RevealDistance: 7
   RevealCharsPerSecond: 6
@@ -28296,6 +28271,24 @@ MonoBehaviour:
   LightsToToggle:
   - {fileID: 788558990}
   HideLightsUntilMission3: 1
+--- !u!114 &1534714875
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1534714869}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 253f4bbe28cea55488bcd706480a401f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  text: {fileID: 1750382308}
+  hint: {fileID: 1534714873}
+  targetState: 1
+  targetElement: 3
+  line: "\u660E\u308B\u3044\u306E\u304C\u6016\u3044\u2026\u3069\u3046\u3084\u3063\u3066\u96FB\u6C17\u3092\u6697\u304F\u3067\u304D\u308B\u3093\u3060\u308D\u3046"
+  showOnce: 1
 --- !u!65 &1540111065
 BoxCollider:
   m_ObjectHideFlags: 0
