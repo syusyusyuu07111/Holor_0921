@@ -2246,7 +2246,7 @@ MonoBehaviour:
   - {fileID: 988617678}
   UseRotationInstead: 0
   ShiftAxis: {x: 1, y: 0, z: 0}
-  ShiftValue: 0.3
+  ShiftValue: 0.2
   RotateAxis: {x: 0, y: 1, z: 0}
   RotateDegrees: 12
   ShiftDuration: 0.15
@@ -35411,7 +35411,7 @@ MonoBehaviour:
   opentext: {fileID: 411474006}
   player: {fileID: 956023712}
   Door: {fileID: 1886452245}
-  openDistance: 2
+  openDistance: 1.5
 --- !u!114 &1886452247
 MonoBehaviour:
   m_ObjectHideFlags: 0
