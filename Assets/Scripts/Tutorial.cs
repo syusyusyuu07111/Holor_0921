@@ -167,10 +167,10 @@ public class Tutorial : MonoBehaviour
             HintRef.OnFirstState2Seen.AddListener(Step5_ShowPanel);
             HintRef.OnProgressChanged.AddListener(OnProgressChanged);
 
-            // ★全文開示（state×element）のトリガ → ここを OnLineFullyRevealed に修正
+            // 全文開示（state×element）のトリガ → ここを OnLineFullyRevealed に修正
             HintRef.OnLineFullyRevealed.AddListener(OnHintAllRevealed);
 
-            // ★Hint 側からの台詞行（HintText.TutorialLinesOnFullyRevealed）
+            // Hint 側からの台詞行（HintText.TutorialLinesOnFullyRevealed）
             HintRef.OnHintTutorialLinesRequested.AddListener(OnHintTutorialLinesRequested);
         }
 
@@ -483,7 +483,7 @@ public class Tutorial : MonoBehaviour
         // 例: state1.element0 が全部開示 → 台詞
         if (id == "state1.element0")
         {
-            ShowOneShot("……気配が近い。慎重に。");
+           // ShowOneShot("……気配が近い。慎重に。");
             return;
         }
 
@@ -794,7 +794,7 @@ public class Tutorial : MonoBehaviour
                 StartCoroutine(CoShowPausePanel(HidePanel));
             }
         }
-
+        FindObjectOfType<Save>(true)?.MarkTutorialCleared();
         // 本編へ
         Step1();
 
