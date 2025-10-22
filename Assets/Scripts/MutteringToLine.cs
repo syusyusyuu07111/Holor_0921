@@ -3,41 +3,63 @@ using UnityEngine;
 using System.Collections.Generic;
 
 /// <summary>
-/// HintText ‚Ì OnLineFullyRevealed(string id) ‚ğw“Ç‚µ‚ÄA
-/// w’è‚µ‚½ (state, element) ‚ªg‘S•¶•\¦‚É‚È‚Á‚½uŠÔh‚É‘äŒ‚ğo‚·B
-/// —á‚Ì id •¶š—ñ: "state1.element0"
+    public TMP_Text text;                       // É‘äŒ\
+    private void Awake()
+    {
+        if (!text)
+        {
+            text = GetComponent<TMP_Text>();
+            if (!text)
+                text = GetComponentInChildren<TMP_Text>(true);
+        }
+
+        if (!text)
+        {
+            Debug.LogWarning("[MutteringToLine] Text target is not assigned.");
+        }
+    }
+
+            Debug.LogWarning("[MutteringToLine] HintText reference not found. Unable to subscribe to events.");
+        if (!text)
+        {
+            Debug.LogWarning("[MutteringToLine] Text target is not assigned.");
+            return;
+        }
+
+        if (!text.gameObject.activeSelf)
+            text.gameObject.SetActive(true);
 /// </summary>
 public class MutteringToLine : MonoBehaviour
 {
-    [Header("o—Íæ")]
-    public TextMeshProUGUI text;                // ‚±‚±‚É‘äŒ‚ğ•\¦
+    [Header("å‡ºåŠ›å…ˆ")]
+    public TextMeshProUGUI text;                // ã“ã“ã«å°è©ã‚’è¡¨ç¤º
 
-    [Header("QÆ")]
-    public HintText hint;                       // ƒV[ƒ“ã‚Ì HintTextB–¢İ’è‚È‚ç©“®ŒŸõ
+    [Header("å‚ç…§")]
+    public HintText hint;                       // ã‚·ãƒ¼ãƒ³ä¸Šã® HintTextã€‚æœªè¨­å®šãªã‚‰è‡ªå‹•æ¤œç´¢
 
     [System.Serializable]
     public class Trigger
     {
         [Min(1)] public int state = 1;         // 1 / 2 / 3
         [Range(0, 4)] public int element = 0;  // 0..4
-        [TextArea] public string line = "cci‘äŒj";
-        public bool showOnce = true;           // ˆê“x‚¾‚¯”­‰Î
-        [HideInInspector] public bool _fired;  // “à•”ƒtƒ‰ƒO
+        [TextArea] public string line = "â€¦â€¦ï¼ˆå°è©ï¼‰";
+        public bool showOnce = true;           // ä¸€åº¦ã ã‘ç™ºç«
+        [HideInInspector] public bool _fired;  // å†…éƒ¨ãƒ•ãƒ©ã‚°
     }
 
-    [Header("ƒgƒŠƒK[i‚¢‚­‚Â‚Å‚à’Ç‰Á‰Âj")]
+    [Header("ãƒˆãƒªã‚¬ãƒ¼ï¼ˆã„ãã¤ã§ã‚‚è¿½åŠ å¯ï¼‰")]
     public List<Trigger> triggers = new List<Trigger>();
 
     public enum ShowMode { Replace, Append }
-    [Header("•\¦ƒ‚[ƒh")]
+    [Header("è¡¨ç¤ºãƒ¢ãƒ¼ãƒ‰")]
     public ShowMode showMode = ShowMode.Replace;
 
-    [Header("‘OŒã‚Ì—]”’iAppend‚Ì‚İj")]
+    [Header("å‰å¾Œã®ä½™ç™½ï¼ˆAppendæ™‚ã®ã¿ï¼‰")]
     public string appendSeparator = "\n";
 
     private void OnEnable()
     {
-        // ©“®QÆ
+        // è‡ªå‹•å‚ç…§
         if (!hint)
         {
 #if UNITY_2023_1_OR_NEWER
@@ -53,7 +75,7 @@ public class MutteringToLine : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning("[MutteringToLine] HintText ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñBƒCƒxƒ“ƒg‚ğw“Ç‚Å‚«‚Ü‚¹‚ñB");
+            Debug.LogWarning("[MutteringToLine] HintText ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã€‚ã‚¤ãƒ™ãƒ³ãƒˆã‚’è³¼èª­ã§ãã¾ã›ã‚“ã€‚");
         }
     }
 
@@ -65,12 +87,12 @@ public class MutteringToLine : MonoBehaviour
         }
     }
 
-    // HintText ‚©‚ç: —á "state1.element0"
+    // HintText ã‹ã‚‰: ä¾‹ "state1.element0"
     private void OnHintLineFullyRevealed(string id)
     {
         if (triggers == null || triggers.Count == 0) return;
 
-        // ó‚¯æ‚Á‚½ id ‚Æˆê’v‚·‚éƒgƒŠƒK[‚ğ‘S•”ˆ—i•¡”ˆê’vOKj
+        // å—ã‘å–ã£ãŸ id ã¨ä¸€è‡´ã™ã‚‹ãƒˆãƒªã‚¬ãƒ¼ã‚’å…¨éƒ¨å‡¦ç†ï¼ˆè¤‡æ•°ä¸€è‡´OKï¼‰
         for (int i = 0; i < triggers.Count; i++)
         {
             var t = triggers[i];
@@ -81,7 +103,7 @@ public class MutteringToLine : MonoBehaviour
             if (id == MakeId(t.state, t.element))
             {
                 ShowLine(t.line);
-                t._fired = true; // showOnce ‚Ì‚Æ‚«‚É‚¾‚¯ÀŒø
+                t._fired = true; // showOnce ã®ã¨ãã«ã ã‘å®ŸåŠ¹
             }
         }
     }
@@ -106,7 +128,7 @@ public class MutteringToLine : MonoBehaviour
     private static string MakeId(int state, int element)
         => $"state{Mathf.Max(1, state)}.element{Mathf.Clamp(element, 0, 4)}";
 
-    // ------ ƒfƒoƒbƒO/‰^—p—pƒ†[ƒeƒBƒŠƒeƒB ------
+    // ------ ãƒ‡ãƒãƒƒã‚°/é‹ç”¨ç”¨ãƒ¦ãƒ¼ãƒ†ã‚£ãƒªãƒ†ã‚£ ------
 
     [ContextMenu("Reset Fired Flags")]
     public void ResetFiredFlags()
@@ -117,7 +139,7 @@ public class MutteringToLine : MonoBehaviour
     }
 
     /// <summary>
-    /// è“®‚Å”­‰Î‚³‚¹‚½‚¢‚Æ‚«—piƒeƒXƒg—pj
+    /// æ‰‹å‹•ã§ç™ºç«ã•ã›ãŸã„ã¨ãç”¨ï¼ˆãƒ†ã‚¹ãƒˆç”¨ï¼‰
     /// </summary>
     public void ManualTrigger(int state, int element)
     {
