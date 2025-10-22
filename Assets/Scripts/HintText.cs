@@ -143,7 +143,14 @@ public class HintText : MonoBehaviour
 
     void Update()
     {
-        // 追尾
+        // 参照切れていたら取り直す（リトライ対策）
+        if (!Player)
+        {
+            var p = GameObject.FindGameObjectWithTag("Player");
+            Player = p ? p.transform : null;
+        }
+
+        // 追尾（Ghost）
         if (AutoTrackNearestGhost)
         {
             _retargetTimer -= Time.deltaTime;
@@ -244,8 +251,6 @@ public class HintText : MonoBehaviour
                     string id = MakeId(stateNow, currentIndex);
                     if (_lineRevealedIds.Add(id))
                     {
-                        // 初回のみ
-                        Debug.Log($"[HintText] OnLineFullyRevealed -> {id}");
                         OnLineFullyRevealed?.Invoke(id);
                     }
 
@@ -414,7 +419,6 @@ public class HintText : MonoBehaviour
         ResetRevealProgress();
         SelectLinesByStageAndState();
         OnProgressChanged?.Invoke(ProgressStage);
-        Save.Instance?.CaptureFromScene(FindObjectOfType<Tutorial>(true), this); // ★追加
     }
 
     // ====== 表示ユーティリティ ======
