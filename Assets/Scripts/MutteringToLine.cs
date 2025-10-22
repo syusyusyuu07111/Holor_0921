@@ -1,56 +1,33 @@
 using TMPro;
 using UnityEngine;
-using System.Collections.Generic;
 
 /// <summary>
-/// HintText の進行に合わせて台詞を表示するコンポーネント。
+/// 「stateX の elementY が “全文表示された瞬間” に台詞を出す」
+/// HintText の OnLineFullyRevealed(string id)（例: "state1.element0"）を購読して実現。
+/// 後から有効化されても、既に開示済みなら即座に表示（後追い補正）。
 /// </summary>
 public class MutteringToLine : MonoBehaviour
 {
     [Header("出力先")]
-    public TextMeshProUGUI text;                // ここに台詞を表示
+    public TextMeshProUGUI text;
 
     [Header("参照")]
-    public HintText hint;                       // シーン上の HintText。未設定なら自動検索
+    public HintText hint;  // Inspector で Tutorial と同じ HintText を割り当て推奨
 
-    private void Awake()
-    {
-        if (!text)
-        {
-            text = GetComponent<TextMeshProUGUI>();
-            if (!text)
-                text = GetComponentInChildren<TextMeshProUGUI>(true);
-        }
+    [Header("トリガ条件")]
+    [Min(1)] public int targetState = 1;   // 1 / 2 / 3
+    [Range(0, 4)] public int targetElement = 0;
 
-        if (!text)
-        {
-            Debug.LogWarning("[MutteringToLine] Text target is not assigned.");
-        }
-    }
+    [Header("表示する台詞")]
+    [TextArea] public string line = "……（台詞）";
 
-    [System.Serializable]
-    public class Trigger
-    {
-        [Min(1)] public int state = 1;         // 1 / 2 / 3
-        [Range(0, 4)] public int element = 0;  // 0..4
-        [TextArea] public string line = "……（台詞）";
-        public bool showOnce = true;           // 一度だけ発火
-        [HideInInspector] public bool _fired;  // 内部フラグ
-    }
+    [Header("一度だけ表示する")]
+    public bool showOnce = true;
 
-    [Header("トリガー（いくつでも追加可）")]
-    public List<Trigger> triggers = new List<Trigger>();
-
-    public enum ShowMode { Replace, Append }
-    [Header("表示モード")]
-    public ShowMode showMode = ShowMode.Replace;
-
-    [Header("前後の余白（Append時のみ）")]
-    public string appendSeparator = "\n";
+    private bool _fired;
 
     private void OnEnable()
     {
-        // 自動参照
         if (!hint)
         {
 #if UNITY_2023_1_OR_NEWER
@@ -60,91 +37,48 @@ public class MutteringToLine : MonoBehaviour
 #endif
         }
 
-        if (hint != null)
+        if (!hint)
         {
-            hint.OnLineFullyRevealed.AddListener(OnHintLineFullyRevealed);
-        }
-        else
-        {
-            Debug.LogWarning("[MutteringToLine] HintText が見つかりません。イベントを購読できません。");
-        }
-
-        if (!text)
-        {
-            Debug.LogWarning("[MutteringToLine] Text target is not assigned.");
+            Debug.LogWarning("[MutteringToLine] HintText が見つかりません。");
             return;
         }
 
-        if (!text.gameObject.activeSelf)
+        hint.OnLineFullyRevealed.AddListener(OnHintLineFullyRevealed);
+        Debug.Log($"[MutteringToLine] Subscribed to {hint.name}. target={MakeId(targetState, targetElement)}");
+
+        // ★後追い補正：既に開示済みなら即表示
+        if (hint.HasLineBeenRevealed(targetState, targetElement))
         {
-            text.gameObject.SetActive(true);
+            Debug.Log("[MutteringToLine] target already revealed. show immediately.");
+            ShowNow();
         }
     }
 
     private void OnDisable()
     {
-        if (hint != null)
-        {
-            hint.OnLineFullyRevealed.RemoveListener(OnHintLineFullyRevealed);
-        }
+        if (hint) hint.OnLineFullyRevealed.RemoveListener(OnHintLineFullyRevealed);
     }
 
-    // HintText から: 例 "state1.element0"
     private void OnHintLineFullyRevealed(string id)
     {
-        if (triggers == null || triggers.Count == 0) return;
+        if (_fired && showOnce) return;
 
-        // 受け取った id と一致するトリガーを全部処理（複数一致OK）
-        for (int i = 0; i < triggers.Count; i++)
-        {
-            var t = triggers[i];
-            if (t == null) continue;
-
-            if (t.showOnce && t._fired) continue;
-
-            if (id == MakeId(t.state, t.element))
-            {
-                ShowLine(t.line);
-                t._fired = true; // showOnce のときにだけ実効
-            }
-        }
+        string targetId = MakeId(targetState, targetElement);
+        Debug.Log($"[MutteringToLine] Received id={id} (target={targetId})");
+        if (id == targetId) ShowNow();
     }
 
-    private void ShowLine(string line)
+    private void ShowNow()
     {
-        if (!text) return;
-
-        if (showMode == ShowMode.Replace)
+        if (text)
         {
+            text.gameObject.SetActive(true);
             text.text = line;
         }
-        else // Append
-        {
-            if (string.IsNullOrEmpty(text.text))
-                text.text = line;
-            else
-                text.text = text.text + appendSeparator + line;
-        }
+        _fired = true;
+        Debug.Log("[MutteringToLine] SHOWN");
     }
 
     private static string MakeId(int state, int element)
         => $"state{Mathf.Max(1, state)}.element{Mathf.Clamp(element, 0, 4)}";
-
-    // ------ デバッグ/運用用ユーティリティ ------
-
-    [ContextMenu("Reset Fired Flags")]
-    public void ResetFiredFlags()
-    {
-        if (triggers == null) return;
-        for (int i = 0; i < triggers.Count; i++)
-            if (triggers[i] != null) triggers[i]._fired = false;
-    }
-
-    /// <summary>
-    /// 手動で発火させたいとき用（テスト用）
-    /// </summary>
-    public void ManualTrigger(int state, int element)
-    {
-        OnHintLineFullyRevealed(MakeId(state, element));
-    }
 }
