@@ -131,6 +131,77 @@ public class Tutorial : MonoBehaviour
     public bool HideLightsUntilMission3 = true;
     private bool _lightsActivatedAfterM3 = false;
 
+    // ===== Save 用 公開アクセサ（Tutorial.cs 内に追加） =====
+    public bool IsBasicDonePublic() => _basicDone;
+
+    // enum を int でやり取り
+    public int GetDoorMissionStagePublic() => (int)_doorMission;
+    public void SetDoorMissionStagePublic(int stageInt)
+    {
+        stageInt = Mathf.Clamp(stageInt, 0, 4);
+        var next = (DoorMissionStage)stageInt;
+        _doorMission = next;
+
+        // 復元時に現在の段階の文言/ライトを自然に整える
+        switch (_doorMission)
+        {
+            case DoorMissionStage.None:
+                if (MissionText) MissionText.gameObject.SetActive(false);
+                break;
+
+            case DoorMissionStage.DoorCheck:
+                ShowMissionText(Mission_DoorCheck);
+                break;
+
+            case DoorMissionStage.FindGhost:
+                ShowMissionText(Mission_FindGhost);
+                break;
+
+            case DoorMissionStage.HearVoiceGoNext:
+                ShowMissionText(Mission_HearVoiceGoNext);
+                if (HideLightsUntilMission3) ActivateLightsAfterMission3();
+                break;
+
+            case DoorMissionStage.AllDone:
+                ShowMissionText(Mission_AllDone);
+                break;
+        }
+    }
+
+    public bool GetMissionVisiblePublic() => MissionText && MissionText.gameObject.activeSelf;
+    public string GetMissionTextPublic() => MissionText ? MissionText.text : "";
+
+    public bool GetDidStep4Public() => _didStep4;
+    public bool GetDidStep5Public() => _didStep5;
+    public bool GetDidHidePanelPublic() => _didHidePanel;
+    public void SetDidStepFlagsPublic(bool s4, bool s5, bool hidePanel)
+    {
+        _didStep4 = s4; _didStep5 = s5; _didHidePanel = hidePanel;
+    }
+
+    // ライト
+    public bool GetLightsActivatedPublic() => _lightsActivatedAfterM3;
+    public void SetLightsActivatedAfterM3Public(bool on)
+    {
+        _lightsActivatedAfterM3 = on;
+        if (on) ActivateLightsAfterMission3();
+    }
+
+    // 前段スキップを強制
+    public void ForceSkipBasicTutorialPublic()
+    {
+        EnableBasicTutorial = false;
+        _basicDone = true;
+    }
+    
+    // ミッションUIを直接セット（復元用）
+    public void SetMissionUIStatePublic(bool visible, string text)
+    {
+        if (!MissionText) return;
+        MissionText.text = string.IsNullOrEmpty(text) ? MissionText.text : text;
+        MissionText.gameObject.SetActive(visible);
+    }
+
     // ===== 共通ゲート =====
     private bool IsEventAllowed() => !EnableBasicTutorial || _basicDone;
 
@@ -142,8 +213,16 @@ public class Tutorial : MonoBehaviour
     }
 
     // ========== ライフサイクル ==========
+    private const string Key_TutorialCleared = "TutorialCleared"; // 既に使っているなら重複不要
+
     private void Awake()
     {
+        // Save が無くても PlayerPrefs 単独でスキップ（保険）
+        if (PlayerPrefs.GetInt(Key_TutorialCleared, 0) == 1)
+        {
+            ForceSkipBasicTutorialPublic();
+        }
+
         if (!HintRef && AutoFindHintRef)
         {
 #if UNITY_2023_1_OR_NEWER
@@ -217,6 +296,9 @@ public class Tutorial : MonoBehaviour
 
     private void Start()
     {
+        // 復元：Tutorial と Hint をまとめて適用
+        Save.Instance?.ApplyToScene(this, HintRef);
+
         if (BottomText) { BottomText.text = ""; BottomText.gameObject.SetActive(false); }
         if (Step4Panel_StateAny) Step4Panel_StateAny.SetActive(false);
         if (Step5Panel_State2) Step5Panel_State2.SetActive(false);
@@ -378,6 +460,8 @@ public class Tutorial : MonoBehaviour
         // ミッション：ステージ2達成
         if (EnableDoorMission && _doorMission == DoorMissionStage.FindGhost)
             AdvanceDoorMissionTo(DoorMissionStage.HearVoiceGoNext);
+
+        Save.Instance?.CaptureFromScene(this, HintRef);   // ★追加
     }
 
     public void Step5_ShowPanel()
@@ -393,6 +477,8 @@ public class Tutorial : MonoBehaviour
 
         if (EnableDoorMission && _doorMission == DoorMissionStage.HearVoiceGoNext)
             ShowMissionText(Mission_HearVoiceGoNext);
+
+        Save.Instance?.CaptureFromScene(this, HintRef);   // ★追加
     }
 
     public void ShowHidePanelOnce()
@@ -407,6 +493,8 @@ public class Tutorial : MonoBehaviour
 
         _didHidePanel = true;
         StartCoroutine(CoShowPausePanel(HidePanel));
+
+        Save.Instance?.CaptureFromScene(this, HintRef);   // ★追加
     }
 
     // ========== パネル表示→一時停止→Submitで閉じる ==========
@@ -562,6 +650,8 @@ public class Tutorial : MonoBehaviour
                 if (MissionHideWhenDone && MissionText) StartCoroutine(CoHideMissionAfter(MissionLineInterval));
                 break;
         }
+
+        Save.Instance?.CaptureFromScene(this, HintRef);   // ★追加
     }
 
     private void ShowMissionText(string line)
@@ -571,6 +661,8 @@ public class Tutorial : MonoBehaviour
         if (_typingMission != null) { StopCoroutine(_typingMission); _typingMission = null; }
         MissionText.gameObject.SetActive(true);
         _typingMission = StartCoroutine(CoTypeOne_Mission(line));
+
+        Save.Instance?.CaptureFromScene(this, HintRef);   // ★追加
     }
 
     private IEnumerator CoTypeOne_Mission(string text)
@@ -634,6 +726,8 @@ public class Tutorial : MonoBehaviour
         if (LightsToToggle == null) return;
         for (int i = 0; i < LightsToToggle.Count; i++)
             if (LightsToToggle[i]) LightsToToggle[i].SetActive(true);
+
+        Save.Instance?.CaptureFromScene(this, HintRef);   // ★追加
     }
 
     // ========== テキスト演出（メイン） ==========
@@ -795,6 +889,7 @@ public class Tutorial : MonoBehaviour
             }
         }
         FindObjectOfType<Save>(true)?.MarkTutorialCleared();
+        Save.Instance?.CaptureFromScene(this, HintRef);       // ★あればより確実
         // 本編へ
         Step1();
 
