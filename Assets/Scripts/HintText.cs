@@ -444,6 +444,9 @@ public class HintText : MonoBehaviour
         if (clamped == ProgressStage) return;
         ProgressStage = clamped;
 
+        // ステージを進めたら行ごとの発火済みIDをリセット（ステージごとに台詞を出せるようにする）
+        _firedLineEvents.Clear();
+
         ResetRevealProgress();
         SelectLinesByStageAndState();
         OnProgressChanged?.Invoke(ProgressStage);
