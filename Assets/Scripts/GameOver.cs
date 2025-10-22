@@ -10,6 +10,10 @@ public class GameOver : MonoBehaviour
     public Transform Player;                    // プレイヤー
     public Transform Ghost;                     // 幽霊（追跡側）
 
+    [Header("隠れ判定")]
+    public HideCroset HideRef;                  // クローゼット隠れ制御
+    public SearchChase GhostChase;              // 幽霊の状態取得用
+
     [Header("判定設定")]
     public float TriggerDistance = 0.735f;      // 距離がこの値以下でゲームオーバー
     public float CheckInterval = 0.05f;         // 距離チェック間隔（秒）
@@ -50,6 +54,21 @@ public class GameOver : MonoBehaviour
         {
             var g = GameObject.FindGameObjectWithTag("Ghost"); // タグ割り当てる
             if (g) Ghost = g.transform;
+        }
+
+        if (!HideRef)
+        {
+#if UNITY_2023_1_OR_NEWER
+            HideRef = UnityEngine.Object.FindFirstObjectByType<HideCroset>();
+            if (!HideRef) HideRef = UnityEngine.Object.FindAnyObjectByType<HideCroset>();
+#else
+            HideRef = UnityEngine.Object.FindObjectOfType<HideCroset>();
+#endif
+        }
+
+        if (!GhostChase && Ghost)
+        {
+            GhostChase = Ghost.GetComponent<SearchChase>();
         }
 
         // Volume 自動補完
@@ -106,6 +125,12 @@ public class GameOver : MonoBehaviour
                 float dist = Vector3.Distance(Player.position, Ghost.position);
                // Debug.Log($"[GameOver] distance = {dist:0.000}");
 
+                if (ShouldSkipCatch())
+                {
+                    yield return wait;
+                    continue;
+                }
+
                 // 判定：距離がトリガー値以下
                 if (dist <= TriggerDistance)
                 {
@@ -120,6 +145,14 @@ public class GameOver : MonoBehaviour
     private void UpdateDangerVignette()
     {
         if (!_hasVig || !Player || !Ghost) return;
+
+        if (ShouldSkipCatch())
+        {
+            _currIntensity = Mathf.MoveTowards(_currIntensity, 0f, FadeSpeed * Time.deltaTime);
+            _vig.intensity.Override(_currIntensity);
+            if (_hasCA && AlsoShakeChromatic) _ca.intensity.Override(_currIntensity * 0.55f);
+            return;
+        }
 
         float dist = Vector3.Distance(Player.position, Ghost.position);
 
@@ -176,6 +209,14 @@ public class GameOver : MonoBehaviour
             var scene = SceneManager.GetActiveScene();
             SceneManager.LoadScene(scene.buildIndex);
         }
+    }
+
+    private bool ShouldSkipCatch()
+    {
+        if (!HideRef || !HideRef.hide) return false;
+
+        int ghostState = (GhostChase ? GhostChase.GetState() : 1);
+        return ghostState == 1;
     }
 
     private void OnDrawGizmosSelected()
