@@ -70,12 +70,12 @@ public class HideCroset : MonoBehaviour
     private void OnEnable()
     {
         Input.Player.Enable();
-        Input.Player.Interact.performed += OnInterect; //「E」など
+        Input.Player.Interact.started += OnInterect; // 「E」など（押した瞬間）
     }
 
     private void OnDisable()
     {
-        Input.Player.Interact.performed -= OnInterect;
+        Input.Player.Interact.started -= OnInterect;
         Input.Player.Disable();
     }
 
