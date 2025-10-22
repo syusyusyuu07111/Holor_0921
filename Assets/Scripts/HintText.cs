@@ -16,6 +16,14 @@ public class HintText : MonoBehaviour
     public UnityEvent OnFirstState2Seen;
     public UnityEvent<int> OnProgressChanged;
 
+    [System.Serializable] public class StringEvent : UnityEngine.Events.UnityEvent<string> { }
+
+    [Header("行開示イベント")]
+    public StringEvent OnLineFullyRevealed = new StringEvent();
+
+    // 重複発火防止（stateX.elementY 単位）
+    private readonly HashSet<string> _firedLineEvents = new HashSet<string>();
+
     [Header("ゴースト自動追尾")]
     public bool AutoTrackNearestGhost = true;
     public string GhostTag = "Ghost";
@@ -246,8 +254,23 @@ public class HintText : MonoBehaviour
                 revealProgressChars += RevealCharsPerSecond * Time.deltaTime;
                 UpdateMaskedLine(currentIndex, revealProgressChars);
 
-                if (IsFullyRevealed(activeLines[currentIndex], revealProgressChars))
+                string curText = activeLines[currentIndex];
+                bool fullyRevealed = IsFullyRevealed(curText, revealProgressChars);
+
+                if (fullyRevealed)
                 {
+                    if (!string.IsNullOrEmpty(curText))
+                    {
+                        int curState = (ChaseRef ? ChaseRef.GetState() : 1);
+                        string id = $"state{curState}.element{currentIndex}";
+
+                        if (!_firedLineEvents.Contains(id))
+                        {
+                            _firedLineEvents.Add(id);
+                            OnLineFullyRevealed?.Invoke(id);
+                        }
+                    }
+
                     currentIndex = Mathf.Min(currentIndex + 1, 4);
                     revealProgressChars = 0f;
                     waitingCooldown = true;
@@ -420,6 +443,9 @@ public class HintText : MonoBehaviour
         int clamped = Mathf.Clamp(next, 0, Mathf.Max(0, (Stages?.Count ?? 1) - 1));
         if (clamped == ProgressStage) return;
         ProgressStage = clamped;
+
+        // ステージを進めたら行ごとの発火済みIDをリセット（ステージごとに台詞を出せるようにする）
+        _firedLineEvents.Clear();
 
         ResetRevealProgress();
         SelectLinesByStageAndState();

@@ -112,6 +112,19 @@ public class Tutorial : MonoBehaviour
     // ========== ヒント（外部要求された台詞）の遅延表示 ==========
     private readonly Queue<string[]> _queuedHintTutorials = new Queue<string[]>();
 
+    [Serializable]
+    public class LineCue
+    {
+        public string Id;                // 例: "state1.element0" / "stage2.state1.element0"
+        [TextArea] public string[] Lines;
+    }
+
+    [Header("行開示→台詞マッピング")]
+    public List<LineCue> LineCues = new List<LineCue>();
+
+    private Dictionary<string, string[]> _cueMap;
+    private readonly List<string> _cueKeyBuffer = new List<string>(8);
+
     // ========== ドア用ミッション（独立テキスト） ==========
     [Header("ドア用ミッション（別テキストUI）")]
     public bool EnableDoorMission = true;
@@ -164,6 +177,24 @@ public class Tutorial : MonoBehaviour
 #endif
         }
         _input = new InputSystem_Actions();
+        BuildCueMap();
+    }
+
+    private void BuildCueMap()
+    {
+        _cueMap = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        if (LineCues == null) return;
+
+        for (int i = 0; i < LineCues.Count; i++)
+        {
+            var cue = LineCues[i];
+            if (cue == null) continue;
+            if (string.IsNullOrWhiteSpace(cue.Id)) continue;
+            if (cue.Lines == null) continue;
+            if (!HasAnyContent(cue.Lines)) continue;
+
+            _cueMap[cue.Id.Trim()] = (string[])cue.Lines.Clone();
+        }
     }
 
     private void OnEnable()
@@ -180,6 +211,7 @@ public class Tutorial : MonoBehaviour
 
             // ★ ここに移動（イベント購読はクラス直下では不可）
             HintRef.OnHintTutorialLinesRequested.AddListener(OnHintTutorialLinesRequested);
+            HintRef.OnLineFullyRevealed.AddListener(OnHintLineFullyRevealed);
         }
 
         // 隠れ案内 初回表示イベント（HideCroset側から）
@@ -209,6 +241,7 @@ public class Tutorial : MonoBehaviour
 
             // ★ 購読解除もここで
             HintRef.OnHintTutorialLinesRequested.RemoveListener(OnHintTutorialLinesRequested);
+            HintRef.OnLineFullyRevealed.RemoveListener(OnHintLineFullyRevealed);
         }
         if (HideRef) HideRef.OnFirstHidePromptShown.RemoveListener(ShowHidePanelOnce);
 
@@ -780,6 +813,19 @@ public class Tutorial : MonoBehaviour
     }
 
     // ========== ヒント（外部要求の台詞）表示キュー ==========
+    private void OnHintLineFullyRevealed(string id)
+    {
+        if (!TryResolveCueLines(id, out var lines)) return;
+
+        if (!IsEventAllowed() || _pauseGate || _typing != null)
+        {
+            _queuedHintTutorials.Enqueue(DuplicateLines(lines));
+            return;
+        }
+
+        ShowHintTutorialLinesNow(lines);
+    }
+
     private void OnHintTutorialLinesRequested(string[] lines)
     {
         if (!HasAnyContent(lines)) return;
@@ -817,5 +863,94 @@ public class Tutorial : MonoBehaviour
         for (int i = 0; i < lines.Length; i++)
             if (!string.IsNullOrWhiteSpace(lines[i])) return true;
         return false;
+    }
+
+    private bool TryResolveCueLines(string id, out string[] lines)
+    {
+        lines = null;
+        if (_cueMap == null) return false;
+        if (string.IsNullOrWhiteSpace(id)) return false;
+
+        _cueKeyBuffer.Clear();
+
+        int stage = GetCurrentHintStage();
+        if (TryParseStateAndElement(id, out int state, out int element))
+        {
+            if (stage >= 0)
+            {
+                _cueKeyBuffer.Add($"stage{stage}.state{state}.element{element}");
+                _cueKeyBuffer.Add($"stage{stage}.state{state}");
+                _cueKeyBuffer.Add($"stage{stage}.element{element}");
+            }
+
+            _cueKeyBuffer.Add(id);
+            _cueKeyBuffer.Add($"state{state}");
+            _cueKeyBuffer.Add($"element{element}");
+
+            if (stage >= 0)
+                _cueKeyBuffer.Add($"stage{stage}.{id}");
+        }
+        else
+        {
+            if (stage >= 0)
+                _cueKeyBuffer.Add($"stage{stage}.{id}");
+
+            _cueKeyBuffer.Add(id);
+        }
+
+        for (int i = 0; i < _cueKeyBuffer.Count; i++)
+        {
+            string key = _cueKeyBuffer[i];
+            if (string.IsNullOrWhiteSpace(key)) continue;
+            if (!TryGetCueLinesForKey(key, out lines)) continue;
+
+            _cueKeyBuffer.Clear();
+            return true;
+        }
+
+        _cueKeyBuffer.Clear();
+        return false;
+    }
+
+    private bool TryGetCueLinesForKey(string key, out string[] lines)
+    {
+        lines = null;
+        if (!_cueMap.TryGetValue(key, out var stored)) return false;
+        if (!HasAnyContent(stored)) return false;
+        lines = stored;
+        return true;
+    }
+
+    private int GetCurrentHintStage()
+    {
+        if (!HintRef) return -1;
+        return Mathf.Max(0, HintRef.ProgressStage);
+    }
+
+    private static bool TryParseStateAndElement(string id, out int state, out int element)
+    {
+        state = -1;
+        element = -1;
+        if (string.IsNullOrWhiteSpace(id)) return false;
+
+        int dotIndex = id.IndexOf('.');
+        if (dotIndex <= 0 || dotIndex >= id.Length - 1) return false;
+
+        string statePart = id.Substring(0, dotIndex);
+        string elementPart = id.Substring(dotIndex + 1);
+
+        if (!TryParsePrefixedNumber(statePart, "state", out state)) return false;
+        if (!TryParsePrefixedNumber(elementPart, "element", out element)) return false;
+
+        return true;
+    }
+
+    private static bool TryParsePrefixedNumber(string value, string prefix, out int number)
+    {
+        number = -1;
+        if (string.IsNullOrEmpty(value)) return false;
+        if (!value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return false;
+        string numberPart = value.Substring(prefix.Length);
+        return int.TryParse(numberPart, out number);
     }
 }
