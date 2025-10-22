@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -5,96 +6,96 @@ using TMPro;
 
 public class Tutorial : MonoBehaviour
 {
-    // ========== ƒeƒLƒXƒg^ƒ^ƒCƒv‰‰o ==========
+    // ========== ãƒ†ã‚­ã‚¹ãƒˆï¼ã‚¿ã‚¤ãƒ—æ¼”å‡º ==========
     public TextMeshProUGUI BottomText;
     public float CharsPerSecond = 40f;
     public float LineInterval = 0.6f;
     public bool HideWhenDone = true;
 
-    [TextArea] public string[] Step1Lines = { "cc‚±‚±‚Í‚Ç‚±‚¾‚ë‚¤B", "‚³‚Á‚«‚Ü‚Å‚Ì‹L‰¯‚ªB–†‚¾B", "‚Æ‚É‚©‚­AoŒû‚ğ’T‚³‚È‚¢‚ÆB" };
-    [TextArea] public string[] Step3Lines = { "cc‰½‚©‰¹‚ª‚µ‚½‚¼I", "ü‚è‚ğ’T‚µ‚Ä‚İ‚æ‚¤B" }; // iC³j1‰ñ–Ú‚Ì¶¬‚Éo‚·
+    [TextArea] public string[] Step1Lines = { "â€¦â€¦ã“ã“ã¯ã©ã“ã ã‚ã†ã€‚", "ã•ã£ãã¾ã§ã®è¨˜æ†¶ãŒæ›–æ˜§ã ã€‚", "ã¨ã«ã‹ãã€å‡ºå£ã‚’æ¢ã•ãªã„ã¨ã€‚" };
+    [TextArea] public string[] Step3Lines = { "â€¦â€¦ä½•ã‹éŸ³ãŒã—ãŸãï¼", "å‘¨ã‚Šã‚’æ¢ã—ã¦ã¿ã‚ˆã†ã€‚" }; // ï¼ˆä¿®æ­£ï¼‰1å›ç›®ã®ç”Ÿæˆæ™‚ã«å‡ºã™
     Coroutine _typing;
 
-    // i’Ç‰ÁjƒƒbƒN‰ğœƒeƒLƒXƒg
-    [TextArea] public string DoorUnlockedMessage = "ƒhƒA‚ªŠJ‚¢‚½‚æ‚¤‚¾";
-    private bool _didAnnounceDoorUnlocked = false; // ˆê“x‚¾‚¯•\¦
+    // ï¼ˆè¿½åŠ ï¼‰ãƒ­ãƒƒã‚¯è§£é™¤ãƒ†ã‚­ã‚¹ãƒˆ
+    [TextArea] public string DoorUnlockedMessage = "ãƒ‰ã‚¢ãŒé–‹ã„ãŸã‚ˆã†ã ";
+    private bool _didAnnounceDoorUnlocked = false; // ä¸€åº¦ã ã‘è¡¨ç¤º
 
-    // ========== is“xQÆ ==========
-    [Header("is“xQÆ")]
+    // ========== é€²è¡Œåº¦å‚ç…§ ==========
+    [Header("é€²è¡Œåº¦å‚ç…§")]
     public HintText HintRef;
     public bool AutoFindHintRef = true;
     public int MinProgressToEnableDoor = 1;
 
-    // ========== OpenDoor §Œä ==========
-    [Header("§Œä‘ÎÛiOpenDoor‚Ì‚İj")]
+    // ========== OpenDoor åˆ¶å¾¡ ==========
+    [Header("åˆ¶å¾¡å¯¾è±¡ï¼ˆOpenDoorã®ã¿ï¼‰")]
     public List<OpenDoor> DoorScripts = new();
     private int _lastAppliedProgress = int.MinValue;
 
-    // ========== ƒhƒAFƒƒbƒN‚Ì“ü—ÍƒtƒbƒNiStep2ƒgƒŠƒKj ==========
-    [Header("ƒhƒAFƒƒbƒN‚Ì“ü—ÍƒtƒbƒN")]
+    // ========== ãƒ‰ã‚¢ï¼šãƒ­ãƒƒã‚¯æ™‚ã®å…¥åŠ›ãƒ•ãƒƒã‚¯ï¼ˆStep2ãƒˆãƒªã‚¬ï¼‰ ==========
+    [Header("ãƒ‰ã‚¢ï¼šãƒ­ãƒƒã‚¯æ™‚ã®å…¥åŠ›ãƒ•ãƒƒã‚¯")]
     public Transform Player;
     public float DoorInteractDistance = 1.6f;
     public bool DoorRequireFacingSide = false;
     [Range(-1f, 1f)] public float DoorFacingDotThreshold = 0f;
-    public string DoorLockedMessage = "ƒhƒA‚Í‚ ‚©‚È‚¢‚æ‚¤‚¾c";
+    public string DoorLockedMessage = "ãƒ‰ã‚¢ã¯ã‚ã‹ãªã„ã‚ˆã†ã â€¦";
     public float DoorLockedCooldown = 1.0f;
     private float _doorMsgCD = 0f;
 
     private InputSystem_Actions _input;
 
-    // ========== ‰Œ©ƒpƒlƒ‹i—H—ìj•ˆê’â~ ==========
-    [Header("‰Œ©ƒ`ƒ…[ƒgƒŠƒAƒ‹‰æ‘œi—H—ìj")]
-    public GameObject Step4Panel_StateAny;   // ‰‚ß‚Ä—H—ì‚ªŒ©‚¦‚½
-    public GameObject Step5Panel_State2;     // ‰‚ß‚Ä state=2 ‚ğŒ©‚½
+    // ========== åˆè¦‹ãƒ‘ãƒãƒ«ï¼ˆå¹½éœŠï¼‰ï¼†ä¸€æ™‚åœæ­¢ ==========
+    [Header("åˆè¦‹ãƒãƒ¥ãƒ¼ãƒˆãƒªã‚¢ãƒ«ç”»åƒï¼ˆå¹½éœŠï¼‰")]
+    public GameObject Step4Panel_StateAny;   // åˆã‚ã¦å¹½éœŠãŒè¦‹ãˆãŸ
+    public GameObject Step5Panel_State2;     // åˆã‚ã¦ state=2 ã‚’è¦‹ãŸ
     private bool _didStep4 = false;
     private bool _didStep5 = false;
 
-    // ========== ‰Œ©ƒpƒlƒ‹i‰B‚ê‚éj ==========
-    [Header("‰B‚ê‚éƒ`ƒ…[ƒgƒŠƒAƒ‹‰æ‘œ")]
-    public HideCroset HideRef;               // HideCroset ‚ğƒAƒTƒCƒ“
-    public GameObject HidePanel;             // ‰B‚êƒ`ƒ…[ƒgƒŠƒAƒ‹‰æ‘œ
+    // ========== åˆè¦‹ãƒ‘ãƒãƒ«ï¼ˆéš ã‚Œã‚‹ï¼‰ ==========
+    [Header("éš ã‚Œã‚‹ãƒãƒ¥ãƒ¼ãƒˆãƒªã‚¢ãƒ«ç”»åƒ")]
+    public HideCroset HideRef;               // HideCroset ã‚’ã‚¢ã‚µã‚¤ãƒ³
+    public GameObject HidePanel;             // éš ã‚Œãƒãƒ¥ãƒ¼ãƒˆãƒªã‚¢ãƒ«ç”»åƒ
     private bool _didHidePanel = false;
 
-    // i’Ç‰Áj•Û—¯ƒtƒ‰ƒOF‘O’i–¢Š®—¹‚âƒ|[ƒY’†‚É‰‰ñƒCƒxƒ“ƒg‚ª—ˆ‚½‚ç‚¢‚Á‚½‚ñ’™‚ß‚é
+    // ï¼ˆè¿½åŠ ï¼‰ä¿ç•™ãƒ•ãƒ©ã‚°ï¼šå‰æ®µæœªå®Œäº†ã‚„ãƒãƒ¼ã‚ºä¸­ã«åˆå›ã‚¤ãƒ™ãƒ³ãƒˆãŒæ¥ãŸã‚‰ã„ã£ãŸã‚“è²¯ã‚ã‚‹
     private bool _pendingHidePanel = false;
 
-    // ========== ƒpƒlƒ‹‹¤’ÊFˆê’â~‚ÌƒQ[ƒg ==========
-    private bool _pauseGate = false;         // ƒpƒlƒ‹•\¦’†‚Í“ü—Í/‰‰o‚ğ~‚ß‚½‚¢‚Ég‚¤
+    // ========== ãƒ‘ãƒãƒ«å…±é€šï¼šä¸€æ™‚åœæ­¢ã®ã‚²ãƒ¼ãƒˆ ==========
+    private bool _pauseGate = false;         // ãƒ‘ãƒãƒ«è¡¨ç¤ºä¸­ã¯å…¥åŠ›/æ¼”å‡ºã‚’æ­¢ã‚ãŸã„æ™‚ã«ä½¿ã†
 
-    // ========== ’Š‘IŠJniStep3j§Œä ==========
-    [Header("—H—ìƒXƒ|ƒi[iEnemyAIj")]
-    public List<EnemyAI> Spawners = new();   // AutoStart=false „§i•ÛŒ¯‚ÅStart‚Å~‚ß‚éj
-    public float StartSpawnDelayAfterStep2 = 2f; // Step2ƒeƒLƒXƒg‚ªÁ‚¦‚½Œã‚Ì‘Ò‹@
+    // ========== æŠ½é¸é–‹å§‹ï¼ˆStep3ï¼‰åˆ¶å¾¡ ==========
+    [Header("å¹½éœŠã‚¹ãƒãƒŠãƒ¼ï¼ˆEnemyAIï¼‰")]
+    public List<EnemyAI> Spawners = new();   // AutoStart=false æ¨å¥¨ï¼ˆä¿é™ºã§Startã§æ­¢ã‚ã‚‹ï¼‰
+    public float StartSpawnDelayAfterStep2 = 2f; // Step2ãƒ†ã‚­ã‚¹ãƒˆãŒæ¶ˆãˆãŸå¾Œã®å¾…æ©Ÿ
 
-    private bool _didStep2 = false;          // ƒhƒAƒƒbƒN‚ğ‰‰ñŒŸ’m‚µ‚½‚©
-    private bool _didStep3 = false;          // ’Š‘IŠJn‚ğÀs‚µ‚½‚©
+    private bool _didStep2 = false;          // ãƒ‰ã‚¢ãƒ­ãƒƒã‚¯ã‚’åˆå›æ¤œçŸ¥ã—ãŸã‹
+    private bool _didStep3 = false;          // æŠ½é¸é–‹å§‹ã‚’å®Ÿè¡Œã—ãŸã‹
 
-    // i’Ç‰ÁjStep3ƒeƒLƒXƒg‚ğuÅ‰‚Ì¶¬‚Éˆê“x‚¾‚¯vo‚·‚½‚ß‚Ìƒtƒ‰ƒO
+    // ï¼ˆè¿½åŠ ï¼‰Step3ãƒ†ã‚­ã‚¹ãƒˆã‚’ã€Œæœ€åˆã®ç”Ÿæˆæ™‚ã«ä¸€åº¦ã ã‘ã€å‡ºã™ãŸã‚ã®ãƒ•ãƒ©ã‚°
     private bool _step3TextShown = false;
 
-    // ========== ‘O’iƒ`ƒ…[ƒgƒŠƒAƒ‹iˆÚ“®^‹“_^ƒ_ƒbƒVƒ…j ==========
-    [Header("‘O’iƒ`ƒ…[ƒgƒŠƒAƒ‹iˆÚ“®^‹“_^ƒ_ƒbƒVƒ…j")]
+    // ========== å‰æ®µãƒãƒ¥ãƒ¼ãƒˆãƒªã‚¢ãƒ«ï¼ˆç§»å‹•ï¼è¦–ç‚¹ï¼ãƒ€ãƒƒã‚·ãƒ¥ï¼‰ ==========
+    [Header("å‰æ®µãƒãƒ¥ãƒ¼ãƒˆãƒªã‚¢ãƒ«ï¼ˆç§»å‹•ï¼è¦–ç‚¹ï¼ãƒ€ãƒƒã‚·ãƒ¥ï¼‰")]
     public bool EnableBasicTutorial = true;
     public Transform CameraTransform;
-    public PlayerController PlayerCtrl;   // © PlayerController ‚©‚çó‘ÔQÆ
+    public PlayerController PlayerCtrl;   // â† PlayerController ã‹ã‚‰çŠ¶æ…‹å‚ç…§
 
-    [TextArea] public string BasicMoveText = "ˆÚ“®‚µ‚Ä‚İ‚æ‚¤iWASD / ¶ƒXƒeƒBƒbƒNj";
-    [TextArea] public string BasicLookText = "ƒJƒƒ‰‚ğ“®‚©‚µ‚Ä‚İ‚æ‚¤iƒ}ƒEƒX / ‰EƒXƒeƒBƒbƒNj";
-    [TextArea] public string BasicDashText = "ƒVƒtƒg‚ğ‰Ÿ‚µ‚È‚ª‚çƒ_ƒbƒVƒ…‚µ‚Ä‚İ‚æ‚¤";
-    [TextArea] public string BasicDoneText = "OKI€”õŠ®—¹B";
+    [TextArea] public string BasicMoveText = "ç§»å‹•ã—ã¦ã¿ã‚ˆã†ï¼ˆWASD / å·¦ã‚¹ãƒ†ã‚£ãƒƒã‚¯ï¼‰";
+    [TextArea] public string BasicLookText = "ã‚«ãƒ¡ãƒ©ã‚’å‹•ã‹ã—ã¦ã¿ã‚ˆã†ï¼ˆãƒã‚¦ã‚¹ / å³ã‚¹ãƒ†ã‚£ãƒƒã‚¯ï¼‰";
+    [TextArea] public string BasicDashText = "ã‚·ãƒ•ãƒˆã‚’æŠ¼ã—ãªãŒã‚‰ãƒ€ãƒƒã‚·ãƒ¥ã—ã¦ã¿ã‚ˆã†";
+    [TextArea] public string BasicDoneText = "OKï¼æº–å‚™å®Œäº†ã€‚";
 
-    [Header("‘O’iƒ`ƒ…[ƒgƒŠƒAƒ‹F‚µ‚«‚¢’l")]
-    public float BasicLookYawTotal = 20f;        // ƒˆ[‚Ì‡ŒvŠp“x
-    public float BasicLookPitchTotal = 10f;      // ƒsƒbƒ`‚Ì‡ŒvŠp“x
-    public float BasicMoveMinDuration = 0.15f;   // u“®‚¢‚Ä‚¢‚évŒp‘±ŠÔ
-    public float BasicDashMinDuration = 0.15f;   // uƒ_ƒbƒVƒ…’†vŒp‘±ŠÔ
+    [Header("å‰æ®µãƒãƒ¥ãƒ¼ãƒˆãƒªã‚¢ãƒ«ï¼šã—ãã„å€¤")]
+    public float BasicLookYawTotal = 20f;        // ãƒ¨ãƒ¼ã®åˆè¨ˆè§’åº¦
+    public float BasicLookPitchTotal = 10f;      // ãƒ”ãƒƒãƒã®åˆè¨ˆè§’åº¦
+    public float BasicMoveMinDuration = 0.15f;   // ã€Œå‹•ã„ã¦ã„ã‚‹ã€ç¶™ç¶šæ™‚é–“
+    public float BasicDashMinDuration = 0.15f;   // ã€Œãƒ€ãƒƒã‚·ãƒ¥ä¸­ã€ç¶™ç¶šæ™‚é–“
 
-    // --- ˆÚ“®ƒNƒŠƒA‚É‡Œv‹——£‚à‚µ‚Î‚é ---
-    public float BasicMoveTotalDistanceRequired = 1.5f; // XZ‡Œv[m]
-    public bool BasicMoveCountOnlyWhenInput = true;   // “ü—Í‚ª‚ ‚é‚¾‚¯‹——£‚ğÏZ
-    public float BasicMoveMaxStepPerFrame = 2.0f;   // ƒeƒŒƒ|“™‚Ì‹}‰Á‘¬‚ğ–³‹
+    // --- ç§»å‹•ã‚¯ãƒªã‚¢ã«åˆè¨ˆè·é›¢ã‚‚ã—ã°ã‚‹ ---
+    public float BasicMoveTotalDistanceRequired = 1.5f; // XZåˆè¨ˆ[m]
+    public bool BasicMoveCountOnlyWhenInput = true;   // å…¥åŠ›ãŒã‚ã‚‹æ™‚ã ã‘è·é›¢ã‚’ç©ç®—
+    public float BasicMoveMaxStepPerFrame = 2.0f;   // ãƒ†ãƒ¬ãƒç­‰ã®æ€¥åŠ é€Ÿã‚’ç„¡è¦–
 
-    // “à•”i‘O’iƒ`ƒ…[ƒgƒŠƒAƒ‹j
+    // å†…éƒ¨ï¼ˆå‰æ®µãƒãƒ¥ãƒ¼ãƒˆãƒªã‚¢ãƒ«ï¼‰
     private bool _basicRunning = false;
     private bool _basicDone = false;
     private Quaternion _basicPrevCamRot;
@@ -103,44 +104,49 @@ public class Tutorial : MonoBehaviour
     private Vector3 _basicMovePrevPos;
     private float _basicMoveTotal = 0f;
 
-    // Tutorial ƒNƒ‰ƒX“à‚ÌƒtƒB[ƒ‹ƒh‚É’Ç‰Á
-    [Header("ƒ|[ƒY‚ÌƒI[ƒfƒBƒI§Œä")]
+    // Tutorial ã‚¯ãƒ©ã‚¹å†…ã®ãƒ•ã‚£ãƒ¼ãƒ«ãƒ‰ã«è¿½åŠ 
+    [Header("ãƒãƒ¼ã‚ºæ™‚ã®ã‚ªãƒ¼ãƒ‡ã‚£ã‚ªåˆ¶å¾¡")]
     public bool PauseAudioWhilePanel = true;
     private bool _prevListenerPause = false;
 
 
-    // ========== ‚±‚±‚©‚ç’Ç‰ÁFƒhƒA—pƒ~ƒbƒVƒ‡ƒ“i“Æ—§ƒeƒLƒXƒgj ==========
-    [Header("ƒhƒA—pƒ~ƒbƒVƒ‡ƒ“i•ÊƒeƒLƒXƒgUIj")]
+    // ========== qgÌ’Ç‰`[gA ==========
+    private readonly Queue<string[]> _queuedHintTutorials = new Queue<string[]>();
+
+            HintRef.OnHintTutorialLinesRequested.AddListener(OnHintTutorialLinesRequested);
+            HintRef.OnHintTutorialLinesRequested.RemoveListener(OnHintTutorialLinesRequested);
+    // ========== ã“ã“ã‹ã‚‰è¿½åŠ ï¼šãƒ‰ã‚¢ç”¨ãƒŸãƒƒã‚·ãƒ§ãƒ³ï¼ˆç‹¬ç«‹ãƒ†ã‚­ã‚¹ãƒˆï¼‰ ==========
+    [Header("ãƒ‰ã‚¢ç”¨ãƒŸãƒƒã‚·ãƒ§ãƒ³ï¼ˆåˆ¥ãƒ†ã‚­ã‚¹ãƒˆUIï¼‰")]
     public bool EnableDoorMission = true;
 
-    // ƒ~ƒbƒVƒ‡ƒ“ê—p‚Ì“Æ—§ƒeƒLƒXƒgiBottomText‚Æ‚Í•Ê‚ÌTMP‚ğƒV[ƒ“‚É—pˆÓ‚µ‚ÄŠ„‚è“–‚Äj
+    // ãƒŸãƒƒã‚·ãƒ§ãƒ³å°‚ç”¨ã®ç‹¬ç«‹ãƒ†ã‚­ã‚¹ãƒˆï¼ˆBottomTextã¨ã¯åˆ¥ã®TMPã‚’ã‚·ãƒ¼ãƒ³ã«ç”¨æ„ã—ã¦å‰²ã‚Šå½“ã¦ï¼‰
     public TextMeshProUGUI MissionText;
     public float MissionCharsPerSecond = 40f;
     public float MissionLineInterval = 0.4f;
     public bool MissionHideWhenDone = false;
 
-    [TextArea] public string Mission_DoorCheck = "ƒhƒA‚ğ‚µ‚ç‚×‚Ä‚İ‚æ‚¤";
-    [TextArea] public string Mission_FindGhost = "Ÿ‚Í‹ß‚­‚É‚¢‚é—H—ì‚ğŒ©‚Â‚¯‚Ä‚İ‚æ‚¤";
-    [TextArea] public string Mission_HearVoiceGoNext = "Ÿ‚Í—H—ì‚Ìº‚ğ•·‚¢‚ÄŸ‚Ì•”‰®‚És‚±‚¤";
-    [TextArea] public string Mission_AllDone = "ƒ~ƒbƒVƒ‡ƒ“Š®—¹";
+    [TextArea] public string Mission_DoorCheck = "ãƒ‰ã‚¢ã‚’ã—ã‚‰ã¹ã¦ã¿ã‚ˆã†";
+    [TextArea] public string Mission_FindGhost = "æ¬¡ã¯è¿‘ãã«ã„ã‚‹å¹½éœŠã‚’è¦‹ã¤ã‘ã¦ã¿ã‚ˆã†";
+    [TextArea] public string Mission_HearVoiceGoNext = "æ¬¡ã¯å¹½éœŠã®å£°ã‚’èã„ã¦æ¬¡ã®éƒ¨å±‹ã«è¡Œã“ã†";
+    [TextArea] public string Mission_AllDone = "ãƒŸãƒƒã‚·ãƒ§ãƒ³å®Œäº†";
 
     private enum DoorMissionStage { None, DoorCheck, FindGhost, HearVoiceGoNext, AllDone }
     private DoorMissionStage _doorMission = DoorMissionStage.None;
     private Coroutine _typingMission;
-    private bool _heardVoice = false; // state=2 ŒŸ’mƒtƒ‰ƒO
+    private bool _heardVoice = false; // state=2 æ¤œçŸ¥ãƒ•ãƒ©ã‚°
     // ===================================================================================
 
-    // ========== ‚±‚±‚©‚ç’Ç‰ÁFƒ‰ƒCƒg‚Ì•\¦ƒ^ƒCƒ~ƒ“ƒO§Œä ==========
-    [Header("ƒ`ƒ…[ƒgƒŠƒAƒ‹’†‚Í”ñ•\¦‚É‚·‚éƒ‰ƒCƒg")]
-    public List<GameObject> LightsToToggle = new List<GameObject>(); // Å‰‚É‰B‚µ‚½‚¢ƒ‰ƒCƒgie‚²‚Æ‚Å‚à‰Âj
-    public bool HideLightsUntilMission3 = true;                       // ƒ~ƒbƒVƒ‡ƒ“3‚Ü‚Å‰B‚·
-    private bool _lightsActivatedAfterM3 = false;                      // “ñd–h~
-    // ========== ’Ç‰Á‚±‚±‚Ü‚Å ==========
+    // ========== ã“ã“ã‹ã‚‰è¿½åŠ ï¼šãƒ©ã‚¤ãƒˆã®è¡¨ç¤ºã‚¿ã‚¤ãƒŸãƒ³ã‚°åˆ¶å¾¡ ==========
+    [Header("ãƒãƒ¥ãƒ¼ãƒˆãƒªã‚¢ãƒ«ä¸­ã¯éè¡¨ç¤ºã«ã™ã‚‹ãƒ©ã‚¤ãƒˆ")]
+    public List<GameObject> LightsToToggle = new List<GameObject>(); // æœ€åˆã«éš ã—ãŸã„ãƒ©ã‚¤ãƒˆï¼ˆè¦ªã”ã¨ã§ã‚‚å¯ï¼‰
+    public bool HideLightsUntilMission3 = true;                       // ãƒŸãƒƒã‚·ãƒ§ãƒ³3ã¾ã§éš ã™
+    private bool _lightsActivatedAfterM3 = false;                      // äºŒé‡é˜²æ­¢
+    // ========== è¿½åŠ ã“ã“ã¾ã§ ==========
 
-    // i’Ç‰Áj‘O’i‚ª–¢Š®—¹‚ÌŠÔ‚ÍˆêØ‚ÌƒCƒxƒ“ƒg/is‚ğo‚³‚È‚¢‚½‚ß‚Ì‹¤’ÊƒQ[ƒg
+    // ï¼ˆè¿½åŠ ï¼‰å‰æ®µãŒæœªå®Œäº†ã®é–“ã¯ä¸€åˆ‡ã®ã‚¤ãƒ™ãƒ³ãƒˆ/é€²è¡Œã‚’å‡ºã•ãªã„ãŸã‚ã®å…±é€šã‚²ãƒ¼ãƒˆ
     private bool IsEventAllowed() => !EnableBasicTutorial || _basicDone;
 
-    // i’Ç‰Ájis’†‚Ìƒ^ƒCƒv‰‰o‚ğ‹­§ƒXƒLƒbƒv‚µ‚Ä”ñ•\¦‚É‚·‚éiStep1•\¦’†‚ÉƒhƒA’@‚¢‚½ê‡‚È‚Çj
+    // ï¼ˆè¿½åŠ ï¼‰é€²è¡Œä¸­ã®ã‚¿ã‚¤ãƒ—æ¼”å‡ºã‚’å¼·åˆ¶ã‚¹ã‚­ãƒƒãƒ—ã—ã¦éè¡¨ç¤ºã«ã™ã‚‹ï¼ˆStep1è¡¨ç¤ºä¸­ã«ãƒ‰ã‚¢å©ã„ãŸå ´åˆãªã©ï¼‰
     private void SkipCurrentTyping()
     {
         if (_typing != null)
@@ -151,7 +157,7 @@ public class Tutorial : MonoBehaviour
         if (BottomText) BottomText.gameObject.SetActive(false);
     }
 
-    // ========== ƒ‰ƒCƒtƒTƒCƒNƒ‹ ==========
+    // ========== ãƒ©ã‚¤ãƒ•ã‚µã‚¤ã‚¯ãƒ« ==========
     private void Awake()
     {
         if (!HintRef && AutoFindHintRef)
@@ -170,7 +176,7 @@ public class Tutorial : MonoBehaviour
         _input.Player.Enable();
         _input.UI.Enable();
 
-        // —H—ìEis“x‚ÌƒCƒxƒ“ƒg
+        // å¹½éœŠãƒ»é€²è¡Œåº¦ã®ã‚¤ãƒ™ãƒ³ãƒˆ
         if (HintRef)
         {
             HintRef.OnFirstGhostSeen.AddListener(Step4_ShowPanel);
@@ -178,16 +184,16 @@ public class Tutorial : MonoBehaviour
             HintRef.OnProgressChanged.AddListener(OnProgressChanged);
         }
 
-        // ‰B‚êˆÄ“à ‰‰ñ•\¦ƒCƒxƒ“ƒgiHideCroset‘¤‚©‚çj
+        // éš ã‚Œæ¡ˆå†… åˆå›è¡¨ç¤ºã‚¤ãƒ™ãƒ³ãƒˆï¼ˆHideCrosetå´ã‹ã‚‰ï¼‰
         if (HideRef) HideRef.OnFirstHidePromptShown.AddListener(ShowHidePanelOnce);
 
-        // ‘O’iƒ`ƒ…[ƒgƒŠƒAƒ‹ŠJn
+        // å‰æ®µãƒãƒ¥ãƒ¼ãƒˆãƒªã‚¢ãƒ«é–‹å§‹
         if (EnableBasicTutorial) StartCoroutine(CoRunBasicTutorial());
 
-        // ƒhƒA—pƒ~ƒbƒVƒ‡ƒ“ŠJni“Æ—§•\¦j
+        // ãƒ‰ã‚¢ç”¨ãƒŸãƒƒã‚·ãƒ§ãƒ³é–‹å§‹ï¼ˆç‹¬ç«‹è¡¨ç¤ºï¼‰
         if (EnableDoorMission) StartDoorMissionIfNeeded();
 
-        // ƒXƒ|[ƒi[‚Ì¶¬ƒCƒxƒ“ƒgw“ÇFÅ‰‚Ì1‰ñ‚¾‚¯ Step3Lines ‚ğo‚·
+        // ã‚¹ãƒãƒ¼ãƒŠãƒ¼ã®ç”Ÿæˆã‚¤ãƒ™ãƒ³ãƒˆè³¼èª­ï¼šæœ€åˆã®1å›ã ã‘ Step3Lines ã‚’å‡ºã™
         if (Spawners != null)
         {
             for (int i = 0; i < Spawners.Count; i++)
@@ -208,9 +214,9 @@ public class Tutorial : MonoBehaviour
         _input.Player.Disable();
         _input.UI.Disable();
 
-        if (Time.timeScale == 0f) Time.timeScale = 1f; // ”O‚Ì‚½‚ß•œ‹Œ
+        if (Time.timeScale == 0f) Time.timeScale = 1f; // å¿µã®ãŸã‚å¾©æ—§
 
-        // w“Ç‰ğœ
+        // è³¼èª­è§£é™¤
         if (Spawners != null)
         {
             for (int i = 0; i < Spawners.Count; i++)
@@ -225,17 +231,22 @@ public class Tutorial : MonoBehaviour
         if (Step5Panel_State2) Step5Panel_State2.SetActive(false);
         if (HidePanel) HidePanel.SetActive(false);
 
-        // ”O‚Ì‚½‚ß©“®ŠJn‚ğ~‚ß‚éiAutoStart=false„§‚¾‚ª•ÛŒ¯j
+        // å¿µã®ãŸã‚è‡ªå‹•é–‹å§‹ã‚’æ­¢ã‚ã‚‹ï¼ˆAutoStart=falseæ¨å¥¨ã ãŒä¿é™ºï¼‰
         for (int i = 0; i < Spawners.Count; i++)
             if (Spawners[i]) Spawners[i].StopSpawning();
 
         ApplyDoorEnableByProgress(HintRef ? HintRef.ProgressStage : 0);
         Step1();
 
-        // MissionText ‰Šú‰»
+        if (_queuedHintTutorials.Count > 0 && !_pauseGate && IsEventAllowed() && _typing == null)
+        {
+            var pending = _queuedHintTutorials.Dequeue();
+            ShowHintTutorialLinesNow(pending);
+        }
+        // MissionText åˆæœŸåŒ–
         if (MissionText) { MissionText.text = ""; MissionText.gameObject.SetActive(false); }
 
-        // i’Ç‰Ájƒ~ƒbƒVƒ‡ƒ“3‚Ü‚Åƒ‰ƒCƒg‚Í”ñ•\¦‚É
+        // ï¼ˆè¿½åŠ ï¼‰ãƒŸãƒƒã‚·ãƒ§ãƒ³3ã¾ã§ãƒ©ã‚¤ãƒˆã¯éè¡¨ç¤ºã«
         if (HideLightsUntilMission3 && LightsToToggle != null)
         {
             for (int i = 0; i < LightsToToggle.Count; i++)
@@ -248,19 +259,19 @@ public class Tutorial : MonoBehaviour
         if (HintRef && HintRef.ProgressStage != _lastAppliedProgress)
             ApplyDoorEnableByProgress(HintRef.ProgressStage);
 
-        if (!_pauseGate) HandleLockedDoorTapFeedback(); // ƒpƒlƒ‹’†‚Í—}~
+        if (!_pauseGate) HandleLockedDoorTapFeedback(); // ãƒ‘ãƒãƒ«ä¸­ã¯æŠ‘æ­¢
 
-        // ƒ~ƒbƒVƒ‡ƒ“3Fº‚ğ•·‚¢‚½ŒãA—LŒø‚ÈƒhƒA‚É‚µ‚ÄŠ®—¹
+        // ãƒŸãƒƒã‚·ãƒ§ãƒ³3ï¼šå£°ã‚’èã„ãŸå¾Œã€æœ‰åŠ¹ãªãƒ‰ã‚¢ã«ã—ã¦å®Œäº†
         if (EnableDoorMission && _doorMission == DoorMissionStage.HearVoiceGoNext && !_pauseGate && IsEventAllowed())
         {
             TryCompleteDoorMissionByEnabledDoorInteract();
         }
     }
 
-    // ========== Step2FƒhƒAƒƒbƒN•¶Œ¾ ¨ ‚»‚ÌŒãStep3i’Š‘IŠJnj ==========
+    // ========== Step2ï¼šãƒ‰ã‚¢ãƒ­ãƒƒã‚¯æ–‡è¨€ â†’ ãã®å¾ŒStep3ï¼ˆæŠ½é¸é–‹å§‹ï¼‰ ==========
     private void HandleLockedDoorTapFeedback()
     {
-        // ‘O’i‚ª–¢Š®—¹‚È‚ç‰½‚à‹N‚±‚³‚È‚¢
+        // å‰æ®µãŒæœªå®Œäº†ãªã‚‰ä½•ã‚‚èµ·ã“ã•ãªã„
         if (!IsEventAllowed()) return;
 
         if (!Player) return;
@@ -278,13 +289,13 @@ public class Tutorial : MonoBehaviour
             var od = DoorScripts[i];
             if (!od) continue;
 
-            // Šù‚ÉŠJ‚¯‚ç‚ê‚é’iŠK‚È‚çƒXƒ‹[i¨ ƒ~ƒbƒVƒ‡ƒ“3‚Ì•Êˆ—‚Åˆµ‚¤j
+            // æ—¢ã«é–‹ã‘ã‚‰ã‚Œã‚‹æ®µéšãªã‚‰ã‚¹ãƒ«ãƒ¼ï¼ˆâ†’ ãƒŸãƒƒã‚·ãƒ§ãƒ³3ã®åˆ¥å‡¦ç†ã§æ‰±ã†ï¼‰
             if (od.enabled) continue;
 
-            // ‹——£
+            // è·é›¢
             if (Vector3.Distance(Player.position, od.transform.position) > DoorInteractDistance) continue;
 
-            // •\‘¤ƒ`ƒFƒbƒN
+            // è¡¨å´ãƒã‚§ãƒƒã‚¯
             if (DoorRequireFacingSide)
             {
                 Vector3 toPlayer = (Player.position - od.transform.position).normalized;
@@ -292,20 +303,20 @@ public class Tutorial : MonoBehaviour
                 if (dot < DoorFacingDotThreshold) continue;
             }
 
-            // Step1 ‚È‚Ç‚Ì“Ç‚İã‚°’†‚È‚çˆê’UƒXƒLƒbƒv‚µ‚ÄŸƒCƒxƒ“ƒg‚Öi‚ß‚ç‚ê‚éó‘Ô‚É‚·‚é
+            // Step1 ãªã©ã®èª­ã¿ä¸Šã’ä¸­ãªã‚‰ä¸€æ—¦ã‚¹ã‚­ãƒƒãƒ—ã—ã¦æ¬¡ã‚¤ãƒ™ãƒ³ãƒˆã¸é€²ã‚ã‚‰ã‚Œã‚‹çŠ¶æ…‹ã«ã™ã‚‹
             SkipCurrentTyping();
 
-            // Step2FƒƒbƒN•¶Œ¾iOneShotj
+            // Step2ï¼šãƒ­ãƒƒã‚¯æ–‡è¨€ï¼ˆOneShotï¼‰
             ShowOneShot(DoorLockedMessage);
             _doorMsgCD = DoorLockedCooldown;
 
-            // š ƒhƒA—pƒ~ƒbƒVƒ‡ƒ“FƒXƒe[ƒW1’B¬iƒƒbƒN’†‚ÌƒhƒA‚ğ’²‚×‚½j
+            // â˜… ãƒ‰ã‚¢ç”¨ãƒŸãƒƒã‚·ãƒ§ãƒ³ï¼šã‚¹ãƒ†ãƒ¼ã‚¸1é”æˆï¼ˆãƒ­ãƒƒã‚¯ä¸­ã®ãƒ‰ã‚¢ã‚’èª¿ã¹ãŸï¼‰
             if (EnableDoorMission && _doorMission == DoorMissionStage.DoorCheck)
             {
                 AdvanceDoorMissionTo(DoorMissionStage.FindGhost);
             }
 
-            // Step3 ‚Ì—\–ñi‰‰ñ‚¾‚¯j
+            // Step3 ã®äºˆç´„ï¼ˆåˆå›ã ã‘ï¼‰
             if (!_didStep2)
             {
                 _didStep2 = true;
@@ -317,13 +328,13 @@ public class Tutorial : MonoBehaviour
 
     private IEnumerator CoAfterStep2_StartStep3()
     {
-        // uƒhƒA‚Í‚ ‚©‚È‚¢‚æ‚¤‚¾cv‚Ì OneShot ‚ªÁ‚¦‚é‚Ì‚ğ‘Ò‚ÂiHideWhenDone=true‘O’ñj
+        // ã€Œãƒ‰ã‚¢ã¯ã‚ã‹ãªã„ã‚ˆã†ã â€¦ã€ã® OneShot ãŒæ¶ˆãˆã‚‹ã®ã‚’å¾…ã¤ï¼ˆHideWhenDone=trueå‰æï¼‰
         while (BottomText && BottomText.gameObject.activeSelf) yield return null;
 
-        // ­‚µŠÔ‚ğ’u‚­
+        // å°‘ã—é–“ã‚’ç½®ã
         yield return new WaitForSeconds(StartSpawnDelayAfterStep2);
 
-        // Step3 Àsi’Š‘IŠJn‚Ì‚İFƒeƒLƒXƒg‚Í1‰ñ–Ú¶¬‚Éo‚·j
+        // Step3 å®Ÿè¡Œï¼ˆæŠ½é¸é–‹å§‹ã®ã¿ï¼šãƒ†ã‚­ã‚¹ãƒˆã¯1å›ç›®ç”Ÿæˆæ™‚ã«å‡ºã™ï¼‰
         DoStep3();
     }
 
@@ -332,17 +343,17 @@ public class Tutorial : MonoBehaviour
         if (_didStep3) return;
         _didStep3 = true;
 
-        // ˆÀ‘S‘¤F‘O’i–¢Š®—¹‚È‚çŠJn‚µ‚È‚¢
+        // å®‰å…¨å´ï¼šå‰æ®µæœªå®Œäº†ãªã‚‰é–‹å§‹ã—ãªã„
         if (!IsEventAllowed()) return;
 
-        // 1) ’Š‘IŠJniEnemyAI‚ÉBeginSpawning‚ğŒÄ‚Ôj
+        // 1) æŠ½é¸é–‹å§‹ï¼ˆEnemyAIã«BeginSpawningã‚’å‘¼ã¶ï¼‰
         for (int i = 0; i < Spawners.Count; i++)
             if (Spawners[i]) Spawners[i].BeginSpawning();
 
-        // 2) ‚±‚±‚Å‚Í Step3Lines ‚ğo‚³‚È‚¢iÅ‰‚Ì¶¬ƒCƒxƒ“ƒg‚Å•\¦j
+        // 2) ã“ã“ã§ã¯ Step3Lines ã‚’å‡ºã•ãªã„ï¼ˆæœ€åˆã®ç”Ÿæˆã‚¤ãƒ™ãƒ³ãƒˆã§è¡¨ç¤ºï¼‰
     }
 
-    // Å‰‚Ì¶¬‚Éˆê“x‚¾‚¯ Step3Lines ‚ğ•\¦
+    // æœ€åˆã®ç”Ÿæˆæ™‚ã«ä¸€åº¦ã ã‘ Step3Lines ã‚’è¡¨ç¤º
     private void OnAnyGhostSpawned_FirstTime()
     {
         if (!IsEventAllowed()) return;
@@ -361,7 +372,7 @@ public class Tutorial : MonoBehaviour
         }
     }
 
-    // ========== Step4/5/6FŠù‘¶ UI ==========
+    // ========== Step4/5/6ï¼šæ—¢å­˜ UI ==========
     public void Step4_ShowPanel()
     {
         if (!IsEventAllowed()) return;
@@ -371,7 +382,7 @@ public class Tutorial : MonoBehaviour
         if (_pauseGate) return;
         StartCoroutine(CoShowPausePanel(Step4Panel_StateAny));
 
-        //  ƒhƒA—pƒ~ƒbƒVƒ‡ƒ“FƒXƒe[ƒW2’B¬i—H—ì‚ğŒ©‚Â‚¯‚½j
+        //  ãƒ‰ã‚¢ç”¨ãƒŸãƒƒã‚·ãƒ§ãƒ³ï¼šã‚¹ãƒ†ãƒ¼ã‚¸2é”æˆï¼ˆå¹½éœŠã‚’è¦‹ã¤ã‘ãŸï¼‰
         if (EnableDoorMission && _doorMission == DoorMissionStage.FindGhost)
             AdvanceDoorMissionTo(DoorMissionStage.HearVoiceGoNext);
     }
@@ -385,10 +396,10 @@ public class Tutorial : MonoBehaviour
         if (_pauseGate) return;
         StartCoroutine(CoShowPausePanel(Step5Panel_State2));
 
-        // º‚ğ•·‚¢‚½
+        // å£°ã‚’èã„ãŸ
         _heardVoice = true;
 
-        // ƒ~ƒbƒVƒ‡ƒ“3‚Ì•¶Œ¾‚ğ‰ü‚ß‚Ä•\¦i“¯‚¶•¶Œ¾j
+        // ãƒŸãƒƒã‚·ãƒ§ãƒ³3ã®æ–‡è¨€ã‚’æ”¹ã‚ã¦è¡¨ç¤ºï¼ˆåŒã˜æ–‡è¨€ï¼‰
         if (EnableDoorMission && _doorMission == DoorMissionStage.HearVoiceGoNext)
             ShowMissionText(Mission_HearVoiceGoNext);
     }
@@ -397,7 +408,7 @@ public class Tutorial : MonoBehaviour
     {
         if (_didHidePanel) return;
 
-        // ƒpƒlƒ‹’† or ‘O’i–¢Š®—¹‚È‚çA¡‚Ío‚³‚¸g•Û—¯h‚É‚·‚é
+        // ãƒ‘ãƒãƒ«ä¸­ or å‰æ®µæœªå®Œäº†ãªã‚‰ã€ä»Šã¯å‡ºã•ãšâ€œä¿ç•™â€ã«ã™ã‚‹
         if (_pauseGate || !IsEventAllowed())
         {
             _pendingHidePanel = true;
@@ -408,8 +419,8 @@ public class Tutorial : MonoBehaviour
         StartCoroutine(CoShowPausePanel(HidePanel));
     }
 
-    // ========== ‹¤’ÊFƒpƒlƒ‹•\¦¨ˆê’â~¨UI.Submit‚Å•Â‚¶‚é ==========
-    // Šù‘¶‚Ì CoShowPausePanel ‚ğ’u‚«Š·‚¦i‚Ü‚½‚Í’†g‚ğ·‚µ‘Ö‚¦j
+    // ========== å…±é€šï¼šãƒ‘ãƒãƒ«è¡¨ç¤ºâ†’ä¸€æ™‚åœæ­¢â†’UI.Submitã§é–‰ã˜ã‚‹ ==========
+    // æ—¢å­˜ã® CoShowPausePanel ã‚’ç½®ãæ›ãˆï¼ˆã¾ãŸã¯ä¸­èº«ã‚’å·®ã—æ›¿ãˆï¼‰
     private IEnumerator CoShowPausePanel(GameObject panel)
     {
         if (!panel) yield break;
@@ -418,27 +429,27 @@ public class Tutorial : MonoBehaviour
 
         panel.SetActive(true);
 
-        // š ‚±‚±‚ÅŒ»İ‚Ì AudioListener.pause ‚ğ•Û‘¶‚µ‚Ä‚©‚çƒ|[ƒY
+        // â˜… ã“ã“ã§ç¾åœ¨ã® AudioListener.pause ã‚’ä¿å­˜ã—ã¦ã‹ã‚‰ãƒãƒ¼ã‚º
         _prevListenerPause = AudioListener.pause;
         if (PauseAudioWhilePanel) AudioListener.pause = true;
 
         float prevScale = Time.timeScale;
         Time.timeScale = 0f;
 
-        // 1ƒtƒŒ[ƒ€‘Ò‚Á‚Ä‚©‚ç“ü—Í‘Ò‚¿
+        // 1ãƒ•ãƒ¬ãƒ¼ãƒ å¾…ã£ã¦ã‹ã‚‰å…¥åŠ›å¾…ã¡
         yield return null;
         while (!_input.UI.Submit.WasPressedThisFrame())
             yield return null;
 
         panel.SetActive(false);
 
-        // š ‰¹ºƒ|[ƒY‚ğŒ³‚É–ß‚·iƒ†[ƒU‚ªŒ³Xƒ~ƒ…[ƒg‚È‚ç‚»‚Ì‚Ü‚Üj
+        // â˜… éŸ³å£°ãƒãƒ¼ã‚ºã‚’å…ƒã«æˆ»ã™ï¼ˆãƒ¦ãƒ¼ã‚¶ãŒå…ƒã€…ãƒŸãƒ¥ãƒ¼ãƒˆãªã‚‰ãã®ã¾ã¾ï¼‰
         if (PauseAudioWhilePanel) AudioListener.pause = _prevListenerPause;
 
         Time.timeScale = prevScale;
         _pauseGate = false;
 
-        // i”CˆÓj‰ğœŒã‚É•Û—¯‚ª‚ ‚ê‚Îo‚·
+        // ï¼ˆä»»æ„ï¼‰è§£é™¤å¾Œã«ä¿ç•™ãŒã‚ã‚Œã°å‡ºã™
         if (_pendingHidePanel && IsEventAllowed())
         {
             _pendingHidePanel = false;
@@ -451,13 +462,57 @@ public class Tutorial : MonoBehaviour
     }
 
 
-    // ========== ƒhƒA§Œä ==========
+    // ========== ãƒ‰ã‚¢åˆ¶å¾¡ ==========
     private void ApplyDoorEnableByProgress(int progress)
     {
         _lastAppliedProgress = progress;
         bool enableDoor = progress >= MinProgressToEnableDoor;
 
-        bool anyJustEnabled = false; // ‚±‚ÌŒÄ‚Ño‚µ‚Åg‰‚ß‚Ä—LŒø‚É‚È‚Á‚½hƒhƒA‚ª‚ ‚é‚©
+    private void OnHintTutorialLinesRequested(string[] lines)
+    {
+        if (!HasAnyContent(lines)) return;
+
+        if (!IsEventAllowed() || _pauseGate || _typing != null)
+        {
+            _queuedHintTutorials.Enqueue(DuplicateLines(lines));
+            return;
+        }
+
+        ShowHintTutorialLinesNow(lines);
+    }
+
+
+    private void ShowHintTutorialLinesNow(string[] lines)
+    {
+        if (!BottomText) return;
+
+        var copy = DuplicateLines(lines);
+        if (_typing != null) StopCoroutine(_typing);
+        BottomText.gameObject.SetActive(true);
+        _typing = StartCoroutine(CoTypeLines(copy));
+    }
+
+    private string[] DuplicateLines(string[] source)
+    {
+        if (source == null || source.Length == 0) return Array.Empty<string>();
+
+        var copy = new string[source.Length];
+        for (int i = 0; i < source.Length; i++)
+            copy[i] = source[i];
+        return copy;
+    }
+
+    private bool HasAnyContent(string[] lines)
+    {
+        if (lines == null) return false;
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            if (!string.IsNullOrWhiteSpace(lines[i])) return true;
+        }
+        return false;
+    }
+        bool anyJustEnabled = false; // ã“ã®å‘¼ã³å‡ºã—ã§â€œåˆã‚ã¦æœ‰åŠ¹ã«ãªã£ãŸâ€ãƒ‰ã‚¢ãŒã‚ã‚‹ã‹
         for (int i = 0; i < DoorScripts.Count; i++)
         {
             var od = DoorScripts[i];
@@ -469,16 +524,16 @@ public class Tutorial : MonoBehaviour
             if (!wasEnabled && enableDoor) anyJustEnabled = true;
         }
 
-        // ‚¿‚å‚¤‚Ç¡ƒƒbƒN‰ğœ‚³‚ê‚½ ¨ ˆê“x‚¾‚¯ƒeƒLƒXƒg‚ğo‚·iƒ|[ƒY’†‚Ío‚³‚È‚¢j
+        // ã¡ã‚‡ã†ã©ä»Šãƒ­ãƒƒã‚¯è§£é™¤ã•ã‚ŒãŸ â†’ ä¸€åº¦ã ã‘ãƒ†ã‚­ã‚¹ãƒˆã‚’å‡ºã™ï¼ˆãƒãƒ¼ã‚ºä¸­ã¯å‡ºã•ãªã„ï¼‰
         if (enableDoor && anyJustEnabled && !_didAnnounceDoorUnlocked && !_pauseGate)
         {
-            ShowOneShot(string.IsNullOrEmpty(DoorUnlockedMessage) ? "ƒhƒA‚ªŠJ‚¢‚½‚æ‚¤‚¾" : DoorUnlockedMessage);
+            ShowOneShot(string.IsNullOrEmpty(DoorUnlockedMessage) ? "ãƒ‰ã‚¢ãŒé–‹ã„ãŸã‚ˆã†ã " : DoorUnlockedMessage);
             _didAnnounceDoorUnlocked = true;
         }
     }
     private void OnProgressChanged(int newProgress) => ApplyDoorEnableByProgress(newProgress);
 
-    //  ƒ^ƒCƒv‰‰o =====================================================================================================================
+    //  ã‚¿ã‚¤ãƒ—æ¼”å‡º =====================================================================================================================
     public void Step1()
     {
         if (!BottomText) return;
@@ -518,7 +573,7 @@ public class Tutorial : MonoBehaviour
         float acc = 0f; int i = 0;
         while (i < text.Length)
         {
-            // ŠÔ’â~’†‚Íƒ^ƒCƒv‚ğ~‚ß‚½‚¢‚Ì‚Å deltaTime ‚ğg—p
+            // æ™‚é–“åœæ­¢ä¸­ã¯ã‚¿ã‚¤ãƒ—ã‚’æ­¢ã‚ãŸã„ã®ã§ deltaTime ã‚’ä½¿ç”¨
             acc += Time.deltaTime;
             while (acc >= interval && i < text.Length)
             {
@@ -529,7 +584,7 @@ public class Tutorial : MonoBehaviour
         }
     }
 
-    // ========== ‘O’iƒ`ƒ…[ƒgƒŠƒAƒ‹–{‘Ì ==========
+    // ========== å‰æ®µãƒãƒ¥ãƒ¼ãƒˆãƒªã‚¢ãƒ«æœ¬ä½“ ==========
     private IEnumerator CoRunBasicTutorial()
     {
         if (_basicRunning || _basicDone) yield break;
@@ -537,35 +592,35 @@ public class Tutorial : MonoBehaviour
 
         _basicRunning = true;
 
-        // QÆ‚Ì‰Šú‰»
+        // å‚ç…§ã®åˆæœŸåŒ–
         if (CameraTransform) _basicPrevCamRot = CameraTransform.rotation;
 
-        // 1ƒtƒŒ[ƒ€‘Ò‚Á‚ÄiStart() ‚Ìˆ—‚ªI‚í‚é‚Ì‚ğ‘Ò‚Âj¨ƒeƒLƒXƒg‚ğã‘‚«
+        // 1ãƒ•ãƒ¬ãƒ¼ãƒ å¾…ã£ã¦ï¼ˆStart() ã®å‡¦ç†ãŒçµ‚ã‚ã‚‹ã®ã‚’å¾…ã¤ï¼‰â†’ãƒ†ã‚­ã‚¹ãƒˆã‚’ä¸Šæ›¸ã
         yield return null;
 
-        // ---- ˆÚ“®‚µ‚Ä‚İ‚æ‚¤ ----
+        // ---- ç§»å‹•ã—ã¦ã¿ã‚ˆã† ----
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
         BottomText.gameObject.SetActive(true);
         yield return StartCoroutine(CoTypeOne(BasicMoveText));
 
-        // ‡Œv‹——£ƒgƒ‰ƒbƒLƒ“ƒO‰Šú‰»
+        // åˆè¨ˆè·é›¢ãƒˆãƒ©ãƒƒã‚­ãƒ³ã‚°åˆæœŸåŒ–
         _basicMoveTotal = 0f;
         _basicMovePrevPos = Player ? Player.position : Vector3.zero;
 
         float moveTimer = 0f;
         while (true)
         {
-            // 1) u“®‚¢‚Ä‚¢‚é‚©v”»’èiPlayerController ‚ª‚ ‚ê‚Î‚»‚ê‚ğg—pj
+            // 1) ã€Œå‹•ã„ã¦ã„ã‚‹ã‹ã€åˆ¤å®šï¼ˆPlayerController ãŒã‚ã‚Œã°ãã‚Œã‚’ä½¿ç”¨ï¼‰
             bool moving = PlayerCtrl ? PlayerCtrl.IsMovingNow : (_input.Player.Move.ReadValue<Vector2>() != Vector2.zero);
 
-            // 2) ‡Œv‹——£‚ğÏZiXZ‚Ì‚İjB•K—v‚È‚çu“ü—Í‚ª‚ ‚é‚¾‚¯vƒJƒEƒ“ƒg
+            // 2) åˆè¨ˆè·é›¢ã‚’ç©ç®—ï¼ˆXZã®ã¿ï¼‰ã€‚å¿…è¦ãªã‚‰ã€Œå…¥åŠ›ãŒã‚ã‚‹æ™‚ã ã‘ã€ã‚«ã‚¦ãƒ³ãƒˆ
             if (Player)
             {
                 Vector3 cur = Player.position;
                 Vector3 delta = cur - _basicMovePrevPos; delta.y = 0f;
 
                 float step = delta.magnitude;
-                step = Mathf.Min(step, BasicMoveMaxStepPerFrame); // ƒeƒŒƒ|/ˆÙí’l–h~
+                step = Mathf.Min(step, BasicMoveMaxStepPerFrame); // ãƒ†ãƒ¬ãƒ/ç•°å¸¸å€¤é˜²æ­¢
 
                 if (!BasicMoveCountOnlyWhenInput || moving)
                     _basicMoveTotal += step;
@@ -573,18 +628,18 @@ public class Tutorial : MonoBehaviour
                 _basicMovePrevPos = cur;
             }
 
-            // 3) Œp‘±ŠÔƒJƒEƒ“ƒg
+            // 3) ç¶™ç¶šæ™‚é–“ã‚«ã‚¦ãƒ³ãƒˆ
             if (moving) moveTimer += Time.deltaTime;
             else moveTimer = 0f;
 
-            // 4) —¼•û‚İ‚½‚µ‚½‚çƒNƒŠƒA
+            // 4) ä¸¡æ–¹ã¿ãŸã—ãŸã‚‰ã‚¯ãƒªã‚¢
             if (moveTimer >= BasicMoveMinDuration && _basicMoveTotal >= BasicMoveTotalDistanceRequired)
                 break;
 
             yield return null;
         }
 
-        // ---- ƒJƒƒ‰‚ğ“®‚©‚µ‚Ä‚İ‚æ‚¤ ----
+        // ---- ã‚«ãƒ¡ãƒ©ã‚’å‹•ã‹ã—ã¦ã¿ã‚ˆã† ----
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
         BottomText.gameObject.SetActive(true);
         yield return StartCoroutine(CoTypeOne(BasicLookText));
@@ -596,7 +651,7 @@ public class Tutorial : MonoBehaviour
             {
                 Quaternion cur = CameraTransform.rotation;
 
-                // ‘O•ûƒxƒNƒgƒ‹‚©‚çƒˆ[^ƒsƒbƒ`‚ğ‹ß—
+                // å‰æ–¹ãƒ™ã‚¯ãƒˆãƒ«ã‹ã‚‰ãƒ¨ãƒ¼ï¼ãƒ”ãƒƒãƒã‚’è¿‘ä¼¼
                 Vector3 fPrev = _basicPrevCamRot * Vector3.forward;
                 Vector3 fCur = cur * Vector3.forward;
 
@@ -618,13 +673,13 @@ public class Tutorial : MonoBehaviour
             yield return null;
         }
 
-        // ---- ƒ_ƒbƒVƒ…‚µ‚Ä‚İ‚æ‚¤iPlayerController ‚©‚ç”»’èj----
+        // ---- ãƒ€ãƒƒã‚·ãƒ¥ã—ã¦ã¿ã‚ˆã†ï¼ˆPlayerController ã‹ã‚‰åˆ¤å®šï¼‰----
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
         BottomText.gameObject.SetActive(true);
         yield return StartCoroutine(CoTypeOne(BasicDashText));
 
         float dashTimer = 0f;
-        float decayPerSec = 0.5f; // ˆêu‚Ì—‚¿‚İ‚É—P—\
+        float decayPerSec = 0.5f; // ä¸€ç¬ã®è½ã¡è¾¼ã¿ã«çŒ¶äºˆ
         while (true)
         {
             bool dashing = PlayerCtrl ? PlayerCtrl.IsDashingNow : false;
@@ -636,16 +691,16 @@ public class Tutorial : MonoBehaviour
             yield return null;
         }
 
-        // Š®—¹i‘¦•\¦E‘Ò‚¿ŠÔƒ[ƒj
+        // å®Œäº†ï¼ˆå³æ™‚è¡¨ç¤ºãƒ»å¾…ã¡æ™‚é–“ã‚¼ãƒ­ï¼‰
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
         BottomText.gameObject.SetActive(true);
-        BottomText.text = BasicDoneText;  // © ‚±‚ÌƒtƒŒ[ƒ€‚Åˆê‹C‚É•\¦iƒ^ƒCƒv‰‰o‚µ‚È‚¢j
-        // ¦ •\¦Œã‚Ì‘Ò‹@E©“®”ñ•\¦‚Ís‚í‚È‚¢i•K—v‚È‚ç‚±‚±‚Å–¾¦“I‚ÉÁ‚·j
+        BottomText.text = BasicDoneText;  // â† ã“ã®ãƒ•ãƒ¬ãƒ¼ãƒ ã§ä¸€æ°—ã«è¡¨ç¤ºï¼ˆã‚¿ã‚¤ãƒ—æ¼”å‡ºã—ãªã„ï¼‰
+        // â€» è¡¨ç¤ºå¾Œã®å¾…æ©Ÿãƒ»è‡ªå‹•éè¡¨ç¤ºã¯è¡Œã‚ãªã„ï¼ˆå¿…è¦ãªã‚‰ã“ã“ã§æ˜ç¤ºçš„ã«æ¶ˆã™ï¼‰
 
         _basicDone = true;
         _basicRunning = false;
 
-        // i’Ç‰Áj•Û—¯‚³‚ê‚Ä‚¢‚½‚ç‚±‚Ìƒ^ƒCƒ~ƒ“ƒO‚Å•\¦
+        // ï¼ˆè¿½åŠ ï¼‰ä¿ç•™ã•ã‚Œã¦ã„ãŸã‚‰ã“ã®ã‚¿ã‚¤ãƒŸãƒ³ã‚°ã§è¡¨ç¤º
         if (_pendingHidePanel)
         {
             _pendingHidePanel = false;
@@ -656,25 +711,25 @@ public class Tutorial : MonoBehaviour
             }
         }
 
-        // –{•Òƒ`ƒ…[ƒgƒŠƒAƒ‹‚Ö
+        // æœ¬ç·¨ãƒãƒ¥ãƒ¼ãƒˆãƒªã‚¢ãƒ«ã¸
         Step1();
 
-        // ƒhƒA—pƒ~ƒbƒVƒ‡ƒ“‚ª–¢ŠJn‚È‚çŠJn
+        // ãƒ‰ã‚¢ç”¨ãƒŸãƒƒã‚·ãƒ§ãƒ³ãŒæœªé–‹å§‹ãªã‚‰é–‹å§‹
         if (EnableDoorMission) StartDoorMissionIfNeeded();
     }
 
-    // ========== ‚±‚±‚©‚ç’Ç‰ÁFƒhƒA—pƒ~ƒbƒVƒ‡ƒ“§Œäi•ÊƒeƒLƒXƒgUIj ==========
+    // ========== ã“ã“ã‹ã‚‰è¿½åŠ ï¼šãƒ‰ã‚¢ç”¨ãƒŸãƒƒã‚·ãƒ§ãƒ³åˆ¶å¾¡ï¼ˆåˆ¥ãƒ†ã‚­ã‚¹ãƒˆUIï¼‰ ==========
     private void StartDoorMissionIfNeeded()
     {
-        // ‚·‚Å‚ÉŠJn‚µ‚Ä‚¢‚½‚ç‰½‚à‚µ‚È‚¢
+        // ã™ã§ã«é–‹å§‹ã—ã¦ã„ãŸã‚‰ä½•ã‚‚ã—ãªã„
         if (_doorMission != DoorMissionStage.None) return;
 
-        // ‘O’iƒ`ƒ…[ƒgƒŠƒAƒ‹‚ª—LŒø‚È‚Æ‚«‚ÍAŠ®—¹‚Ü‚Åƒ~ƒbƒVƒ‡ƒ“‚ğo‚³‚È‚¢
+        // å‰æ®µãƒãƒ¥ãƒ¼ãƒˆãƒªã‚¢ãƒ«ãŒæœ‰åŠ¹ãªã¨ãã¯ã€å®Œäº†ã¾ã§ãƒŸãƒƒã‚·ãƒ§ãƒ³ã‚’å‡ºã•ãªã„
         if (EnableBasicTutorial && !_basicDone) return;
 
-        // ‚±‚±‚É—ˆ‚½“_‘O’iƒ`ƒ…[ƒgƒŠƒAƒ‹‚ªI‚í‚Á‚Ä‚¢‚éior –³Œøj
+        // ã“ã“ã«æ¥ãŸæ™‚ç‚¹ï¼å‰æ®µãƒãƒ¥ãƒ¼ãƒˆãƒªã‚¢ãƒ«ãŒçµ‚ã‚ã£ã¦ã„ã‚‹ï¼ˆor ç„¡åŠ¹ï¼‰
         _doorMission = DoorMissionStage.DoorCheck;
-        ShowMissionText(Mission_DoorCheck); // uƒhƒA‚ğ‚µ‚ç‚×‚Ä‚İ‚æ‚¤v
+        ShowMissionText(Mission_DoorCheck); // ã€Œãƒ‰ã‚¢ã‚’ã—ã‚‰ã¹ã¦ã¿ã‚ˆã†ã€
     }
 
 
@@ -689,7 +744,7 @@ public class Tutorial : MonoBehaviour
 
             case DoorMissionStage.HearVoiceGoNext:
                 ShowMissionText(Mission_HearVoiceGoNext);
-                // š ‚±‚Ìƒ^ƒCƒ~ƒ“ƒO‚Åƒ‰ƒCƒg‚ğƒAƒNƒeƒBƒu‚É‚·‚é
+                // â˜… ã“ã®ã‚¿ã‚¤ãƒŸãƒ³ã‚°ã§ãƒ©ã‚¤ãƒˆã‚’ã‚¢ã‚¯ãƒ†ã‚£ãƒ–ã«ã™ã‚‹
                 if (HideLightsUntilMission3) ActivateLightsAfterMission3();
                 break;
 
@@ -704,7 +759,7 @@ public class Tutorial : MonoBehaviour
     {
         if (!MissionText || string.IsNullOrEmpty(line)) return;
 
-        // ƒ~ƒbƒVƒ‡ƒ“—pƒ^ƒCƒv‰‰o‚Í BottomText ‚Æ“Æ—§
+        // ãƒŸãƒƒã‚·ãƒ§ãƒ³ç”¨ã‚¿ã‚¤ãƒ—æ¼”å‡ºã¯ BottomText ã¨ç‹¬ç«‹
         if (_typingMission != null) { StopCoroutine(_typingMission); _typingMission = null; }
         MissionText.gameObject.SetActive(true);
         _typingMission = StartCoroutine(CoTypeOne_Mission(line));
@@ -737,7 +792,7 @@ public class Tutorial : MonoBehaviour
 
     private void TryCompleteDoorMissionByEnabledDoorInteract()
     {
-        // uº‚ğ•·‚¢‚½v•K{‚É‚µ‚½‚¢ê‡‚ÍˆÈ‰º‚ÌƒK[ƒh‚ğ–ß‚·
+        // ã€Œå£°ã‚’èã„ãŸã€å¿…é ˆã«ã—ãŸã„å ´åˆã¯ä»¥ä¸‹ã®ã‚¬ãƒ¼ãƒ‰ã‚’æˆ»ã™
         // if (!_heardVoice) return;
 
         bool pressed =
@@ -750,12 +805,12 @@ public class Tutorial : MonoBehaviour
         {
             var od = DoorScripts[i];
             if (!od) continue;
-            if (!od.enabled) continue; // —LŒø‚ÈƒhƒA‚Ì‚İ
+            if (!od.enabled) continue; // æœ‰åŠ¹ãªãƒ‰ã‚¢ã®ã¿
 
-            // ‹——£
+            // è·é›¢
             if (Vector3.Distance(Player.position, od.transform.position) > DoorInteractDistance) continue;
 
-            // •\‘¤ƒ`ƒFƒbƒNi•K—v‚È‚çj
+            // è¡¨å´ãƒã‚§ãƒƒã‚¯ï¼ˆå¿…è¦ãªã‚‰ï¼‰
             if (DoorRequireFacingSide)
             {
                 Vector3 toPlayer = (Player.position - od.transform.position).normalized;
@@ -763,13 +818,13 @@ public class Tutorial : MonoBehaviour
                 if (dot < DoorFacingDotThreshold) continue;
             }
 
-            // ğŒ‚ğ–‚½‚µ‚½‚çƒ~ƒbƒVƒ‡ƒ“Š®—¹
+            // æ¡ä»¶ã‚’æº€ãŸã—ãŸã‚‰ãƒŸãƒƒã‚·ãƒ§ãƒ³å®Œäº†
             AdvanceDoorMissionTo(DoorMissionStage.AllDone);
             break;
         }
     }
 
-    // ========== ƒ‰ƒCƒg—LŒø‰»==========
+    // ========== ãƒ©ã‚¤ãƒˆæœ‰åŠ¹åŒ–==========
     private void ActivateLightsAfterMission3()
     {
         if (_lightsActivatedAfterM3) return;
