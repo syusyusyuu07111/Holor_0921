@@ -167,8 +167,8 @@ public class Tutorial : MonoBehaviour
             HintRef.OnFirstState2Seen.AddListener(Step5_ShowPanel);
             HintRef.OnProgressChanged.AddListener(OnProgressChanged);
 
-            // ★全文開示の state×element トリガ
-            HintRef.OnAllLinesRevealed.AddListener(OnHintAllRevealed);
+            // ★全文開示（state×element）のトリガ → ここを OnLineFullyRevealed に修正
+            HintRef.OnLineFullyRevealed.AddListener(OnHintAllRevealed);
 
             // ★Hint 側からの台詞行（HintText.TutorialLinesOnFullyRevealed）
             HintRef.OnHintTutorialLinesRequested.AddListener(OnHintTutorialLinesRequested);
@@ -198,7 +198,7 @@ public class Tutorial : MonoBehaviour
             HintRef.OnFirstGhostSeen.RemoveListener(Step4_ShowPanel);
             HintRef.OnFirstState2Seen.RemoveListener(Step5_ShowPanel);
             HintRef.OnProgressChanged.RemoveListener(OnProgressChanged);
-            HintRef.OnAllLinesRevealed.RemoveListener(OnHintAllRevealed);
+            HintRef.OnLineFullyRevealed.RemoveListener(OnHintAllRevealed);               // ← ここも修正
             HintRef.OnHintTutorialLinesRequested.RemoveListener(OnHintTutorialLinesRequested);
         }
         if (HideRef) HideRef.OnFirstHidePromptShown.RemoveListener(ShowHidePanelOnce);
