@@ -1,13 +1,16 @@
-// 巡回しながら探して、見つけたら追いかけるスクリプト（LoS 必須版）
-// state1: 隠れていれば必ず未発見。隠れていなければ LoS が通れば発見
-// state2: 隠れていても発見するが、LoS が通らないと未発見（遮蔽物があれば未発見）
+// 巡回しながら探して、見つけたら追いかけるスクリプト（LoS 必須＋クローゼット例外）
+// 仕様：
+//  state1 … 隠れていれば必ず未発見。隠れていなければ「視線が通れば」発見。
+//  state2 … クローゼット内なら LoS を無視して即発見。それ以外は「視線が通れば」発見。
+//  ※「家具など通常の遮蔽物」がプレイヤーと幽霊の間にある場合は、LoS が遮られて未発見。
+//  ※「クローゼット（HideCroset.hide==true）」の中は state2 のときだけ例外的に必ず発見。
 
 using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.AI;
 using Unity.AI.Navigation;
-using TMPro;                 // TextMeshPro
-using UnityEngine.UI;        // 旧UI.Text
+using TMPro;                 // 画面デバッグ用（任意）
+using UnityEngine.UI;        // 旧UI.Text（任意）
 using System.Collections;    // コルーチン用
 
 public class SearchChase : MonoBehaviour
@@ -15,39 +18,45 @@ public class SearchChase : MonoBehaviour
     [Header("NavMesh/参照")]
     public NavMeshAgent agent;
     public NavMeshSurface surface;
-    public Transform Player;
-    public Transform target;
-    public Transform lostposition;
+    public Transform Player;         // 追う対象（プレイヤー）
+    public Transform target;         // 現在の目的地（lostposition か パトロール点）
+    public Transform lostposition;   // 最終確認したプレイヤー位置の退避先（Empty推奨）
 
     [Header("経路/挙動")]
-    public float maxdistance = 2.0f;          // NavMesh.SamplePosition の半径
-    public float repathInterval = 0.25f;      // 経路再計算間隔
+    public float maxdistance = 2.0f;       // NavMesh.SamplePosition の半径
+    public float repathInterval = 0.25f;   // 経路再計算間隔
     private float repathtimer = 0f;
-    public float StopDistance = 0.5f;         // パトロール時、到達判定距離
-    public float WaitCount = 2.0f;            // 次ウェイポイントへ移る前の待機秒
+    public float StopDistance = 0.5f;      // パトロール到達判定
+    public float WaitCount = 2.0f;         // 次ウェイポイントへ移る前の待機秒
 
     [Header("検知/パトロール")]
-    public bool isDiscovery = false;          // 現在の発見状態
+    public bool isDiscovery = false;       // 現在の発見状態
     public List<Transform> targetlist = new List<Transform>();
     int CurrenTtargetNum = 0;
 
-    // 発見切り替えログ用
+    // ログ立ち上がり検出
     private bool _foundPrev = false;
 
     // --------------- 状態(1 or 2) ---------------
-    [SerializeField] private int fixedState = 1;     // 内部保持
-    private bool _stateOverridden = false;           // 外部強制が入ったら true
+    [SerializeField] private int fixedState = 1;     // 1 or 2
+    private bool _stateOverridden = false;
     public int GetState() => fixedState;
+    public void ForceState(int state)
+    {
+        fixedState = Mathf.Clamp(state, 1, 2);
+        _stateOverridden = true;
+        UpdateStateLabel();
+    }
 
     // --------------- 隠れ状態参照 ---------------
-    public HideCroset HideRef;
+    public HideCroset HideRef; // HideCroset.hide == true で「クローゼット内」
 
     // --------------- デバッグ表示（画面テキスト） ---------------
-    [Header("デバッグ表示")]
+    [Header("デバッグ表示（任意）")]
     public TextMeshProUGUI StateLabelTMP;
     public Text StateLabelLegacy;
     [TextArea] public string State1Text = "STATE: 1  隠れている間は見つからない（LoS必須）";
-    [TextArea] public string State2Text = "STATE: 2  隠れていても見つかる（LoS必須）";
+    [TextArea] public string State2Text = "STATE: 2  クローゼット内でも見つかる（LoSは家具で遮られる限り必要）";
 
     // ===== 見渡し（サーチ） =====
     [Header("見渡し（サーチ）")]
@@ -56,14 +65,6 @@ public class SearchChase : MonoBehaviour
     public float LookAngle = 360f;       // その間の総回転角（度）
     private float lookTimer = 0f;
     private bool isLooking = false;      // 見渡し中フラグ
-
-    // ===== 外部から状態を固定するAPI =====
-    public void ForceState(int state)
-    {
-        fixedState = Mathf.Clamp(state, 1, 2);
-        _stateOverridden = true;      // Start() のランダム決定を無効化
-        UpdateStateLabel();
-    }
 
     void Start()
     {
@@ -77,12 +78,11 @@ public class SearchChase : MonoBehaviour
 
         // 外部から未指定のときだけランダム
         if (!_stateOverridden)
-        {
             fixedState = Random.Range(1, 3); // 1 or 2（上限は排他的）
-        }
+
         UpdateStateLabel();
 
-        // 追跡寄りのチューニング
+        // 追跡寄りに調整
         if (agent)
         {
             agent.stoppingDistance = 0f;  // 追跡時に手前で止まらない
@@ -96,10 +96,7 @@ public class SearchChase : MonoBehaviour
         UpdateDiscovery();
 
         // 切り替わりログ（false→true の立ち上がりのみ）
-        if (isDiscovery && !_foundPrev)
-        {
-            Debug.Log("見つかってる状態");
-        }
+        if (isDiscovery && !_foundPrev) Debug.Log("見つかってる状態");
         _foundPrev = isDiscovery;
 
         // 見渡し（未発見の時だけ）
@@ -108,14 +105,8 @@ public class SearchChase : MonoBehaviour
             lookTimer += Time.deltaTime;
             if (!isLooking && lookTimer >= LookInterval)
             {
-                if (agent && agent.isOnNavMesh)
-                {
-                    StartCoroutine(LookAround());
-                }
-                else
-                {
-                    lookTimer = 0f; // NavMesh外ならやり直し
-                }
+                if (agent && agent.isOnNavMesh) StartCoroutine(LookAround());
+                else lookTimer = 0f; // NavMesh外ならやり直し
             }
         }
         else
@@ -130,10 +121,8 @@ public class SearchChase : MonoBehaviour
             repathtimer = 0f;
             if (surface) surface.UpdateNavMesh(surface.navMeshData);
 
-            if (!isLooking) // 見渡し中は動かない
-            {
+            if (!isLooking) // 見渡し中は移動抑止
                 Chase();
-            }
         }
         EnsureAgentOnNavMesh();
 
@@ -160,7 +149,8 @@ public class SearchChase : MonoBehaviour
     {
         if (!agent || !agent.isOnNavMesh || !target) return;
 
-        // 追跡ターゲットは「発見中は lostposition（最新のプレイヤー位置）」、未発見なら現在のウェイポイント
+        // 発見中：lostposition（最新プレイヤー位置）へ
+        // 未発見：現在のウェイポイントへ
         if (NavMesh.SamplePosition(target.position, out var hit, maxdistance, NavMesh.AllAreas))
         {
             agent.ResetPath();
@@ -176,9 +166,7 @@ public class SearchChase : MonoBehaviour
         if (!agent.isOnNavMesh)
         {
             if (NavMesh.SamplePosition(agent.transform.position, out var hit, 0.5f, NavMesh.AllAreas))
-            {
                 agent.Warp(hit.position);
-            }
         }
     }
 
@@ -196,7 +184,7 @@ public class SearchChase : MonoBehaviour
         Chase();
     }
 
-    // ========== 発見ロジック（LoS 必須） ==========
+    // ========== 発見ロジック（LoS 必須＋クローゼット例外） ==========
     private void UpdateDiscovery()
     {
         if (!Player)
@@ -205,17 +193,39 @@ public class SearchChase : MonoBehaviour
             return;
         }
 
-        // state1: 隠れていたら未発見
-        if (fixedState == 1 && HideRef && HideRef.hide)
+        // --- state1：隠れていれば未発見。隠れていなければ LoS が通れば発見 ---
+        if (fixedState == 1)
         {
-            isDiscovery = false;
+            if (HideRef && HideRef.hide)
+            {
+                isDiscovery = false;
+                return;
+            }
+
+            isDiscovery = HasLineOfSightToPlayer();
+            if (isDiscovery) UpdateLostAndTarget();
             return;
         }
 
-        // state1/2 ともに LoS が通らなければ未発見
-        isDiscovery = HasLineOfSightToPlayer();
+        // --- state2：クローゼット内なら LoS 無視で発見。それ以外は LoS 必須 ---
+        if (fixedState == 2)
+        {
+            // クローゼット（HideCroset）内は問答無用で発見
+            if (HideRef && HideRef.hide)
+            {
+                isDiscovery = true;
+                UpdateLostAndTarget();
+                return;
+            }
 
-        // 発見したら追跡ターゲットを最新位置へ
+            // 家具など通常遮蔽物は LoS を遮れば未発見
+            isDiscovery = HasLineOfSightToPlayer();
+            if (isDiscovery) UpdateLostAndTarget();
+            return;
+        }
+
+        // フォールバック（未知値）
+        isDiscovery = HasLineOfSightToPlayer();
         if (isDiscovery) UpdateLostAndTarget();
     }
 
@@ -247,7 +257,7 @@ public class SearchChase : MonoBehaviour
         {
             return hit.collider.CompareTag("Player");
         }
-        // 何にも当たらなかった＝障害物なしで距離内 → 見えている扱い
+        // 何にも当たらなかった＝障害物なし → 見えている扱い
         return true;
     }
 

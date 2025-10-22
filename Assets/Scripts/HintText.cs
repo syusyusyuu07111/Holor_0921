@@ -77,7 +77,6 @@ public class HintText : MonoBehaviour
     [Header("行開示トリガ")]
     public UnityEvent<string> OnLineFullyRevealed = new UnityEvent<string>();
     private readonly HashSet<string> _lineRevealedIds = new HashSet<string>(); // 一度きり
-
     public bool HasLineBeenRevealed(int state, int element) => _lineRevealedIds.Contains(MakeId(state, element));
     private static string MakeId(int state, int element) => $"state{Mathf.Max(1, state)}.element{Mathf.Clamp(element, 0, 4)}";
 
@@ -108,6 +107,9 @@ public class HintText : MonoBehaviour
     public bool CheckOcclusion = false;
     public LayerMask Occluders;
     public float CameraEyeHeight = 0.0f;
+
+    [Header("クローゼット中の特別表示")]
+    public bool ForceVisibleWhileHiding = true;   // ← クローゼット中は必ず表示（ただし全文開示はしない）
 
     // ---- 内部 ----
     private string[] activeLines = new string[5];
@@ -143,14 +145,7 @@ public class HintText : MonoBehaviour
 
     void Update()
     {
-        // 参照切れていたら取り直す（リトライ対策）
-        if (!Player)
-        {
-            var p = GameObject.FindGameObjectWithTag("Player");
-            Player = p ? p.transform : null;
-        }
-
-        // 追尾（Ghost）
+        // 追尾（ゴースト差し替え時は状態を初期化）
         if (AutoTrackNearestGhost)
         {
             _retargetTimer -= Time.deltaTime;
@@ -185,13 +180,16 @@ public class HintText : MonoBehaviour
             return;
         }
 
-        // 可視判定
+        // ---- 可視判定（クローゼット中は常時表示） ----
         float dist = Vector3.Distance(Player.position, Ghost.position);
         bool visibleByDistance = dist <= VisibleDistance;
         bool onScreen = !OnlyWhenGhostOnScreen || IsGhostOnScreen();
-        bool visible = visibleByDistance && onScreen;
         bool isHiding = (HideRef && HideRef.hide);
 
+        bool visible = visibleByDistance && onScreen;
+        bool show = visible || (isHiding && ForceVisibleWhileHiding);
+
+        // 初見イベント（クローゼット中は発火しない仕様のまま）
         if (visible && !_visiblePrev && !isHiding)
         {
             if (!_seenAnyOnce) { _seenAnyOnce = true; OnFirstGhostSeen?.Invoke(); }
@@ -204,18 +202,26 @@ public class HintText : MonoBehaviour
         CheckAndMaybeAdvanceProgress();
         SelectLinesByStageAndState();
 
-        // 見つかった上書き
-        bool found = (ChaseRef && ChaseRef.isDiscovery);
-        if (EnableFoundOverride)
+        // ---- 発見状態の“表示用”扱い（クローゼット中は発見扱いにしない）----
+        bool actuallyFound = (ChaseRef && ChaseRef.isDiscovery);  // 実際のゲームロジック上の発見
+        bool treatAsFoundForDisplay = EnableFoundOverride && actuallyFound && !isHiding;
+
+        // 見つかった上書き（ただしクローゼット中は抑止）
+        if (treatAsFoundForDisplay)
         {
-            if (found && !_foundOverrideActive) ApplyFoundOverrideInstant();
-            else if (!found && _foundOverrideActive) ClearFoundOverride();
+            if (!_foundOverrideActive) ApplyFoundOverrideInstant();
         }
-        if (found != _foundPrev) ApplyTextColorsProfile(found);
-        _foundPrev = found;
+        else
+        {
+            if (_foundOverrideActive) ClearFoundOverride();
+        }
+
+        // 色の適用（クローゼット中は“未発見色”）
+        if (treatAsFoundForDisplay != _foundPrev)
+            ApplyTextColorsProfile(treatAsFoundForDisplay);
+        _foundPrev = treatAsFoundForDisplay;
 
         // 表示切替
-        bool show = visible;
         for (int i = 0; i < HintLabels.Length; i++)
             if (HintLabels[i]) HintLabels[i].gameObject.SetActive(show);
         if (!show) return;
@@ -226,12 +232,13 @@ public class HintText : MonoBehaviour
         // 表示更新
         if (_foundOverrideActive)
         {
+            // 発見上書き中はそのテキストを出す
             for (int i = 0; i < 5; i++)
                 if (HintLabels[i]) HintLabels[i].text = activeLines[i];
             return;
         }
 
-        // 通常の文字開示
+        // 通常の文字開示（※クローゼット中でも全文開示にはしない）
         if (dist <= RevealDistance && currentIndex < 5)
         {
             if (waitingCooldown)
@@ -246,11 +253,12 @@ public class HintText : MonoBehaviour
 
                 if (IsFullyRevealed(activeLines[currentIndex], revealProgressChars))
                 {
-                    // ★この瞬間に「行」単位イベントを発火
+                    // ★行単位イベント
                     int stateNow = (ChaseRef ? ChaseRef.GetState() : 1);
                     string id = MakeId(stateNow, currentIndex);
                     if (_lineRevealedIds.Add(id))
                     {
+                        Debug.Log($"[HintText] OnLineFullyRevealed -> {id}");
                         OnLineFullyRevealed?.Invoke(id);
                     }
 
