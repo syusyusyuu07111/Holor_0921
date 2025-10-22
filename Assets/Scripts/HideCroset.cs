@@ -11,6 +11,18 @@ public class HideCroset : MonoBehaviour
     public bool hide = false;                                   // 隠れ中か
     public InputSystem_Actions Input;                           // 新InputSystem
 
+    [Header("各クローゼットに対応するドア（CrosetLists と同じ順番で並べる）")]
+    public List<Transform> DoorList = new List<Transform>();    // 各クローゼットのドア
+
+    [Header("ドア演出（共通設定）")]
+    public bool UseRotationInstead = false;                     // false: 平行移動 / true: 回転
+    public Vector3 ShiftAxis = Vector3.right;                   // 平行移動のローカル軸
+    public float ShiftValue = 0.3f;                             // 平行移動量
+    public Vector3 RotateAxis = Vector3.up;                     // 回転のローカル軸
+    public float RotateDegrees = 12f;                           // 回転角
+    public float ShiftDuration = 0.15f;                         // 補間時間
+    public AnimationCurve ShiftCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+
     [Header("位置調整（Inspectorで変更可・実行中も可）")]
     public float OffsetForward = 0.30f;                         // 奥方向（+で内側）
     public float OffsetRight = 0.00f;                           // 右
@@ -52,6 +64,13 @@ public class HideCroset : MonoBehaviour
     private readonly List<bool> _rbPrevUseGravity = new List<bool>();
     private readonly List<bool> _rbPrevKinematic = new List<bool>();
 
+    // ドア対応・補間
+    private int _currentClosetIndex = -1;
+    private Transform _currentDoor;
+    private readonly Dictionary<Transform, Vector3> _doorPosDefault = new();
+    private readonly Dictionary<Transform, Quaternion> _doorRotDefault = new();
+    private Coroutine _doorTween;
+
     private void Awake()
     {
         Input = new InputSystem_Actions();
@@ -59,6 +78,15 @@ public class HideCroset : MonoBehaviour
 
         _playerCols = Player.GetComponentsInChildren<Collider>(true);
         _playerRBs = Player.GetComponentsInChildren<Rigidbody>(true);
+
+        // DoorList の初期ローカル姿勢をキャッシュ
+        for (int i = 0; i < DoorList.Count; i++)
+        {
+            var d = DoorList[i];
+            if (!d) continue;
+            if (!_doorPosDefault.ContainsKey(d)) _doorPosDefault.Add(d, d.localPosition);
+            if (!_doorRotDefault.ContainsKey(d)) _doorRotDefault.Add(d, d.localRotation);
+        }
 
         if (PromptText)
         {
@@ -161,7 +189,7 @@ public class HideCroset : MonoBehaviour
             if (d < best) { best = d; pick = t; }
         }
 
-        // リスト未設定なら周囲サーチ
+        // リスト未設定なら周囲サーチ（インデックス対応はできないが、隠れ自体は可能）
         if (!pick && CrosetLists.Count == 0)
         {
             Collider[] hits = Physics.OverlapSphere(Player.position, InteractRadius, ~0, QueryTriggerInteraction.Collide);
@@ -204,6 +232,23 @@ public class HideCroset : MonoBehaviour
         SetMovementEnabled(false);
         hide = true;
 
+        // ===== クローゼット→ドアの対応（インデックスで取得） =====
+        _currentClosetIndex = CrosetLists.IndexOf(closet);
+        _currentDoor = null;
+        if (_currentClosetIndex >= 0 && _currentClosetIndex < DoorList.Count)
+        {
+            _currentDoor = DoorList[_currentClosetIndex];
+            if (_currentDoor)
+            {
+                // まだキャッシュされてなければ保存
+                if (!_doorPosDefault.ContainsKey(_currentDoor)) _doorPosDefault[_currentDoor] = _currentDoor.localPosition;
+                if (!_doorRotDefault.ContainsKey(_currentDoor)) _doorRotDefault[_currentDoor] = _currentDoor.localRotation;
+
+                // 隠れ開始：ドアを“少し開く/ずらす”
+                StartDoorShift(true);
+            }
+        }
+
         // 隠れ開始時点で文面を差し替え、表示を維持
         if (RewriteTextWhileHidden && PromptText)
         {
@@ -225,8 +270,14 @@ public class HideCroset : MonoBehaviour
         RestoreRBState();
 
         SetMovementEnabled(true);
-        _currentCloset = null;
         hide = false;
+
+        // 解除時：対応ドアを元へ
+        if (_currentDoor) StartDoorShift(false);
+
+        _currentCloset = null;
+        _currentClosetIndex = -1;
+        _currentDoor = null;
 
         // ★ 解除：テキストを元の文面に戻す（表示/非表示は距離・視界ロジックに任せる）
         if (RestoreTextOnExit && PromptText)
@@ -291,9 +342,6 @@ public class HideCroset : MonoBehaviour
             _rbPrevUseGravity.Add(rb.useGravity);
             _rbPrevKinematic.Add(rb.isKinematic);
 
-            if (disableGravity) rb.useGravity = false;
-            if (makeKinematic) rb.isKinematic = true;
-
             // 慣性を止める（その場で固定）
 #if UNITY_6000_0_OR_NEWER
             rb.linearVelocity = Vector3.zero;
@@ -301,6 +349,9 @@ public class HideCroset : MonoBehaviour
             rb.velocity = Vector3.zero;
 #endif
             rb.angularVelocity = Vector3.zero;
+
+            if (disableGravity) rb.useGravity = false;
+            if (makeKinematic) rb.isKinematic = true;
         }
     }
 
@@ -324,6 +375,59 @@ public class HideCroset : MonoBehaviour
 
         _rbPrevUseGravity.Clear();
         _rbPrevKinematic.Clear();
+    }
+
+    // ===== ドア補間 =====
+    private void StartDoorShift(bool toOpenGap)
+    {
+        if (!_currentDoor) return;
+        if (_doorTween != null) StopCoroutine(_doorTween);
+        _doorTween = StartCoroutine(CoDoorShift(toOpenGap));
+    }
+
+    private System.Collections.IEnumerator CoDoorShift(bool toOpenGap)
+    {
+        Vector3 basePos = _doorPosDefault.TryGetValue(_currentDoor, out var p) ? p : _currentDoor.localPosition;
+        Quaternion baseRot = _doorRotDefault.TryGetValue(_currentDoor, out var r) ? r : _currentDoor.localRotation;
+
+        Vector3 targetPos = basePos;
+        Quaternion targetRot = baseRot;
+
+        if (toOpenGap)
+        {
+            if (UseRotationInstead)
+            {
+                Quaternion delta = Quaternion.AngleAxis(RotateDegrees, RotateAxis.normalized);
+                targetRot = baseRot * delta;
+            }
+            else
+            {
+                Vector3 localOffset = ShiftAxis.normalized * ShiftValue;
+                targetPos = basePos + localOffset;
+            }
+        }
+
+        float dur = Mathf.Max(0f, ShiftDuration);
+        AnimationCurve curve = ShiftCurve ?? AnimationCurve.EaseInOut(0, 0, 1, 1);
+
+        float t = 0f;
+        Vector3 pos0 = _currentDoor.localPosition;
+        Quaternion rot0 = _currentDoor.localRotation;
+
+        while (t < dur)
+        {
+            t += Time.deltaTime;
+            float u = dur <= 0f ? 1f : Mathf.Clamp01(t / dur);
+            float k = curve.Evaluate(u);
+
+            _currentDoor.localPosition = Vector3.LerpUnclamped(pos0, targetPos, k);
+            _currentDoor.localRotation = Quaternion.SlerpUnclamped(rot0, targetRot, k);
+            yield return null;
+        }
+
+        _currentDoor.localPosition = targetPos;
+        _currentDoor.localRotation = targetRot;
+        _doorTween = null;
     }
 
     private void OnDrawGizmosSelected()
