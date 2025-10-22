@@ -11,6 +11,9 @@ public class PlayerController : MonoBehaviour
     [SerializeField] float SlowSpeed = 2.0f;
     [SerializeField] Animator animator;
 
+    [Header("アナログ入力しきい値")]
+    [SerializeField, Range(0f, 1f)] float analogPressPoint = 0.5f; // トリガー誤動作防止
+
     [Header("入力しきい値")]
     [SerializeField] float deadZone = 0.12f;   // 入力マグニチュードしきい値
     [SerializeField] float stopGrace = 0.08f;  // 離してからIdleに落とす遅延
@@ -46,7 +49,7 @@ public class PlayerController : MonoBehaviour
     {
         // 入力読み取り
         Vector2 move = Input.Player.Move.ReadValue<Vector2>();
-        bool isSlowWalking = Input.Player.SlowWalk.IsPressed();
+        bool isSlowWalking = Input.Player.SlowWalk.ReadValue<float>() >= analogPressPoint;
 
         // deadZone 判定
         bool hasInput = (move.sqrMagnitude >= deadZone * deadZone);
@@ -97,7 +100,7 @@ public class PlayerController : MonoBehaviour
 
         // 速度決定（ダッシュは前進時のみ）
         float currentSpeed = MoveSpeed;
-        bool isDashing = Input.Player.Dash.IsPressed() && move.y >= 0f;
+        bool isDashing = Input.Player.Dash.ReadValue<float>() >= analogPressPoint && move.y >= 0f;
         if (isSlowWalking) { currentSpeed = SlowSpeed; isDashing = false; }
         else if (isDashing) { currentSpeed = DashSpeed; }
 
