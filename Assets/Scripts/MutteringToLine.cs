@@ -3,31 +3,7 @@ using UnityEngine;
 using System.Collections.Generic;
 
 /// <summary>
-    public TMP_Text text;                       // ɑ䎌\
-    private void Awake()
-    {
-        if (!text)
-        {
-            text = GetComponent<TMP_Text>();
-            if (!text)
-                text = GetComponentInChildren<TMP_Text>(true);
-        }
-
-        if (!text)
-        {
-            Debug.LogWarning("[MutteringToLine] Text target is not assigned.");
-        }
-    }
-
-            Debug.LogWarning("[MutteringToLine] HintText reference not found. Unable to subscribe to events.");
-        if (!text)
-        {
-            Debug.LogWarning("[MutteringToLine] Text target is not assigned.");
-            return;
-        }
-
-        if (!text.gameObject.activeSelf)
-            text.gameObject.SetActive(true);
+/// HintText の進行に合わせて台詞を表示するコンポーネント。
 /// </summary>
 public class MutteringToLine : MonoBehaviour
 {
@@ -36,6 +12,21 @@ public class MutteringToLine : MonoBehaviour
 
     [Header("参照")]
     public HintText hint;                       // シーン上の HintText。未設定なら自動検索
+
+    private void Awake()
+    {
+        if (!text)
+        {
+            text = GetComponent<TextMeshProUGUI>();
+            if (!text)
+                text = GetComponentInChildren<TextMeshProUGUI>(true);
+        }
+
+        if (!text)
+        {
+            Debug.LogWarning("[MutteringToLine] Text target is not assigned.");
+        }
+    }
 
     [System.Serializable]
     public class Trigger
@@ -76,6 +67,17 @@ public class MutteringToLine : MonoBehaviour
         else
         {
             Debug.LogWarning("[MutteringToLine] HintText が見つかりません。イベントを購読できません。");
+        }
+
+        if (!text)
+        {
+            Debug.LogWarning("[MutteringToLine] Text target is not assigned.");
+            return;
+        }
+
+        if (!text.gameObject.activeSelf)
+        {
+            text.gameObject.SetActive(true);
         }
     }
 
