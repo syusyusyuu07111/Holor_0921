@@ -76,10 +76,24 @@ public class PlayerController : MonoBehaviour
         noInputTimer = 0f;
 
         // カメラ基準の平面向き
-        Vector3 forward = Camera ? Camera.forward : Vector3.forward;
-        forward.y = 0f; forward.Normalize();
-        Vector3 right = Camera ? Camera.right : Vector3.right;
-        right.y = 0f; right.Normalize();
+        Vector3 forward = Camera ? Vector3.ProjectOnPlane(Camera.forward, Vector3.up) : Vector3.forward;
+        if (forward.sqrMagnitude < 0.0001f)
+        {
+            // カメラが真上・真下を向いている場合は、自身の forward を基準にする
+            forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
+        }
+        forward = forward.sqrMagnitude < 0.0001f ? Vector3.forward : forward.normalized;
+
+        Vector3 right = Camera ? Vector3.ProjectOnPlane(Camera.right, Vector3.up) : Vector3.right;
+        if (right.sqrMagnitude < 0.0001f)
+        {
+            right = new Vector3(forward.z, 0f, -forward.x); // forward と直交する水平ベクトル
+        }
+        if (right.sqrMagnitude < 0.0001f)
+        {
+            right = Vector3.Cross(Vector3.up, forward);
+        }
+        right = right.sqrMagnitude < 0.0001f ? Vector3.right : right.normalized;
 
         // 速度決定（ダッシュは前進時のみ）
         float currentSpeed = MoveSpeed;
