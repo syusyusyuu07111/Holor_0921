@@ -1,145 +1,119 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
-
-
 
 public class Save : MonoBehaviour
 {
-    // Šù‘¶FƒCƒ“ƒXƒyƒNƒ^‚©‚ç true ‚É‚·‚é‚ÆƒZ[ƒu‚É”½‰fiƒfƒoƒbƒO—p‚É‚àg‚¦‚éj
-    [Tooltip("‘O’i‚Ìƒ`ƒ…[ƒgƒŠƒAƒ‹‚ğƒNƒŠƒAÏ‚İ‚©i•Û‘¶‘ÎÛjBtrue ‚É‚·‚é‚Æ•Û‘¶‚³‚êAŸ‰ñˆÈ~‚Í‘O’i‚ğƒXƒLƒbƒv‚µ‚Ü‚·B")]
-    public bool ClereTutorial = false;
+    public static Save Instance;
 
-    // ---- ƒIƒvƒVƒ‡ƒ“ ----
-    [Header("‹N“®‚Ì‹““®i‘O’iƒNƒŠƒAÏ‚İ‚Ì‚Æ‚«j")]
-    [Tooltip("ƒV[ƒ“ƒ[ƒh‚É‘O’iƒXƒLƒbƒv‚ğ©“®“K—p‚·‚é")]
-    public bool ApplySkipOnSceneLoad = true;
+    [Header("PlayerPrefs Key")]
+    [SerializeField] private string prefsKey = "GAME_STATE_V1";
 
-    [Tooltip("ƒXƒLƒbƒv“K—pŒã‚É Step1 ƒeƒLƒXƒg‚ğ‘¦À‚É•\¦‚·‚éi”CˆÓj")]
-    public bool ShowStep1WhenSkipped = true;
+    [System.Serializable]
+    public class State
+    {
+        // â€”â€” åŸºæœ¬/å‰æ®µã¾ã‚ã‚Š â€”â€”
+        public bool tutorialCleared;         // å‰æ®µã‚¯ãƒªã‚¢ã—ãŸã‹ï¼ˆ=æ¬¡å›ã‚¹ã‚­ãƒƒãƒ—ï¼‰
+        public bool basicDone;               // å‰æ®µã‚’å®Œäº†ã—ãŸã‹ï¼ˆå†…éƒ¨ãƒ•ãƒ©ã‚°ã®å®Ÿå€¤ï¼‰
+        
+        // â€”â€” ãƒŸãƒƒã‚·ãƒ§ãƒ³UI â€”â€”
+        public int  doorMissionStage;        // 0=None,1=DoorCheck,2=FindGhost,3=HearVoiceGoNext,4=AllDone
+        public bool missionVisible;          // ãƒŸãƒƒã‚·ãƒ§ãƒ³UIã®è¡¨ç¤ºON/OFF
+        public string missionText;           // ãƒŸãƒƒã‚·ãƒ§ãƒ³UIã®ç¾åœ¨æ–‡è¨€
 
-    [Tooltip("Tutorial ‚ğ©“®‚Å’T‚·iQÆ–¢İ’è‚Ì•ÛŒ¯j")]
-    public bool AutoFindTutorial = true;
+        // â€”â€” Hinté€²æ— â€”â€”
+        public int hintProgressStage;        // HintText.ProgressStage
 
-    [Tooltip("ƒV[ƒ“ã‚Ì Tutoriali”CˆÓ‚ÅƒAƒTƒCƒ“„§j")]
-    public Tutorial TutorialRef;
+        // â€”â€” åˆè¦‹ãƒ‘ãƒãƒ«/ãã®ä»–ãƒ•ãƒ©ã‚°ï¼ˆTutorialã®å†…éƒ¨ãƒ•ãƒ©ã‚°ã®é¡ï¼‰ â€”â€”
+        public bool didStep4;                // åˆã‚ã¦å¹½éœŠã‚’è¦‹ãŸãƒ‘ãƒãƒ«ã‚’æ—¢ã«å‡ºã—ãŸã‹
+        public bool didStep5;                // åˆã‚ã¦state=2ãƒ‘ãƒãƒ«ã‚’æ—¢ã«å‡ºã—ãŸã‹
+        public bool didHidePanel;            // éš ã‚Œã‚‹ãƒ‘ãƒãƒ«ã‚’æ—¢ã«å‡ºã—ãŸã‹
 
-    private const string Key_TutorialCleared = "TutorialCleared";
-    private bool _appliedThisScene = false;   // “¯ˆêƒV[ƒ“‚Å‘½d“K—p‚µ‚È‚¢‚½‚ß‚ÌƒK[ƒh
+        // â€”â€” ãƒ©ã‚¤ãƒˆONçŠ¶æ…‹ï¼ˆãƒŸãƒƒã‚·ãƒ§ãƒ³3å¾ŒONã«ã—ãŸã‹ï¼‰ â€”â€”
+        public bool lightsActivatedAfterM3;
+    }
 
-    // ====== ƒ‰ƒCƒtƒTƒCƒNƒ‹ ======
+    public State Data = new State();
+
     private void Awake()
     {
+        if (Instance && Instance != this) { Destroy(gameObject); return; }
+        Instance = this;
         DontDestroyOnLoad(gameObject);
-        SceneManager.sceneLoaded += OnSceneLoaded;
-
-        // ‹N“®’¼Œã‚ÌƒV[ƒ“‚Å‚àAŠù‚ÉƒNƒŠƒAÏ‚İ‚È‚ç“K—piƒ^ƒCƒgƒ‹¨‘¦ƒQ[ƒ€ƒV[ƒ““™‚ÌƒP[ƒXŒü‚¯j
-        TryApplySkipIfCleared();
+        Load();
     }
 
-    private void OnDestroy()
-    {
-        SceneManager.sceneLoaded -= OnSceneLoaded;
-    }
+    // ===== å¤–éƒ¨API =====
 
-    private void OnSceneLoaded(Scene s, LoadSceneMode mode)
-    {
-        _appliedThisScene = false;      // ƒV[ƒ“•Ï‚í‚Á‚½‚Ì‚Å‰ğœ
-        if (ApplySkipOnSceneLoad)
-            TryApplySkipIfCleared();
-    }
-
-    private void Start()
-    {
-        // Šù‘¶ƒRƒƒ“ƒg‚É‡‚í‚¹‚Ä Update ‚¾‚¯‚Å‚È‚­ Start ‚Å‚à•Û‘¶ó‘Ô‚ğ”½‰f
-        if (ClereTutorial && !IsSavedCleared())
-        {
-            SaveClearedFlag();
-        }
-    }
-
-    private void Update()
-    {
-        // Šù‘¶ƒRƒƒ“ƒg‚ÌˆÓ}FÀs’†‚ÉuƒNƒŠƒAˆµ‚¢‚ÉØ‚è‘Ö‚¦v¨•Û‘¶
-        if (ClereTutorial && !IsSavedCleared())
-        {
-            SaveClearedFlag();
-        }
-
-        // Às’†‚Éu–¢ƒNƒŠƒA‚Ö–ß‚·v‰^—p‚à‚µ‚½‚¢ê‡‚Í‰º‚ğg‚¤i”CˆÓj
-        // if (!ClereTutorial && IsSavedCleared()) { ClearSavedFlag(); }
-    }
-
-    // ====== ŠO•”API ======
-
-    /// <summary>‘O’i‚Ìƒ`ƒ…[ƒgƒŠƒAƒ‹‚ğƒNƒŠƒAˆµ‚¢‚É‚µ‚Ä•Û‘¶iŠO•”‚©‚çŒÄ‚Ô‘z’èj</summary>
     public void MarkTutorialCleared()
     {
-        if (!ClereTutorial) ClereTutorial = true;
-        SaveClearedFlag();
+        Data.tutorialCleared = true;
+        Data.basicDone = true; // å‰æ®µã‚’æ˜ç¤ºçš„ã«å®Œäº†æ‰±ã„
+        SaveNow();
     }
 
-    /// <summary>•Û‘¶ã‚Ìƒtƒ‰ƒO‚ğÁ‚·iƒfƒoƒbƒO—p“rj</summary>
-    public void ClearSavedFlag()
+    public void SaveNow()
     {
-        PlayerPrefs.DeleteKey(Key_TutorialCleared);
+        string json = JsonUtility.ToJson(Data);
+        PlayerPrefs.SetString(prefsKey, json);
         PlayerPrefs.Save();
-        Debug.Log("[Save] TutorialCleared ‚ğíœ‚µ‚Ü‚µ‚½B");
+#if UNITY_EDITOR
+        Debug.Log($"[Save] Saved: {json}");
+#endif
     }
 
-    // ====== “à•”F•Û‘¶/“Ç ======
-    private bool IsSavedCleared()
+    public void Load()
     {
-        return PlayerPrefs.GetInt(Key_TutorialCleared, 0) == 1;
-    }
-
-    private void SaveClearedFlag()
-    {
-        PlayerPrefs.SetInt(Key_TutorialCleared, 1);
-        PlayerPrefs.Save();
-        Debug.Log("[Save] TutorialCleared = true ‚ğ•Û‘¶‚µ‚Ü‚µ‚½B");
-    }
-
-    // ====== “à•”F‘O’iƒXƒLƒbƒv“K—p ======
-    private void TryApplySkipIfCleared()
-    {
-        if (_appliedThisScene) return;
-        if (!IsSavedCleared()) return;
-
-        // Tutorial QÆæ“¾
-        if (!TutorialRef && AutoFindTutorial)
+        string json = PlayerPrefs.GetString(prefsKey, "");
+        if (!string.IsNullOrEmpty(json))
         {
-#if UNITY_2023_1_OR_NEWER
-            TutorialRef = UnityEngine.Object.FindAnyObjectByType<Tutorial>(FindObjectsInactive.Include);
-#else
-            TutorialRef = FindObjectOfType<Tutorial>(true);
+            Data = JsonUtility.FromJson<State>(json);
+#if UNITY_EDITOR
+            Debug.Log($"[Save] Loaded: {json}");
 #endif
         }
+    }
 
-        if (!TutorialRef)
+    // ç¾åœ¨ã®ã‚·ãƒ¼ãƒ³çŠ¶æ…‹ã‚’å¸ã„ä¸Šã’ã‚‹ï¼ˆï¼ä¿å­˜ï¼‰
+    public void CaptureFromScene(Tutorial tut, HintText hint)
+    {
+        if (tut)
         {
-            // ‚±‚ÌƒV[ƒ“‚É Tutorial ‚ª–³‚¢‚È‚ç‰½‚à‚µ‚È‚¢iƒ^ƒCƒgƒ‹“™j
-            return;
+            Data.basicDone = tut.IsBasicDonePublic();
+            Data.doorMissionStage = tut.GetDoorMissionStagePublic(); // enumâ†’int
+            Data.missionVisible = tut.GetMissionVisiblePublic();
+            Data.missionText = tut.GetMissionTextPublic();
+            Data.didStep4 = tut.GetDidStep4Public();
+            Data.didStep5 = tut.GetDidStep5Public();
+            Data.didHidePanel = tut.GetDidHidePanelPublic();
+            Data.lightsActivatedAfterM3 = tut.GetLightsActivatedPublic();
+        }
+        if (hint)
+        {
+            Data.hintProgressStage = hint ? hint.ProgressStage : Data.hintProgressStage;
+        }
+        SaveNow();
+    }
+
+    // ä¿å­˜ã—ã¦ã„ãŸçŠ¶æ…‹ã‚’ã‚·ãƒ¼ãƒ³ã¸é©ç”¨ï¼ˆï¼å¾©å…ƒï¼‰
+    public void ApplyToScene(Tutorial tut, HintText hint)
+    {
+        if (tut)
+        {
+            // å‰æ®µã‚¹ã‚­ãƒƒãƒ—ï¼ˆç¢ºå®Ÿã« OnEnable ã®å‰ã«åæ˜ ã—ãŸã„å ´åˆã¯ Tut.Awake ã§ã‚‚ã‚„ã‚‹ï¼‰
+            if (Data.basicDone || Data.tutorialCleared) tut.ForceSkipBasicTutorialPublic();
+
+            // å†…éƒ¨ãƒ•ãƒ©ã‚°ç³»ï¼ˆé †åºå¤§äº‹ï¼šãƒŸãƒƒã‚·ãƒ§ãƒ³â†’ãƒ©ã‚¤ãƒˆï¼‰
+            tut.SetDoorMissionStagePublic(Data.doorMissionStage);
+            tut.SetMissionUIStatePublic(Data.missionVisible, Data.missionText);
+
+            tut.SetDidStepFlagsPublic(Data.didStep4, Data.didStep5, Data.didHidePanel);
+
+            if (Data.lightsActivatedAfterM3)
+                tut.SetLightsActivatedAfterM3Public(true);
         }
 
-        // ‚·‚Å‚ÉƒXƒLƒbƒv“K—pÏ‚İ‚È‚ç‰½‚à‚µ‚È‚¢
-        if (!TutorialRef.EnableBasicTutorial)
+        if (hint)
         {
-            _appliedThisScene = true;
-            return;
+            hint.SetProgress(Mathf.Max(0, Data.hintProgressStage));
         }
-
-        // ‘O’i‚ğƒXƒLƒbƒvi‚ ‚È‚½‚Ì Tutorial ‘¤‚Íu!EnableBasicTutorial || _basicDonev‚ÅƒQ[ƒg‚µ‚Ä‚¢‚é‚Ì‚ÅA‚±‚ê‚Å–{•Ò‰ğ‹Öj
-        TutorialRef.EnableBasicTutorial = false;
-        _appliedThisScene = true;
-        Debug.Log("[Save] ‘O’iƒXƒLƒbƒv‚ğ“K—piTutorial.EnableBasicTutorial = falsej");
-
-        // D‚İ‚É‰‚¶‚Ä Step1 ‚ğ‘¦•\¦
-        if (ShowStep1WhenSkipped)
-        {
-            TutorialRef.Step1();
-        }
-
-        // ’Š‘IŠJn‚Ü‚Å©“®‚Å‚·‚Á”ò‚Î‚µ‚½‚¢ê‡‚Í•K—v‚É‰‚¶‚ÄˆÈ‰º‚ğ‰ğ•ú
-        // TutorialRef.DoStep3();
     }
 }

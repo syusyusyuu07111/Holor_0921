@@ -414,6 +414,7 @@ public class HintText : MonoBehaviour
         ResetRevealProgress();
         SelectLinesByStageAndState();
         OnProgressChanged?.Invoke(ProgressStage);
+        Save.Instance?.CaptureFromScene(FindObjectOfType<Tutorial>(true), this); // ★追加
     }
 
     // ====== 表示ユーティリティ ======
