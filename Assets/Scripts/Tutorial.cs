@@ -157,6 +157,16 @@ public class Tutorial : MonoBehaviour
         ApplyDoorEnableByProgress(HintRef ? HintRef.ProgressStage : 0);
     }
 
+    //=========== ドア関連公開API ===========//
+    //----------- Unlock door after lever show -----------//
+    public void ForceUnlockDoors()
+    {
+        _doorUnlockedOnce = true;
+        int progressForDoor = HintRef ? HintRef.ProgressStage : 0;
+        if (progressForDoor < MinProgressToEnableDoor) progressForDoor = MinProgressToEnableDoor;
+        ApplyDoorEnableByProgress(progressForDoor);
+    }
+
     // ========== ライフサイクル ==========
     private void Awake()
     {
