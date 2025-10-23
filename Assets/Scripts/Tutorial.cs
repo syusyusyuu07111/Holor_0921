@@ -16,6 +16,7 @@ public class Tutorial : MonoBehaviour
     [TextArea] public string[] Step1Lines = { "……ここはどこだろう。", "さっきまでの記憶が曖昧だ。", "とにかく、出口を探さないと。" };
     [TextArea] public string[] Step3Lines = { "……何か音がしたぞ！", "周りを探してみよう。" }; // 最初の生成時に出す
     private Coroutine _typing;
+    private bool _muteBottomTyping = false; // スキップ中の点滅防止
 
     // ロック解除テキスト
     [Header("ロック解除メッセージ")]
@@ -72,7 +73,7 @@ public class Tutorial : MonoBehaviour
 
     // ========== 前段チュートリアル（移動／視点／ダッシュ） ==========
     [Header("前段チュートリアル（移動／視点／ダッシュ）")]
-    public bool EnableBasicTutorial = true;        // ※セーブなしなので、毎回ここで制御
+    public bool EnableBasicTutorial = true;        // ※セーブなしなので毎回ここで制御
     public Transform CameraTransform;
     public PlayerController PlayerCtrl;
 
@@ -98,6 +99,17 @@ public class Tutorial : MonoBehaviour
     private float _basicAccPitch = 0f;
     private Vector3 _basicMovePrevPos;
     private float _basicMoveTotal = 0f;
+
+    // 「前段」コルーチンの取っ手（スキップ時に止めるため）
+    private Coroutine _basicRoutine = null;
+
+    // Attack×3 スキップ
+    [Header("前段スキップ（Attack×3）")]
+    public int AttackSkipThreshold = 3;
+    public float AttackSkipWindow = 2.0f;  // N秒以内に3回
+    private int _attackSkipCounter = 0;
+    private float _attackSkipTimer = 0f;
+    private bool _skipRequested = false;
 
     // ========== ポーズ時のオーディオ制御 ==========
     [Header("ポーズ時のオーディオ制御")]
@@ -179,7 +191,8 @@ public class Tutorial : MonoBehaviour
         if (HideRef) HideRef.OnFirstHidePromptShown.AddListener(ShowHidePanelOnce);
 
         // 前段チュートリアル開始（セーブ無しなので毎回ここで判定）
-        if (EnableBasicTutorial) StartCoroutine(CoRunBasicTutorial());
+        if (EnableBasicTutorial && _basicRoutine == null)
+            _basicRoutine = StartCoroutine(CoRunBasicTutorial());
 
         // ドア用ミッション開始（独立表示）
         if (EnableDoorMission) StartDoorMissionIfNeeded();
@@ -219,7 +232,7 @@ public class Tutorial : MonoBehaviour
         }
     }
 
-    // ★リーク対策（エディタ停止/破棄時も確実に開放）
+    // ★リーク対策（破棄時も確実に開放）
     private void OnDestroy()
     {
         try
@@ -286,6 +299,23 @@ public class Tutorial : MonoBehaviour
         {
             TryCompleteDoorMissionByEnabledDoorInteract();
         }
+
+        // --- Attack×3 で前段だけスキップ ---
+        if (EnableBasicTutorial && !_basicDone)
+        {
+            if (_input.Player.Attack.WasPressedThisFrame())
+            {
+                if (_attackSkipTimer <= 0f) { _attackSkipCounter = 0; }
+                _attackSkipCounter++;
+                _attackSkipTimer = AttackSkipWindow;
+
+                if (_attackSkipCounter >= AttackSkipThreshold)
+                {
+                    StartSkipBasicOnly();
+                }
+            }
+            if (_attackSkipTimer > 0f) _attackSkipTimer -= Time.deltaTime;
+        }
     }
 
     // ========== Step1/Step2/Step3 ==========
@@ -293,6 +323,7 @@ public class Tutorial : MonoBehaviour
     {
         if (!BottomText) return;
         if (_typing != null) StopCoroutine(_typing);
+        if (_muteBottomTyping) return; // スキップ直後の点滅防止
         BottomText.gameObject.SetActive(true);
         _typing = StartCoroutine(CoTypeLines(Step1Lines));
     }
@@ -384,7 +415,7 @@ public class Tutorial : MonoBehaviour
         if (Step3Lines != null && Step3Lines.Length > 0)
         {
             if (_typing != null) StopCoroutine(_typing);
-            if (BottomText)
+            if (BottomText && !_muteBottomTyping)
             {
                 BottomText.gameObject.SetActive(true);
                 _typing = StartCoroutine(CoTypeLines(Step3Lines));
@@ -507,7 +538,6 @@ public class Tutorial : MonoBehaviour
     // ========== Hint 連携：全部開示トリガ ==========
     private void OnHintAllRevealed(string id)
     {
-        // 例: state1.element0 が全部開示 → 台詞
         if (id == "state1.element0")
         {
             // ShowOneShot("……気配が近い。慎重に。");
@@ -521,7 +551,7 @@ public class Tutorial : MonoBehaviour
         if (!HasAnyContent(lines)) return;
 
         // パネル中 or 前段未完了 or 既にタイプ中 → キューへ
-        if (!IsEventAllowed() || _pauseGate || _typing != null)
+        if (!IsEventAllowed() || _pauseGate || _typing != null || _muteBottomTyping)
         {
             _queuedHintTutorials.Enqueue(DuplicateLines(lines));
             return;
@@ -532,7 +562,7 @@ public class Tutorial : MonoBehaviour
 
     private void ShowHintTutorialLinesNow(string[] lines)
     {
-        if (!BottomText) return;
+        if (!BottomText || _muteBottomTyping) return;
 
         var copy = DuplicateLines(lines);
         if (_typing != null) StopCoroutine(_typing);
@@ -662,7 +692,7 @@ public class Tutorial : MonoBehaviour
     // ========== テキスト演出（メイン） ==========
     public void ShowOneShot(string line)
     {
-        if (!BottomText || string.IsNullOrEmpty(line)) return;
+        if (!BottomText || string.IsNullOrEmpty(line) || _muteBottomTyping) return;
         if (_typing != null) StopCoroutine(_typing);
         BottomText.gameObject.SetActive(true);
         _typing = StartCoroutine(CoTypeOneShot(line));
@@ -678,25 +708,27 @@ public class Tutorial : MonoBehaviour
 
     private IEnumerator CoTypeLines(string[] lines)
     {
+        if (_muteBottomTyping) yield break;
         for (int li = 0; li < lines.Length; li++)
         {
             yield return StartCoroutine(CoTypeOne(lines[li]));
             if (li < lines.Length - 1) yield return new WaitForSeconds(LineInterval);
         }
-        if (HideWhenDone) BottomText.gameObject.SetActive(false);
+        if (HideWhenDone && BottomText) BottomText.gameObject.SetActive(false);
         _typing = null;
     }
 
     private IEnumerator CoTypeOne(string text)
     {
+        if (_muteBottomTyping) yield break;
         BottomText.text = "";
         if (CharsPerSecond <= 0f) { BottomText.text = text; yield break; }
         float interval = 1f / CharsPerSecond;
         float acc = 0f; int i = 0;
-        while (i < text.Length)
+        while (i < text.Length && !_muteBottomTyping)
         {
             acc += Time.deltaTime;
-            while (acc >= interval && i < text.Length)
+            while (acc >= interval && i < text.Length && !_muteBottomTyping)
             {
                 acc -= interval; i++;
                 BottomText.text = text.Substring(0, i);
@@ -708,8 +740,8 @@ public class Tutorial : MonoBehaviour
     // ========== 前段チュートリアル本体 ==========
     private IEnumerator CoRunBasicTutorial()
     {
-        if (_basicRunning || _basicDone) yield break;
-        if (!BottomText) yield break;
+        if (_basicRunning || _basicDone) { _basicRoutine = null; yield break; }
+        if (!BottomText) { _basicRoutine = null; yield break; }
 
         _basicRunning = true;
 
@@ -717,16 +749,22 @@ public class Tutorial : MonoBehaviour
 
         yield return null; // Start() 後に
 
+        // もし途中でスキップされたら即終了
+        if (_basicDone) { _basicRunning = false; _basicRoutine = null; yield break; }
+
         // ---- 移動 ----
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
-        BottomText.gameObject.SetActive(true);
-        yield return StartCoroutine(CoTypeOne(BasicMoveText));
+        if (!_muteBottomTyping)
+        {
+            BottomText.gameObject.SetActive(true);
+            yield return StartCoroutine(CoTypeOne(BasicMoveText));
+        }
 
         _basicMoveTotal = 0f;
         _basicMovePrevPos = Player ? Player.position : Vector3.zero;
 
         float moveTimer = 0f;
-        while (true)
+        while (!_basicDone) // スキップされたら抜ける
         {
             bool moving = PlayerCtrl ? PlayerCtrl.IsMovingNow : (_input.Player.Move.ReadValue<Vector2>() != Vector2.zero);
 
@@ -747,14 +785,18 @@ public class Tutorial : MonoBehaviour
 
             yield return null;
         }
+        if (_basicDone) { _basicRunning = false; _basicRoutine = null; yield break; }
 
         // ---- 視点 ----
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
-        BottomText.gameObject.SetActive(true);
-        yield return StartCoroutine(CoTypeOne(BasicLookText));
+        if (!_muteBottomTyping)
+        {
+            BottomText.gameObject.SetActive(true);
+            yield return StartCoroutine(CoTypeOne(BasicLookText));
+        }
 
         _basicAccYaw = 0f; _basicAccPitch = 0f;
-        while (true)
+        while (!_basicDone)
         {
             if (CameraTransform)
             {
@@ -780,15 +822,19 @@ public class Tutorial : MonoBehaviour
             }
             yield return null;
         }
+        if (_basicDone) { _basicRunning = false; _basicRoutine = null; yield break; }
 
         // ---- ダッシュ ----
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
-        BottomText.gameObject.SetActive(true);
-        yield return StartCoroutine(CoTypeOne(BasicDashText));
+        if (!_muteBottomTyping)
+        {
+            BottomText.gameObject.SetActive(true);
+            yield return StartCoroutine(CoTypeOne(BasicDashText));
+        }
 
         float dashTimer = 0f;
         float decayPerSec = 0.5f;
-        while (true)
+        while (!_basicDone)
         {
             bool dashing = PlayerCtrl ? PlayerCtrl.IsDashingNow : false;
 
@@ -798,14 +844,19 @@ public class Tutorial : MonoBehaviour
             if (dashTimer >= BasicDashMinDuration) break;
             yield return null;
         }
+        if (_basicDone) { _basicRunning = false; _basicRoutine = null; yield break; }
 
         // 完了表示
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
-        BottomText.gameObject.SetActive(true);
-        BottomText.text = BasicDoneText;
+        if (!_muteBottomTyping)
+        {
+            BottomText.gameObject.SetActive(true);
+            BottomText.text = BasicDoneText;
+        }
 
         _basicDone = true;
         _basicRunning = false;
+        _basicRoutine = null;
 
         // 保留されていた案内をここで
         if (_pendingHidePanel)
@@ -820,7 +871,64 @@ public class Tutorial : MonoBehaviour
 
         // 本編へ
         Step1();
-
         if (EnableDoorMission) StartDoorMissionIfNeeded();
     }
+
+    // ====== Attack×3 で「前段だけ」スキップ ======
+    private void StartSkipBasicOnly()
+    {
+        if (_skipRequested) return;
+        _skipRequested = true;
+
+        // 前段コルーチンを確実に停止
+        if (_basicRoutine != null)
+        {
+            StopCoroutine(_basicRoutine);
+            _basicRoutine = null;
+        }
+
+        StartCoroutine(CoSkipBasicOnly());
+    }
+
+    private IEnumerator CoSkipBasicOnly()
+    {
+        // テキスト点滅防止：一時的にミュートして消す
+        _muteBottomTyping = true;
+        if (_typing != null) { StopCoroutine(_typing); _typing = null; }
+        if (BottomText) { BottomText.text = ""; BottomText.gameObject.SetActive(false); }
+
+        // 前段フラグを完了へ（前段のみスキップ）
+        _basicDone = true;
+        _basicRunning = false;
+        EnableBasicTutorial = false;
+
+        // 保留パネルだけ処理
+        if (_pendingHidePanel && !_pauseGate && !_didHidePanel && HidePanel)
+        {
+            _pendingHidePanel = false;
+            _didHidePanel = true;
+            StartCoroutine(CoShowPausePanel(HidePanel));
+        }
+
+        // 1フレームだけ待ってからミュート解除（点滅防止用のワンテンポ）
+        yield return null;
+        _muteBottomTyping = false;
+
+        // ★ここで初めて本編の表示をトリガ（ミュート解除後！）
+        Step1();
+        if (EnableDoorMission) StartDoorMissionIfNeeded();
+
+        // キューに貯まってた台詞があれば流す
+        if (_queuedHintTutorials.Count > 0 && !_pauseGate && IsEventAllowed() && _typing == null)
+        {
+            var pending = _queuedHintTutorials.Dequeue();
+            ShowHintTutorialLinesNow(pending);
+        }
+
+        // カウンタもリセット
+        _attackSkipCounter = 0;
+        _attackSkipTimer = 0f;
+        _skipRequested = false;
+    }
+
 }
