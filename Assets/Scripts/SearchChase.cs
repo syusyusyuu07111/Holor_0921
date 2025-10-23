@@ -1,70 +1,74 @@
-// „‰ñ‚µ‚È‚ª‚ç’T‚µ‚ÄŒ©‚Â‚¯‚½‚ç’Ç‚¢‚©‚¯‚éƒXƒNƒŠƒvƒg
+// å·¡å›ã—ãªãŒã‚‰æ¢ã—ã¦ã€è¦‹ã¤ã‘ãŸã‚‰è¿½ã„ã‹ã‘ã‚‹ã‚¹ã‚¯ãƒªãƒ—ãƒˆï¼ˆLoS å¿…é ˆï¼‹ã‚¯ãƒ­ãƒ¼ã‚¼ãƒƒãƒˆä¾‹å¤–ï¼‰
+// ä»•æ§˜ï¼š
+//  state1 â€¦ éš ã‚Œã¦ã„ã‚Œã°å¿…ãšæœªç™ºè¦‹ã€‚éš ã‚Œã¦ã„ãªã‘ã‚Œã°ã€Œè¦–ç·šãŒé€šã‚Œã°ã€ç™ºè¦‹ã€‚
+//  state2 â€¦ ã‚¯ãƒ­ãƒ¼ã‚¼ãƒƒãƒˆå†…ãªã‚‰ LoS ã‚’ç„¡è¦–ã—ã¦å³ç™ºè¦‹ã€‚ãã‚Œä»¥å¤–ã¯ã€Œè¦–ç·šãŒé€šã‚Œã°ã€ç™ºè¦‹ã€‚
+//  â€»ã€Œå®¶å…·ãªã©é€šå¸¸ã®é®è”½ç‰©ã€ãŒãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã¨å¹½éœŠã®é–“ã«ã‚ã‚‹å ´åˆã¯ã€LoS ãŒé®ã‚‰ã‚Œã¦æœªç™ºè¦‹ã€‚
+//  â€»ã€Œã‚¯ãƒ­ãƒ¼ã‚¼ãƒƒãƒˆï¼ˆHideCroset.hide==trueï¼‰ã€ã®ä¸­ã¯ state2 ã®ã¨ãã ã‘ä¾‹å¤–çš„ã«å¿…ãšç™ºè¦‹ã€‚
+
 using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.AI;
 using Unity.AI.Navigation;
-using TMPro;                 // TextMeshPro
-using UnityEngine.UI;        // ‹ŒUI.Text
-using System.Collections;    // ƒRƒ‹[ƒ`ƒ“—p
+using TMPro;                 // ç”»é¢ãƒ‡ãƒãƒƒã‚°ç”¨ï¼ˆä»»æ„ï¼‰
+using UnityEngine.UI;        // æ—§UI.Textï¼ˆä»»æ„ï¼‰
+using System.Collections;    // ã‚³ãƒ«ãƒ¼ãƒãƒ³ç”¨
 
 public class SearchChase : MonoBehaviour
 {
-    [Header("NavMesh/QÆ")]
+    [Header("NavMesh/å‚ç…§")]
     public NavMeshAgent agent;
     public NavMeshSurface surface;
-    public Transform Player;
-    public Transform target;
-    public Transform lostposition;
+    public Transform Player;         // è¿½ã†å¯¾è±¡ï¼ˆãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ï¼‰
+    public Transform target;         // ç¾åœ¨ã®ç›®çš„åœ°ï¼ˆlostposition ã‹ ãƒ‘ãƒˆãƒ­ãƒ¼ãƒ«ç‚¹ï¼‰
+    public Transform lostposition;   // æœ€çµ‚ç¢ºèªã—ãŸãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ä½ç½®ã®é€€é¿å…ˆï¼ˆEmptyæ¨å¥¨ï¼‰
 
-    [Header("Œo˜H/‹““®")]
-    public float maxdistance = 2.0f;
-    public float repathInterval = 0.25f;
+    [Header("çµŒè·¯/æŒ™å‹•")]
+    public float maxdistance = 2.0f;       // NavMesh.SamplePosition ã®åŠå¾„
+    public float repathInterval = 0.25f;   // çµŒè·¯å†è¨ˆç®—é–“éš”
     private float repathtimer = 0f;
-    public float StopDistance = 0.5f;
-    public float WaitCount = 2.0f;
+    public float StopDistance = 0.5f;      // ãƒ‘ãƒˆãƒ­ãƒ¼ãƒ«åˆ°é”åˆ¤å®š
+    public float WaitCount = 2.0f;         // æ¬¡ã‚¦ã‚§ã‚¤ãƒã‚¤ãƒ³ãƒˆã¸ç§»ã‚‹å‰ã®å¾…æ©Ÿç§’
 
-    [Header("ŒŸ’m/ƒpƒgƒ[ƒ‹")]
-    public bool isDiscovery = false;
+    [Header("æ¤œçŸ¥/ãƒ‘ãƒˆãƒ­ãƒ¼ãƒ«")]
+    public bool isDiscovery = false;       // ç¾åœ¨ã®ç™ºè¦‹çŠ¶æ…‹
     public List<Transform> targetlist = new List<Transform>();
     int CurrenTtargetNum = 0;
 
-    // š’Ç‰ÁF”­Œ©ó‘Ô‚Ì—§‚¿ã‚ª‚èŒŸo—piƒƒO—pj
+    // ãƒ­ã‚°ç«‹ã¡ä¸ŠãŒã‚Šæ¤œå‡º
     private bool _foundPrev = false;
 
-    // --------------- ó‘Ô(1 or 2) ---------------
-    [SerializeField] private int fixedState = 1;     // “à•”•Û
-    private bool _stateOverridden = false;           // ŠO•”‹­§‚ª“ü‚Á‚½‚çtrue
+    // --------------- çŠ¶æ…‹(1 or 2) ---------------
+    [SerializeField] private int fixedState = 1;     // 1 or 2
+    private bool _stateOverridden = false;
     public int GetState() => fixedState;
-
-    // --------------- ‰B‚êó‘ÔQÆ ---------------
-    public HideCroset HideRef;
-
-    // --------------- ƒfƒoƒbƒO•\¦i‰æ–ÊƒeƒLƒXƒgj ---------------
-    [Header("ƒfƒoƒbƒO•\¦")]
-    public TextMeshProUGUI StateLabelTMP;
-    public Text StateLabelLegacy;
-    public string State1Text = "STATE: 1  ‰B‚ê‚Ä‚¢‚éŠÔ‚ÍŒ©‚Â‚©‚ç‚È‚¢";
-    public string State2Text = "STATE: 2  ‰½‚ğ‚µ‚Ä‚àŒ©‚Â‚©‚é";
-
-    // ===== Œ©“n‚µiƒT[ƒ`j =====
-    [Header("Œ©“n‚µiƒT[ƒ`j")]
-    public float LookInterval = 5.0f;    // ‰½•b‚²‚Æ‚ÉŒ©“n‚·‚©
-    public float LookDuration = 2.0f;    // ‰½•bŠÔŒ©“n‚·‚©
-    public float LookAngle = 360f;       // ‚»‚ÌŠÔ‚Ì‘‰ñ“]Špi“xj
-    private float lookTimer = 0f;
-    private bool isLooking = false;      // Œ©“n‚µ’†ƒtƒ‰ƒO
-
-    // ===== ŠO•”‚©‚çó‘Ô‚ğŒÅ’è‚·‚éAPIiÅd—vj =====
     public void ForceState(int state)
     {
         fixedState = Mathf.Clamp(state, 1, 2);
-        _stateOverridden = true;      // Start()‚Ìƒ‰ƒ“ƒ_ƒ€Œˆ’è‚ğ–³Œø‰»
+        _stateOverridden = true;
         UpdateStateLabel();
     }
 
+    // --------------- éš ã‚ŒçŠ¶æ…‹å‚ç…§ ---------------
+    public HideCroset HideRef; // HideCroset.hide == true ã§ã€Œã‚¯ãƒ­ãƒ¼ã‚¼ãƒƒãƒˆå†…ã€
+
+    // --------------- ãƒ‡ãƒãƒƒã‚°è¡¨ç¤ºï¼ˆç”»é¢ãƒ†ã‚­ã‚¹ãƒˆï¼‰ ---------------
+    [Header("ãƒ‡ãƒãƒƒã‚°è¡¨ç¤ºï¼ˆä»»æ„ï¼‰")]
+    public TextMeshProUGUI StateLabelTMP;
+    public Text StateLabelLegacy;
+    [TextArea] public string State1Text = "STATE: 1  éš ã‚Œã¦ã„ã‚‹é–“ã¯è¦‹ã¤ã‹ã‚‰ãªã„ï¼ˆLoSå¿…é ˆï¼‰";
+    [TextArea] public string State2Text = "STATE: 2  ã‚¯ãƒ­ãƒ¼ã‚¼ãƒƒãƒˆå†…ã§ã‚‚è¦‹ã¤ã‹ã‚‹ï¼ˆLoSã¯å®¶å…·ã§é®ã‚‰ã‚Œã‚‹é™ã‚Šå¿…è¦ï¼‰";
+
+    // ===== è¦‹æ¸¡ã—ï¼ˆã‚µãƒ¼ãƒï¼‰ =====
+    [Header("è¦‹æ¸¡ã—ï¼ˆã‚µãƒ¼ãƒï¼‰")]
+    public float LookInterval = 5.0f;    // ä½•ç§’ã”ã¨ã«è¦‹æ¸¡ã™ã‹
+    public float LookDuration = 2.0f;    // ä½•ç§’é–“è¦‹æ¸¡ã™ã‹
+    public float LookAngle = 360f;       // ãã®é–“ã®ç·å›è»¢è§’ï¼ˆåº¦ï¼‰
+    private float lookTimer = 0f;
+    private bool isLooking = false;      // è¦‹æ¸¡ã—ä¸­ãƒ•ãƒ©ã‚°
+
     void Start()
     {
-        // NavMesh €”õ
+        // NavMesh æº–å‚™
         if (surface)
         {
             surface.navMeshData = new NavMeshData(surface.agentTypeID);
@@ -72,85 +76,62 @@ public class SearchChase : MonoBehaviour
             surface.collectObjects = CollectObjects.All;
         }
 
-        // š ŠO•”‚©‚ç–¢w’è‚Ì‚Æ‚«‚¾‚¯ƒ‰ƒ“ƒ_ƒ€
+        // å¤–éƒ¨ã‹ã‚‰æœªæŒ‡å®šã®ã¨ãã ã‘ãƒ©ãƒ³ãƒ€ãƒ 
         if (!_stateOverridden)
-        {
-            fixedState = Random.Range(1, 3); // 1 or 2iãŒÀ‚Í”r‘¼“Ij
-        }
+            fixedState = Random.Range(1, 3); // 1 or 2ï¼ˆä¸Šé™ã¯æ’ä»–çš„ï¼‰
+
         UpdateStateLabel();
 
-        // ’ÇÕŠñ‚è‚Ìƒ`ƒ…[ƒjƒ“ƒO
+        // è¿½è·¡å¯„ã‚Šã«èª¿æ•´
         if (agent)
         {
-            agent.stoppingDistance = 0f;  // ’ÇÕ‚Éè‘O‚Å~‚Ü‚ç‚È‚¢
-            agent.autoBraking = false;    // Œ¸‘¬—}§
+            agent.stoppingDistance = 0f;  // è¿½è·¡æ™‚ã«æ‰‹å‰ã§æ­¢ã¾ã‚‰ãªã„
+            agent.autoBraking = false;    // æ¸›é€ŸæŠ‘åˆ¶
         }
     }
 
     void Update()
     {
-        // ó‘Ô•Êi•K—v‚È‚ç’Ç‰Áj
-        if (fixedState == 1)
-        {
-            // ó‘Ô1F‰B‚ê‚Ä‚¢‚ê‚ÎŒ©‚Â‚©‚ç‚È‚¢
-        }
-        else if (fixedState == 2)
-        {
-            // ó‘Ô2F•K‚¸Œ©‚Â‚©‚é
-        }
+        // ç™ºè¦‹åˆ¤å®š
+        UpdateDiscovery();
 
-        IsPlayerHit(); // ”­Œ©”»’èió‘Ôƒ‹[ƒ‹‚İj
-
-        // š’Ç‰ÁFfalse¨true ‚É‚È‚Á‚½uŠÔ‚¾‚¯ƒƒO
-        if (isDiscovery && !_foundPrev)
-        {
-            Debug.Log("Œ©‚Â‚©‚Á‚Ä‚éó‘Ô");
-        }
+        // åˆ‡ã‚Šæ›¿ã‚ã‚Šãƒ­ã‚°ï¼ˆfalseâ†’true ã®ç«‹ã¡ä¸ŠãŒã‚Šã®ã¿ï¼‰
+        if (isDiscovery && !_foundPrev) Debug.Log("è¦‹ã¤ã‹ã£ã¦ã‚‹çŠ¶æ…‹");
         _foundPrev = isDiscovery;
 
-        // ---- Œ©“n‚µƒgƒŠƒK ----
+        // è¦‹æ¸¡ã—ï¼ˆæœªç™ºè¦‹ã®æ™‚ã ã‘ï¼‰
         if (!isDiscovery)
         {
             lookTimer += Time.deltaTime;
             if (!isLooking && lookTimer >= LookInterval)
             {
-                if (agent && agent.isOnNavMesh)
-                {
-                    StartCoroutine(LookAround());
-                }
-                else
-                {
-                    // NavMeshŠO‚È‚Ç‚ÅŠJn‚Å‚«‚È‚¢ê‡‚ÍƒŠƒZƒbƒg‚¾‚¯
-                    lookTimer = 0f;
-                }
+                if (agent && agent.isOnNavMesh) StartCoroutine(LookAround());
+                else lookTimer = 0f; // NavMeshå¤–ãªã‚‰ã‚„ã‚Šç›´ã—
             }
         }
         else
         {
-            // ”­Œ©’†‚ÍŠÔŠu‚ğƒŠƒZƒbƒg
-            lookTimer = 0f;
+            lookTimer = 0f; // ç™ºè¦‹ä¸­ã¯ãƒªã‚»ãƒƒãƒˆ
         }
 
+        // çµŒè·¯æ›´æ–°
         repathtimer += Time.deltaTime;
         if (repathtimer > repathInterval)
         {
             repathtimer = 0f;
             if (surface) surface.UpdateNavMesh(surface.navMeshData);
 
-            // šŒ©“n‚µ’†‚ÍŒo˜HXV‚Å“®‚©‚È‚¢‚æ‚¤‚É—}~
-            if (!isLooking)
-            {
+            if (!isLooking) // è¦‹æ¸¡ã—ä¸­ã¯ç§»å‹•æŠ‘æ­¢
                 Chase();
-            }
         }
         EnsureAgentOnNavMesh();
 
-        // ƒpƒgƒ[ƒ‹’â~/ÄŠJ
+        // ãƒ‘ãƒˆãƒ­ãƒ¼ãƒ«åœæ­¢/å†é–‹
         if (agent && agent.hasPath && !agent.pathPending)
         {
             if (isDiscovery)
             {
-                agent.isStopped = false; // ’ÇÕ’†‚Í“Ë‚Á‚Ş
+                agent.isStopped = false; // è¿½è·¡ä¸­ã¯çªã£è¾¼ã‚€
             }
             else
             {
@@ -163,9 +144,13 @@ public class SearchChase : MonoBehaviour
         }
     }
 
+    // ========== è¿½è·¡ ==========
     void Chase()
     {
         if (!agent || !agent.isOnNavMesh || !target) return;
+
+        // ç™ºè¦‹ä¸­ï¼šlostpositionï¼ˆæœ€æ–°ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ä½ç½®ï¼‰ã¸
+        // æœªç™ºè¦‹ï¼šç¾åœ¨ã®ã‚¦ã‚§ã‚¤ãƒã‚¤ãƒ³ãƒˆã¸
         if (NavMesh.SamplePosition(target.position, out var hit, maxdistance, NavMesh.AllAreas))
         {
             agent.ResetPath();
@@ -174,30 +159,33 @@ public class SearchChase : MonoBehaviour
         }
     }
 
+    // ========== NavMesh å®‰å…¨åŒ– ==========
     void EnsureAgentOnNavMesh()
     {
         if (!agent) return;
         if (!agent.isOnNavMesh)
         {
             if (NavMesh.SamplePosition(agent.transform.position, out var hit, 0.5f, NavMesh.AllAreas))
-            {
                 agent.Warp(hit.position);
-            }
         }
     }
 
+    // ========== ãƒ‘ãƒˆãƒ­ãƒ¼ãƒ«ã®æ¬¡ç‚¹ ==========
     void TargetChange()
     {
         if (!agent) return;
         if (!agent.isStopped) return;
+
         CurrenTtargetNum++;
         if (targetlist.Count <= CurrenTtargetNum) CurrenTtargetNum = 0;
         if (targetlist.Count > 0) target = targetlist[CurrenTtargetNum];
+
         agent.isStopped = false;
         Chase();
     }
 
-    public void IsPlayerHit()
+    // ========== ç™ºè¦‹ãƒ­ã‚¸ãƒƒã‚¯ï¼ˆLoS å¿…é ˆï¼‹ã‚¯ãƒ­ãƒ¼ã‚¼ãƒƒãƒˆä¾‹å¤–ï¼‰ ==========
+    private void UpdateDiscovery()
     {
         if (!Player)
         {
@@ -205,39 +193,75 @@ public class SearchChase : MonoBehaviour
             return;
         }
 
-        // ó‘Ôƒ‹[ƒ‹‚ğÅ—Dæ
-        if (fixedState == 1 && HideRef && HideRef.hide)
+        // --- state1ï¼šéš ã‚Œã¦ã„ã‚Œã°æœªç™ºè¦‹ã€‚éš ã‚Œã¦ã„ãªã‘ã‚Œã° LoS ãŒé€šã‚Œã°ç™ºè¦‹ ---
+        if (fixedState == 1)
         {
-            isDiscovery = false; // ‰B‚ê‚Ä‚¢‚éŠÔ‚Íâ‘Î‚ÉŒ©‚Â‚©‚ç‚È‚¢
-            return;
-        }
-        if (fixedState == 2)
-        {
-            isDiscovery = true;  // ‰½‚ğ‚µ‚Ä‚àŒ©‚Â‚©‚é
-            if (lostposition) { lostposition.position = Player.position; target = lostposition; }
+            if (HideRef && HideRef.hide)
+            {
+                isDiscovery = false;
+                return;
+            }
+
+            isDiscovery = HasLineOfSightToPlayer();
+            if (isDiscovery) UpdateLostAndTarget();
             return;
         }
 
-        // ’Êí‚ÌƒŒƒC”»’èió‘Ô1‚Å–¢‰B‚êj
-        var _dir = Player.position - transform.position;
-        if (Physics.Raycast(transform.position, _dir, out RaycastHit hit, 10f))
+        // --- state2ï¼šã‚¯ãƒ­ãƒ¼ã‚¼ãƒƒãƒˆå†…ãªã‚‰ LoS ç„¡è¦–ã§ç™ºè¦‹ã€‚ãã‚Œä»¥å¤–ã¯ LoS å¿…é ˆ ---
+        if (fixedState == 2)
         {
-            if (hit.collider.gameObject.CompareTag("Player"))
+            // ã‚¯ãƒ­ãƒ¼ã‚¼ãƒƒãƒˆï¼ˆHideCrosetï¼‰å†…ã¯å•ç­”ç„¡ç”¨ã§ç™ºè¦‹
+            if (HideRef && HideRef.hide)
             {
                 isDiscovery = true;
-                if (lostposition) { lostposition.position = Player.position; target = lostposition; }
+                UpdateLostAndTarget();
+                return;
             }
-            else
-            {
-                isDiscovery = false;
-            }
+
+            // å®¶å…·ãªã©é€šå¸¸é®è”½ç‰©ã¯ LoS ã‚’é®ã‚Œã°æœªç™ºè¦‹
+            isDiscovery = HasLineOfSightToPlayer();
+            if (isDiscovery) UpdateLostAndTarget();
+            return;
+        }
+
+        // ãƒ•ã‚©ãƒ¼ãƒ«ãƒãƒƒã‚¯ï¼ˆæœªçŸ¥å€¤ï¼‰
+        isDiscovery = HasLineOfSightToPlayer();
+        if (isDiscovery) UpdateLostAndTarget();
+    }
+
+    private void UpdateLostAndTarget()
+    {
+        if (lostposition)
+        {
+            lostposition.position = Player.position;
+            target = lostposition;
         }
         else
         {
-            isDiscovery = false;
+            target = Player; // ãƒ•ã‚©ãƒ¼ãƒ«ãƒãƒƒã‚¯
         }
     }
 
+    // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã¸ã®è¦–ç·šãŒé®ã‚‰ã‚Œã¦ã„ãªã„ã‹ã‚’ Raycast ã§ç¢ºèª
+    private bool HasLineOfSightToPlayer()
+    {
+        Vector3 origin = transform.position;
+        Vector3 dir = (Player.position - origin);
+        float dist = dir.magnitude;
+        if (dist <= 0.0001f) return true;
+
+        dir /= dist; // æ­£è¦åŒ–
+
+        // æœ€åˆã«å½“ãŸã£ãŸã‚³ãƒ©ã‚¤ãƒ€ãŒ Player ãªã‚‰è¦–ç·šãŒé€šã£ã¦ã„ã‚‹ã¨åˆ¤å®š
+        if (Physics.Raycast(origin, dir, out RaycastHit hit, dist))
+        {
+            return hit.collider.CompareTag("Player");
+        }
+        // ä½•ã«ã‚‚å½“ãŸã‚‰ãªã‹ã£ãŸï¼éšœå®³ç‰©ãªã— â†’ è¦‹ãˆã¦ã„ã‚‹æ‰±ã„
+        return true;
+    }
+
+    // ç”»é¢ãƒ‡ãƒãƒƒã‚°ç”¨ãƒ©ãƒ™ãƒ«æ›´æ–°
     private void UpdateStateLabel()
     {
         string msg = (fixedState == 1) ? State1Text : State2Text;
@@ -245,28 +269,28 @@ public class SearchChase : MonoBehaviour
         if (StateLabelLegacy) StateLabelLegacy.text = msg;
     }
 
-    // ===== Œ©“n‚µƒRƒ‹[ƒ`ƒ“i’â~‚µ‚Ä‰ñ“ªj =====
+    // ===== è¦‹æ¸¡ã—ã‚³ãƒ«ãƒ¼ãƒãƒ³ï¼ˆåœæ­¢ã—ã¦å›é ­ï¼‰ =====
     IEnumerator LookAround()
     {
         isLooking = true;
         float elapsed = 0f;
         float turnSpeed = (LookDuration > 0f) ? (LookAngle / LookDuration) : 0f;
 
-        // ƒEƒFƒCƒ|ƒCƒ“ƒgØ‘Ö‚ÌInvoke‚ªd‚È‚ç‚È‚¢‚æ‚¤‚É
+        // ã‚¦ã‚§ã‚¤ãƒã‚¤ãƒ³ãƒˆåˆ‡æ›¿ã® Invoke ãŒé‡ãªã‚‰ãªã„ã‚ˆã†ã«
         CancelInvoke(nameof(TargetChange));
 
         if (agent)
         {
-            agent.isStopped = true;            // ‚»‚Ìê‚Å’â~
-            agent.ResetPath();                 // Œo˜H”jŠü
-            agent.velocity = Vector3.zero;     // Šµ«‚ğ‘¦À‚ÉE‚·
-            agent.updateRotation = false;      // ©“®‰ñ“ªOFFiè“®‚Å‰ñ‚·j
+            agent.isStopped = true;            // ãã®å ´ã§åœæ­¢
+            agent.ResetPath();                 // çµŒè·¯ç ´æ£„
+            agent.velocity = Vector3.zero;     // æ…£æ€§ã‚’å³åº§ã«æ®ºã™
+            agent.updateRotation = false;      // è‡ªå‹•å›é ­OFFï¼ˆæ‰‹å‹•ã§å›ã™ï¼‰
         }
 
-        // ‚»‚ÌŠÔ‚à”­Œ©”»’è‚ÍŒp‘±iŒ©‚Â‚¯‚½‚ç‘¦’†’fj
+        // ãã®é–“ã‚‚ç™ºè¦‹åˆ¤å®šã¯ç¶™ç¶šï¼ˆè¦‹ã¤ã‘ãŸã‚‰å³ä¸­æ–­ï¼‰
         while (elapsed < LookDuration)
         {
-            IsPlayerHit();
+            UpdateDiscovery();
             if (isDiscovery) break;
 
             transform.Rotate(0f, turnSpeed * Time.deltaTime, 0f);
@@ -279,11 +303,19 @@ public class SearchChase : MonoBehaviour
 
         if (agent)
         {
-            agent.updateRotation = true;       // •œ‹A
-            agent.isStopped = false;           // ÄŠJ
+            agent.updateRotation = true;       // å¾©å¸°
+            agent.isStopped = false;           // å†é–‹
         }
 
-        // Œ»İ‚Ìtarget‚Ö•œ‹Ai”­Œ©‚µ‚Ä‚¢‚ê‚Îlostposition‚Öj
+        // ç¾åœ¨ã® target ã¸å¾©å¸°ï¼ˆç™ºè¦‹ã—ã¦ã„ã‚Œã° lostposition ã¸ï¼‰
         Chase();
+    }
+
+    // ===== ãƒ‡ãƒãƒƒã‚°å¯è¦–åŒ– =====
+    private void OnDrawGizmosSelected()
+    {
+        if (!Player) return;
+        Gizmos.color = isDiscovery ? Color.red : Color.cyan;
+        Gizmos.DrawLine(transform.position, Player.position);
     }
 }

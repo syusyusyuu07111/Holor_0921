@@ -50,14 +50,28 @@ public class OpenDoor : MonoBehaviour
     InputSystem_Actions input;
     bool isOpen;
 
+    //================== 参照の自己修復 ==================//
+    private void TryAssignPlayer()
+    {
+        if (player) return;
+        var go = GameObject.FindGameObjectWithTag("Player");
+        if (go) player = go.transform;
+    }
+
     void Awake()
     {
         input = new InputSystem_Actions();
+        TryAssignPlayer();
     }
 
     void OnEnable()
     {
         input.Player.Enable();
+    }
+
+    void OnDisable()
+    {
+        input.Player.Disable();
     }
 
     void Start()
@@ -78,6 +92,9 @@ public class OpenDoor : MonoBehaviour
 
     void Update()
     {
+        // リトライ時の保険
+        TryAssignPlayer();
+
         bool shouldOpen = CanOpen();
 
         if (shouldOpen)
@@ -110,8 +127,10 @@ public class OpenDoor : MonoBehaviour
         // 1) 距離：最も近いピボットとの距離で判定
         if (NearestDistanceToAnyLeaf() >= openDistance) return false;
 
-        // 2) 入力：今フレーム押されたらOK
-        if (!input.Player.DoorOpen.WasPressedThisFrame()) return false;
+        // 2) 入力：今フレーム押されたらOK（DoorOpen か Interact のどちらでも）
+        if (!(input.Player.DoorOpen.WasPressedThisFrame() ||
+              input.Player.Interact.WasPressedThisFrame()))
+            return false;
 
         // 3) 表側必須なら0番リーフ基準でチェック
         if (requireFacingSide && !IsPlayerOnFacingSide()) return false;
@@ -151,7 +170,7 @@ public class OpenDoor : MonoBehaviour
 
     bool IsPlayerOnFacingSide()
     {
-        var leaf0 = (leaves.Length > 0) ? leaves[0] : null;
+        var leaf0 = (leaves != null && leaves.Length > 0) ? leaves[0] : null;
         if (leaf0 == null || leaf0.pivot == null) return true; // 判断不能なら許容
 
         Vector3 toPlayer = (player.position - leaf0.pivot.position).normalized;
@@ -196,7 +215,7 @@ public class OpenDoor : MonoBehaviour
         }
     }
 
-    // エディタから呼べるように残しておく（0〜全リーフ同時に閉基準を再キャプチャ）
+    // エディタから呼べるように残しておく
     public void SetClosedFromCurrent()
     {
         if (leaves == null) return;
@@ -208,5 +227,15 @@ public class OpenDoor : MonoBehaviour
             leaf.closedLocalRot = leaf.pivot.localRotation;
         }
         RebuildOpenRotations();
+    }
+
+    //=========== ドアのロック制御 ===========//
+    public bool IsLocked => isLocked;
+
+    public void SetLocked(bool locked)
+    {
+        isLocked = locked;
+        // ロックが入った瞬間は閉方向へ寄せる（見た目の違和感軽減・任意）
+        if (locked) isOpen = false;
     }
 }
