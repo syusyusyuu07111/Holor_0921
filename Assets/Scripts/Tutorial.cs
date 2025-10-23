@@ -82,6 +82,11 @@ public class Tutorial : MonoBehaviour
     [TextArea] public string BasicDashText = "シフトを押しながらダッシュしてみよう";
     [TextArea] public string BasicDoneText = "OK！準備完了。";
 
+    [Header("前段チュートリアル：点滅演出")]
+    public bool EnableBasicBlink = true;
+    public float BasicBlinkInterval = 0.5f;
+    [Range(0f, 1f)] public float BasicBlinkInvisibleAlpha = 0f;
+
     [Header("前段チュートリアル：しきい値")]
     public float BasicLookYawTotal = 20f;
     public float BasicLookPitchTotal = 10f;
@@ -143,6 +148,49 @@ public class Tutorial : MonoBehaviour
     public bool HideLightsUntilMission3 = true;
     private bool _lightsActivatedAfterM3 = false;
 
+    // ========== 共通演出 ==========
+    private Coroutine _basicBlinkRoutine = null;
+    private void StartBlinkingBottomText()
+    {
+        if (!EnableBasicBlink || BasicBlinkInterval <= 0f || !BottomText) return;
+        if (!BottomText.gameObject.activeInHierarchy) return;
+
+        StopBlinkingBottomText();
+        _basicBlinkRoutine = StartCoroutine(CoBlinkBottomText());
+    }
+
+    private void StopBlinkingBottomText()
+    {
+        if (_basicBlinkRoutine != null)
+        {
+            StopCoroutine(_basicBlinkRoutine);
+            _basicBlinkRoutine = null;
+        }
+
+        if (BottomText) BottomText.alpha = 1f;
+    }
+
+    private IEnumerator CoBlinkBottomText()
+    {
+        bool visible = true;
+        while (true)
+        {
+            if (!BottomText)
+            {
+                _basicBlinkRoutine = null;
+                yield break;
+            }
+
+            if (BottomText.gameObject.activeInHierarchy)
+            {
+                BottomText.alpha = visible ? 1f : Mathf.Clamp01(BasicBlinkInvisibleAlpha);
+            }
+
+            visible = !visible;
+            yield return new WaitForSeconds(BasicBlinkInterval);
+        }
+    }
+
     // ===== 共通ゲート =====
     private bool IsEventAllowed() => !EnableBasicTutorial || _basicDone;
 
@@ -150,6 +198,7 @@ public class Tutorial : MonoBehaviour
     private void SkipCurrentTyping()
     {
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
+        StopBlinkingBottomText();
         if (BottomText) BottomText.gameObject.SetActive(false);
     }
 
@@ -230,6 +279,8 @@ public class Tutorial : MonoBehaviour
             for (int i = 0; i < Spawners.Count; i++)
                 if (Spawners[i]) Spawners[i].OnGhostSpawned.RemoveListener(OnAnyGhostSpawned_FirstTime);
         }
+
+        StopBlinkingBottomText();
     }
 
     // ★リーク対策（破棄時も確実に開放）
@@ -246,6 +297,8 @@ public class Tutorial : MonoBehaviour
             }
         }
         catch { }
+
+        StopBlinkingBottomText();
     }
 
     private void Start()
@@ -754,11 +807,14 @@ public class Tutorial : MonoBehaviour
 
         // ---- 移動 ----
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
+        StopBlinkingBottomText();
         if (!_muteBottomTyping)
         {
             BottomText.gameObject.SetActive(true);
             yield return StartCoroutine(CoTypeOne(BasicMoveText));
         }
+
+        StartBlinkingBottomText();
 
         _basicMoveTotal = 0f;
         _basicMovePrevPos = Player ? Player.position : Vector3.zero;
@@ -785,15 +841,22 @@ public class Tutorial : MonoBehaviour
 
             yield return null;
         }
-        if (_basicDone) { _basicRunning = false; _basicRoutine = null; yield break; }
+        if (_basicDone)
+        {
+            StopBlinkingBottomText();
+            _basicRunning = false; _basicRoutine = null; yield break;
+        }
 
         // ---- 視点 ----
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
+        StopBlinkingBottomText();
         if (!_muteBottomTyping)
         {
             BottomText.gameObject.SetActive(true);
             yield return StartCoroutine(CoTypeOne(BasicLookText));
         }
+
+        StartBlinkingBottomText();
 
         _basicAccYaw = 0f; _basicAccPitch = 0f;
         while (!_basicDone)
@@ -822,15 +885,22 @@ public class Tutorial : MonoBehaviour
             }
             yield return null;
         }
-        if (_basicDone) { _basicRunning = false; _basicRoutine = null; yield break; }
+        if (_basicDone)
+        {
+            StopBlinkingBottomText();
+            _basicRunning = false; _basicRoutine = null; yield break;
+        }
 
         // ---- ダッシュ ----
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
+        StopBlinkingBottomText();
         if (!_muteBottomTyping)
         {
             BottomText.gameObject.SetActive(true);
             yield return StartCoroutine(CoTypeOne(BasicDashText));
         }
+
+        StartBlinkingBottomText();
 
         float dashTimer = 0f;
         float decayPerSec = 0.5f;
@@ -844,10 +914,15 @@ public class Tutorial : MonoBehaviour
             if (dashTimer >= BasicDashMinDuration) break;
             yield return null;
         }
-        if (_basicDone) { _basicRunning = false; _basicRoutine = null; yield break; }
+        if (_basicDone)
+        {
+            StopBlinkingBottomText();
+            _basicRunning = false; _basicRoutine = null; yield break;
+        }
 
         // 完了表示
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
+        StopBlinkingBottomText();
         if (!_muteBottomTyping)
         {
             BottomText.gameObject.SetActive(true);
@@ -887,6 +962,8 @@ public class Tutorial : MonoBehaviour
             _basicRoutine = null;
         }
 
+        StopBlinkingBottomText();
+
         StartCoroutine(CoSkipBasicOnly());
     }
 
@@ -895,6 +972,7 @@ public class Tutorial : MonoBehaviour
         // テキスト点滅防止：一時的にミュートして消す
         _muteBottomTyping = true;
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
+        StopBlinkingBottomText();
         if (BottomText) { BottomText.text = ""; BottomText.gameObject.SetActive(false); }
 
         // 前段フラグを完了へ（前段のみスキップ）
