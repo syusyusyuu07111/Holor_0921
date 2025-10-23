@@ -1,160 +1,146 @@
 ﻿using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 public class PlayerController : MonoBehaviour
 {
     InputSystem_Actions Input;
+
     [SerializeField] Transform Camera;
     [SerializeField] float MoveSpeed = 5.0f;
     [SerializeField] float DashSpeed = 7.0f;
     [SerializeField] float SlowSpeed = 2.0f;
-    [SerializeField] Animator animator;//アニメーション
-                                       // しきい値
-    [SerializeField] float deadZone = 0.12f;   // スティック
-    [SerializeField] float stopGrace = 0.08f;  // 離してからIdleに落とす遅延（ビビり防止）
+    [SerializeField] Animator animator;
+
+    [Header("アナログ入力しきい値")]
+    [SerializeField, Range(0f, 1f)] float analogPressPoint = 0.5f; // トリガー誤動作防止
+
+    [Header("入力しきい値")]
+    [SerializeField] float deadZone = 0.12f;   // 入力マグニチュードしきい値
+    [SerializeField] float stopGrace = 0.08f;  // 離してからIdleに落とす遅延
 
     float noInputTimer = 0f;
 
-    // 登り用のパラメータ
-    [SerializeField] float stepHeight = 0.4f;          // 上りたい最大段差
-    [SerializeField] float stepCheckDistance = 0.3f;   // 前方チェック距離
-    [SerializeField] float stepSnapUpSpeed = 4.0f;     // 持ち上げ速度（1フレーム上限）
-    [SerializeField] LayerMask stepMask = ~0;          // 当たり判定レイヤー（地形など）
-    [SerializeField] CapsuleCollider col;              // カプセル。当たりから実寸を取る（任意）
-
-    // ================= ここから追加（公開状態 & イベント） =================
+    // 公開状態 & イベント
     [System.Serializable] public class DashEvent : UnityEngine.Events.UnityEvent { }
-    public bool IsMovingNow { get; private set; }       // 歩行/走行入力で動いている
-    public bool IsDashingNow { get; private set; }      // ダッシュ中（前進のみ）
-    public bool IsSlowWalkingNow { get; private set; }  // そーっと歩き中
-
+    public bool IsMovingNow { get; private set; }
+    public bool IsDashingNow { get; private set; }
+    public bool IsSlowWalkingNow { get; private set; }
     public DashEvent OnDashStart = new DashEvent();
     public DashEvent OnDashEnd = new DashEvent();
-    private bool _prevDash = false;
-    // ================= 追加ここまで =================
+    bool _prevDash = false;
 
-    private void Awake()
+    // 入力なし時のロック
+    Vector3 _lockedPos;
+    Quaternion _lockedRot;
+
+    void Awake()
     {
         Input = new InputSystem_Actions();
     }
-    private void OnEnable()
+
+    void OnEnable()
     {
         Input.Player.Enable();
+        _lockedPos = transform.position;
+        _lockedRot = transform.rotation;
     }
+
     void Update()
     {
-        //カメラ座標から移動する方向を取得する=============================================================
-        Vector2 MoveInput = Input.Player.Move.ReadValue<Vector2>();
-        //  そーっと歩くボタン（押している間だけ有効）
-        bool isSlowWalking = Input.Player.SlowWalk.IsPressed();
+        // 入力読み取り
+        Vector2 move = Input.Player.Move.ReadValue<Vector2>();
+        bool isSlowWalking = Input.Player.SlowWalk.ReadValue<float>() >= analogPressPoint;
 
-        //カメラ座標から前の向きを取得---------------------------------------------------------------------
-        Vector3 Forward = Camera.transform.forward;
-        Forward.y = 0;
-        Forward.Normalize();
-        //カメラ座標から横の向きを取得する-----------------------------------------------------------------
-        Vector3 Right = Camera.transform.right;
-        Right.y = 0;
-        Right.Normalize();
+        // deadZone 判定
+        bool hasInput = (move.sqrMagnitude >= deadZone * deadZone);
 
-        //  このフレームで使う実速度（MoveSpeedは上書きしない）
+        // 入力なし：ロック
+        if (!hasInput)
+        {
+            transform.SetPositionAndRotation(_lockedPos, _lockedRot);
+
+            noInputTimer += Time.deltaTime;
+            if (noInputTimer >= stopGrace && animator && animator.GetBool("IsMoving"))
+                animator.SetBool("IsMoving", false);
+            if (animator)
+            {
+                animator.SetBool("IsDashing", false);
+                animator.SetBool("IsSlowWalking", false);
+            }
+
+            IsMovingNow = false;
+            IsDashingNow = false;
+            IsSlowWalkingNow = false;
+            if (_prevDash) { OnDashEnd.Invoke(); _prevDash = false; }
+            return;
+        }
+
+        // 入力あり
+        noInputTimer = 0f;
+
+        // カメラ基準の平面向き
+        Vector3 forward = Camera ? Vector3.ProjectOnPlane(Camera.forward, Vector3.up) : Vector3.forward;
+        if (forward.sqrMagnitude < 0.0001f)
+        {
+            // カメラが真上・真下を向いている場合は、自身の forward を基準にする
+            forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
+        }
+        forward = forward.sqrMagnitude < 0.0001f ? Vector3.forward : forward.normalized;
+
+        Vector3 right = Camera ? Vector3.ProjectOnPlane(Camera.right, Vector3.up) : Vector3.right;
+        if (right.sqrMagnitude < 0.0001f)
+        {
+            right = new Vector3(forward.z, 0f, -forward.x); // forward と直交する水平ベクトル
+        }
+        if (right.sqrMagnitude < 0.0001f)
+        {
+            right = Vector3.Cross(Vector3.up, forward);
+        }
+        right = right.sqrMagnitude < 0.0001f ? Vector3.right : right.normalized;
+
+        // 速度決定（ダッシュは前進時のみ）
         float currentSpeed = MoveSpeed;
-        // ダッシュは「押してる間」かつ後退以外のときのみ有効
-        bool isDashing = Input.Player.Dash.IsPressed() && MoveInput.y >= 0f;
-        if (isDashing)
+        bool isDashing = Input.Player.Dash.ReadValue<float>() >= analogPressPoint && move.y >= 0f;
+        if (isSlowWalking) { currentSpeed = SlowSpeed; isDashing = false; }
+        else if (isDashing) { currentSpeed = DashSpeed; }
+
+        // 進行方向
+        Vector3 moveDir = (forward * move.y + right * move.x);
+        if (moveDir.sqrMagnitude > 0.0001f) moveDir.Normalize();
+
+        // --- 後退判定（ここがポイント）---
+        bool isBackward = move.y < -deadZone;
+
+        if (moveDir.sqrMagnitude > 0f)
         {
-            currentSpeed = DashSpeed;
+            // 移動は常に入力通り
+            transform.position += moveDir * currentSpeed * Time.deltaTime;
+
+            // 回転は「後退中はしない」。前進/横移動のときだけ向きを合わせる
+            if (!isBackward)
+            {
+                transform.rotation = Quaternion.LookRotation(moveDir, Vector3.up);
+            }
+            // isBackward のときは rotation を触らない＝向き維持で後退
         }
 
-        // そーっと歩きはダッシュより優先（押されていれば常にSlowSpeed）
-        if (isSlowWalking)
+        // このフレームの結果をロック
+        _lockedPos = transform.position;
+        _lockedRot = transform.rotation;
+
+        // アニメ更新
+        if (animator)
         {
-            currentSpeed = SlowSpeed;
-            isDashing = false;
+            if (!animator.GetBool("IsMoving")) animator.SetBool("IsMoving", true);
+            animator.SetBool("IsDashing", isDashing);
+            animator.SetBool("IsSlowWalking", isSlowWalking);
         }
 
-        //プレイヤーの移動==================================================================================
-        {
-            //移動する方向を決めて移動する--------------------------------------------------------------------------
-            //前向きに進むときの挙動--------------------------------------------------------------------------------
-            Vector3 Movedir = Forward * MoveInput.y + Right * MoveInput.x;
-            if (Movedir.sqrMagnitude > 0.0001f && MoveInput.y >= 0)
-            {
-                Vector3 dir = Movedir.normalized; // 斜めの暴走防止
-
-                // 前進時：段差登りを試行）
-                TryStepUp(dir, Time.deltaTime);
-
-                transform.position += dir * Time.deltaTime * currentSpeed; //currentSpeed を使用
-                //移動する方向にキャラクターの向きを変える------------------------------------------------------------
-                transform.rotation = Quaternion.LookRotation(Movedir, Vector3.up);
-            }
-            //後ろ向きに進むときの挙動　回転せずに後ろずさりする------------------------------------------------------
-            else if (Movedir.magnitude > 0.00001f && MoveInput.y < 0)
-            {
-                Vector3 dir = Movedir.normalized;
-
-                // （後退時：段差登りを試行）
-                TryStepUp(dir, Time.deltaTime);
-
-                //  後退時も「そーっと歩く」ならSlowSpeed、そうでなければ元の通常速度
-                if (isSlowWalking)
-                {
-                    transform.position += dir * Time.deltaTime * SlowSpeed;
-                }
-                else
-                {
-                    transform.position += dir * Time.deltaTime * MoveSpeed; // ダッシュ無効（通常速度）
-                }
-                isDashing = false; //  後退中は常にダッシュOFF
-
-                //段差も上れる機能を追加--------------------------------------------------------------------------------
-
-            }
-
-            //アニメーション更新=========================================================================================
-            // --- Boolでアニメ切り替え ---
-            bool hasInput = MoveInput != Vector2.zero;    //
-
-            if (hasInput)
-            {
-                noInputTimer = 0f;
-                if (animator && !animator.GetBool("IsMoving"))
-                    animator.SetBool("IsMoving", true);
-
-                //  ダッシュ中フラグ
-                if (animator) animator.SetBool("IsDashing", isDashing); // ← ダッシュ中だけ true
-
-                // そーっと歩きフラグ（必要ならAnimatorにBool「IsSlowWalking」を用意）
-                if (animator) animator.SetBool("IsSlowWalking", isSlowWalking);
-            }
-            else
-            {
-                noInputTimer += Time.deltaTime;
-                if (noInputTimer >= stopGrace && animator && animator.GetBool("IsMoving"))
-                    animator.SetBool("IsMoving", false);
-
-                // 入力が無いときは必ずダッシュOFF
-                if (animator) animator.SetBool("IsDashing", false);
-
-                // 入力なし時はそーっと歩きもOFF
-                if (animator) animator.SetBool("IsSlowWalking", false);
-            }
-        }
-
-        // ================= ここから追加（公開状態の更新＆イベント） =================
-        // 「歩いているか」は、入力がありIsMovingがtrueになるかで判断（Animatorに依存しない）
-        bool nowMoving =
-            Input.Player.Move.ReadValue<Vector2>() != Vector2.zero;
-
-        // 「ダッシュ中」はこのフレームの isDashing をそのまま公開
+        // 公開状態＆イベント
+        bool nowMoving = true;
         bool nowDashing = isDashing;
-
-        // 「そーっと歩き中」はボタン状態をそのまま公開
         bool nowSlow = isSlowWalking;
 
-        // イベント（立ち上がり/立ち下がり）
         if (nowDashing && !_prevDash) OnDashStart.Invoke();
         if (!nowDashing && _prevDash) OnDashEnd.Invoke();
         _prevDash = nowDashing;
@@ -162,58 +148,5 @@ public class PlayerController : MonoBehaviour
         IsMovingNow = nowMoving;
         IsDashingNow = nowDashing;
         IsSlowWalkingNow = nowSlow;
-        // ================= 追加ここまで =================
     }
-
-    // （段差登り本体。transform移動のまま“少し持ち上げてから進む”）
-    void TryStepUp(Vector3 moveDir, float dt)
-    {
-        if (moveDir.sqrMagnitude < 0.0001f) return;
-
-        // カプセルの実寸を取得（col が未設定なら緊急値で動作）
-        float radius = 0.3f;
-        float halfHeight = 0.9f;
-        Vector3 center = transform.position;
-
-        if (col)
-        {
-            radius = col.radius * Mathf.Max(transform.localScale.x, transform.localScale.z);
-            halfHeight = Mathf.Max(col.height * 0.5f * transform.localScale.y, radius + 0.01f);
-            center = col.bounds.center;
-        }
-
-        // カプセル上下端（縦カプセル想定）
-        Vector3 pTop = center + Vector3.up * (halfHeight - radius);
-        Vector3 pBot = center - Vector3.up * (halfHeight - radius);
-
-        Vector3 dir = moveDir.normalized;
-        float checkDist = Mathf.Max(stepCheckDistance, radius + 0.05f);
-
-        // 足元側でヒット、段差高さぶん上ではヒットなし → 段差と判定
-        bool lowHit = Physics.CapsuleCast(
-            pTop, pBot, radius, dir, out _, checkDist, stepMask, QueryTriggerInteraction.Ignore);
-
-        if (!lowHit) return;
-
-        // このフレーム分だけ上に持ち上げ（スナップではなく連続）
-        float lift = Mathf.Min(stepSnapUpSpeed * dt, stepHeight);
-        if (lift <= 0f) return;
-
-        Vector3 up = Vector3.up * lift;
-
-        bool upBlocked = Physics.CapsuleCast(
-            pTop + up, pBot + up, radius, dir, out _, checkDist, stepMask, QueryTriggerInteraction.Ignore);
-
-        if (upBlocked) return;
-
-        // 頭上クリア確認（天井や庇に当たらないか）
-        bool ceiling = Physics.CheckCapsule(
-            pTop + up, pBot + up, radius, stepMask, QueryTriggerInteraction.Ignore);
-
-        if (ceiling) return;
-
-        // 実際に少し持ち上げる
-        transform.position += up;
-    }
-
 }
