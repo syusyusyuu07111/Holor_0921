@@ -606,6 +606,9 @@ public class Tutorial : MonoBehaviour
             if (!od) continue;
 
             bool wasEnabled = od.enabled;
+            bool shouldLock = !enableDoor;
+
+            if (od.IsLocked != shouldLock) od.SetLocked(shouldLock);
             if (od.enabled != enableDoor) od.enabled = enableDoor;
             if (!wasEnabled && enableDoor) anyJustEnabled = true;
         }
