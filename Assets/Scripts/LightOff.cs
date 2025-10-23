@@ -4,84 +4,101 @@ using UnityEngine;
 
 public class LightOff : MonoBehaviour
 {
-    public GameObject Player;                               // ƒvƒŒƒCƒ„[
-    public GameObject Light;                                // ‹ßÚ”»’è‚ÌˆÊ’uiƒXƒCƒbƒ`“™j
-    public float PushDistance = 3.0f;                       // ƒCƒ“ƒ^ƒ‰ƒNƒg‹——£
-    public bool OnLight = true;                             // ¡ƒ‰ƒCƒg‚ª“_‚¢‚Ä‚¢‚é‚©
-    public GameObject Ghost;                                // ’gF‰»‚ÉÁ‚·‘ÎÛi”CˆÓj
-    public GameObject lever;                                // ‰ñ‚·ƒŒƒo[
-    public float RotateLever = 30f;                         // ‰ñ‚·—ÊiX“xj
+    public GameObject Player;                               // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼
+    public GameObject Light;                                // è¿‘æ¥åˆ¤å®šã®ä½ç½®ï¼ˆã‚¹ã‚¤ãƒƒãƒç­‰ï¼‰
+    public float PushDistance = 3.0f;                       // ã‚¤ãƒ³ã‚¿ãƒ©ã‚¯ãƒˆè·é›¢
+    public bool OnLight = true;                             // ä»Šãƒ©ã‚¤ãƒˆãŒç‚¹ã„ã¦ã„ã‚‹ã‹
+    public GameObject Ghost;                                // æš–è‰²åŒ–æ™‚ã«æ¶ˆã™å¯¾è±¡ï¼ˆä»»æ„ï¼‰
+    public GameObject lever;                                // å›ã™ãƒ¬ãƒãƒ¼
+    public float RotateLever = 30f;                         // å›ã™é‡ï¼ˆXåº¦ï¼‰
 
-    [Header("ƒŒƒo[‰ñ“]i’Ç‰Áj")]
-    public float LeverRotateSpeed = 180f;                   // ‰ñ“]‘¬“x[deg/sec]
-    private bool _isLeverAnimating = false;                 // ‰ñ“]’†ƒtƒ‰ƒO
+    [Header("ãƒ¬ãƒãƒ¼å›è»¢ï¼ˆè¿½åŠ ï¼‰")]
+    public float LeverRotateSpeed = 180f;                   // å›è»¢é€Ÿåº¦[deg/sec]
+    private bool _isLeverAnimating = false;                 // å›è»¢ä¸­ãƒ•ãƒ©ã‚°
 
-    [SerializeField] private List<Light> LightLists = new();// ‘€ì‘ÎÛƒ‰ƒCƒgŒQ
+    [SerializeField] private List<Light> LightLists = new();// æ“ä½œå¯¾è±¡ãƒ©ã‚¤ãƒˆç¾¤
 
-    // ==== ’gFİ’è ====
-    [Header("ƒ‰ƒCƒg’gFiOFF‘€ì‚É“K—pj")]
+    // ==== æš–è‰²è¨­å®š ====
+    [Header("ãƒ©ã‚¤ãƒˆæš–è‰²ï¼ˆOFFæ“ä½œæ™‚ã«é©ç”¨ï¼‰")]
     public Color WarmLightColor = new Color(1.0f, 0.78f, 0.56f, 1f);
 
-    // ==== Œ©‚¹ƒJƒƒ‰Ø‘Ö ====
-    [Header("Œ©‚¹—pƒJƒƒ‰i”CˆÓj")]
-    public Camera MainCamera;                               // ’Êí•\¦ƒJƒƒ‰i–¢İ’è‚È‚ç Camera.mainj
-    public Camera ShowcaseCamera;                           // Œ©‚¹—p‚ÌŒÅ’è/‰‰oƒJƒƒ‰
-    public float ShowcaseHoldSeconds = 0.5f;                // F•ÏXŒã‚ÉgŒ©‚¹‚éhÀŠÔ
+    // ==== è¦‹ã›ã‚«ãƒ¡ãƒ©åˆ‡æ›¿ ====
+    [Header("è¦‹ã›ç”¨ã‚«ãƒ¡ãƒ©ï¼ˆä»»æ„ï¼‰")]
+    public Camera MainCamera;                               // é€šå¸¸è¡¨ç¤ºã‚«ãƒ¡ãƒ©ï¼ˆæœªè¨­å®šãªã‚‰ Camera.mainï¼‰
+    public Camera ShowcaseCamera;                           // è¦‹ã›ç”¨ã®å›ºå®š/æ¼”å‡ºã‚«ãƒ¡ãƒ©
+    public float ShowcaseHoldSeconds = 0.5f;                // è‰²å¤‰æ›´å¾Œã«â€œè¦‹ã›ã‚‹â€å®Ÿæ™‚é–“
 
-    InputSystem_Actions input;                              // VInputSystem
+    InputSystem_Actions input;                              // æ–°InputSystem
 
-    // ------- 2í—Ş‚ÌƒeƒLƒXƒg -------
-    public TextMeshProUGUI PromptText;                      // ‹ß‚Ã‚¢‚½‚¾‚¯o‚·uƒL[ˆÄ“àv
-    public TextMeshProUGUI MsgText;                         // “_‚¢‚½/Á‚¦‚½guŠÔ‚¾‚¯ho‚éƒƒbƒZ[ƒW
+    // ------- 2ç¨®é¡ã®ãƒ†ã‚­ã‚¹ãƒˆ -------
+    public TextMeshProUGUI PromptText;                      // è¿‘ã¥ã„ãŸæ™‚ã ã‘å‡ºã™ã€Œã‚­ãƒ¼æ¡ˆå†…ã€
+    public TextMeshProUGUI MsgText;                         // ç‚¹ã„ãŸ/æ¶ˆãˆãŸâ€œç¬é–“ã ã‘â€å‡ºã‚‹ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸
 
-    // ------- •¶Œ¾/•\¦ŠÔ -------
-    [Header("•¶Œ¾İ’è")]
-    public string PromptOn = "yEz’gF‚É‚·‚é";              // “_“”’†F’gF‚É‚·‚é
-    public string PromptOff = "yEzƒ‰ƒCƒg‚ğ“_‚¯‚é";         // Á“”’†‚ÌˆÄ“à
-    public string MsgTurnedOff = "ƒ‰ƒCƒg‚ª’g‚©‚¢F‚É‚È‚Á‚½";
-    public string MsgTurnedOn = "ƒ‰ƒCƒg‚ª“_‚¢‚½‚æ‚¤‚¾";
+    // ------- æ–‡è¨€/è¡¨ç¤ºæ™‚é–“ -------
+    [Header("æ–‡è¨€è¨­å®š")]
+    public string PromptOn = "ã€Eã€‘æš–è‰²ã«ã™ã‚‹";              // ç‚¹ç¯ä¸­ï¼šæš–è‰²ã«ã™ã‚‹
+    public string PromptOff = "ã€Eã€‘ãƒ©ã‚¤ãƒˆã‚’ç‚¹ã‘ã‚‹";         // æ¶ˆç¯ä¸­ã®æ¡ˆå†…
+    public string MsgTurnedOff = "ãƒ©ã‚¤ãƒˆãŒæš–ã‹ã„è‰²ã«ãªã£ãŸ";
+    public string MsgTurnedOn = "ãƒ©ã‚¤ãƒˆãŒç‚¹ã„ãŸã‚ˆã†ã ";
 
-    [Header("•\¦ŠÔ")]
-    public float EventMsgDuration = 5.0f;                   // ƒƒbƒZ[ƒW•\¦•b”
+    [Header("è¡¨ç¤ºæ™‚é–“")]
+    public float EventMsgDuration = 5.0f;                   // ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸è¡¨ç¤ºç§’æ•°
     private float _msgTimer = 0f;
 
-    // ------- is“x˜AŒg -------
-    [Header("is“xiƒ~ƒbƒVƒ‡ƒ“j")]
+    private Tutorial _cachedTutorial = null;                // Tutorial cache reference
+
+    //=========== Tutorial Reference ===========//
+    //----------- Find Tutorial only once -----------//
+    private Tutorial GetTutorial()
+    {
+        if (_cachedTutorial) return _cachedTutorial;
+#if UNITY_2023_1_OR_NEWER
+        _cachedTutorial = UnityEngine.Object.FindAnyObjectByType<Tutorial>(FindObjectsInactive.Include);
+#elif UNITY_2022_2_OR_NEWER
+        _cachedTutorial = UnityEngine.Object.FindFirstObjectByType<Tutorial>(FindObjectsInactive.Include);
+#else
+        _cachedTutorial = GameObject.FindObjectOfType<Tutorial>();
+#endif
+        return _cachedTutorial;
+    }
+
+    // ------- é€²è¡Œåº¦é€£æº -------
+    [Header("é€²è¡Œåº¦ï¼ˆãƒŸãƒƒã‚·ãƒ§ãƒ³ï¼‰")]
     public HintText HintRef;
     public bool AutoFindHintRef = true;
 
-    [Tooltip("’gF‰»‚Åi‚Ş—Êi>=1 „§j")]
+    [Tooltip("æš–è‰²åŒ–ã§é€²ã‚€é‡ï¼ˆ>=1 æ¨å¥¨ï¼‰")]
     public int AdvanceAmountOnOff = 1;
 
-    [Tooltip("“_“”‚Å‰º‚°‚é—Êi>=1 ‚È‚çŒ¸‚éj")]
+    [Tooltip("ç‚¹ç¯ã§ä¸‹ã’ã‚‹é‡ï¼ˆ>=1 ãªã‚‰æ¸›ã‚‹ï¼‰")]
     public int DecreaseAmountOnOn = 0;
 
-    [Tooltip("“¯‚¶ƒ‰ƒCƒg‚Å‚ÍÅ‰‚Ìg’gF‰»h‚¾‚¯‚ğis“x‚ÉƒJƒEƒ“ƒg‚·‚é")]
+    [Tooltip("åŒã˜ãƒ©ã‚¤ãƒˆã§ã¯æœ€åˆã®â€œæš–è‰²åŒ–â€ã ã‘ã‚’é€²è¡Œåº¦ã«ã‚«ã‚¦ãƒ³ãƒˆã™ã‚‹")]
     public bool CountOnlyOncePerThisLight = false;
     private bool _alreadyCounted = false;
 
-    [Tooltip("ƒgƒOƒ‹‚Ì˜A‘Å‚Å‚Ì‘½dƒJƒEƒ“ƒg–h~i•bj")]
+    [Tooltip("ãƒˆã‚°ãƒ«ã®é€£æ‰“ã§ã®å¤šé‡ã‚«ã‚¦ãƒ³ãƒˆé˜²æ­¢ï¼ˆç§’ï¼‰")]
     public float ToggleDebounceSeconds = 0.25f;
     private float _lastToggleTime = -999f;
 
-    // ------- gˆê“x“_‚¯‚½‚çŒÅ’èONhƒƒbƒN -------
+    // ------- â€œä¸€åº¦ç‚¹ã‘ãŸã‚‰å›ºå®šONâ€ãƒ­ãƒƒã‚¯ -------
     private bool _lockedOn = false;
     private bool IsLocked() => _lockedOn;
 
-    // ------- ƒŒƒo[’†‚ÍƒQ[ƒ€ŠÔ’â~ -------
+    // ------- ãƒ¬ãƒãƒ¼ä¸­ã¯ã‚²ãƒ¼ãƒ æ™‚é–“åœæ­¢ -------
     private bool _pausedForLever = false;
     private float _timeScaleBeforePause = 1f;
     private void PauseGameForLever()
     {
         if (_pausedForLever) return;
         _timeScaleBeforePause = Time.timeScale;
-        Time.timeScale = 0f;                                // šŠÔ’â~
+        Time.timeScale = 0f;                                // â˜…æ™‚é–“åœæ­¢
         _pausedForLever = true;
     }
     private void ResumeGameIfPausedForLever()
     {
         if (!_pausedForLever) return;
-        Time.timeScale = _timeScaleBeforePause;             // šŠÔÄŠJ
+        Time.timeScale = _timeScaleBeforePause;             // â˜…æ™‚é–“å†é–‹
         _pausedForLever = false;
     }
 
@@ -99,7 +116,7 @@ public class LightOff : MonoBehaviour
         }
 
         if (!MainCamera && Camera.main) MainCamera = Camera.main;
-        if (ShowcaseCamera) ShowcaseCamera.enabled = false; // ‰Šú‚Í–³Œø
+        if (ShowcaseCamera) ShowcaseCamera.enabled = false; // åˆæœŸã¯ç„¡åŠ¹
     }
 
     private void OnEnable()
@@ -118,27 +135,27 @@ public class LightOff : MonoBehaviour
     {
         if (!Player || !Light) return;
 
-        // ‹ßÚƒ`ƒFƒbƒN
+        // è¿‘æ¥ãƒã‚§ãƒƒã‚¯
         float distance = Vector3.Distance(Player.transform.position, Light.transform.position);
         bool inRange = (distance < PushDistance);
 
-        // ˆÄ“à•\¦iƒƒbƒN/ƒŒƒo[’†‚Í”ñ•\¦j
+        // æ¡ˆå†…è¡¨ç¤ºï¼ˆãƒ­ãƒƒã‚¯/ãƒ¬ãƒãƒ¼ä¸­ã¯éè¡¨ç¤ºï¼‰
         if (PromptText) PromptText.gameObject.SetActive(inRange && !_isLeverAnimating && !IsLocked());
         if (inRange && PromptText && !IsLocked())
         {
             PromptText.text = OnLight ? PromptOn : PromptOff;
         }
 
-        // “ü—ÍiJump=ƒCƒ“ƒ^ƒ‰ƒNƒgj
+        // å…¥åŠ›ï¼ˆJump=ã‚¤ãƒ³ã‚¿ãƒ©ã‚¯ãƒˆï¼‰
         if (inRange && !_isLeverAnimating && !IsLocked() && input.Player.Jump.triggered)
         {
             if (OnLight) Off(); else On();
         }
 
-        // ƒƒbƒZ[ƒWõ–½
+        // ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸å¯¿å‘½
         if (_msgTimer > 0f)
         {
-            _msgTimer -= Time.deltaTime;                    // timeScale‚Ì‰e‹¿‚ğó‚¯‚é
+            _msgTimer -= Time.deltaTime;                    // timeScaleã®å½±éŸ¿ã‚’å—ã‘ã‚‹
             if (_msgTimer <= 0f && MsgText)
             {
                 MsgText.text = "";
@@ -147,7 +164,7 @@ public class LightOff : MonoBehaviour
         }
     }
 
-    // ========= gOFF‘€ìh’gF‚É‚·‚é + ƒJƒƒ‰‰‰o =========
+    // ========= â€œOFFæ“ä½œâ€ï¼æš–è‰²ã«ã™ã‚‹ + ã‚«ãƒ¡ãƒ©æ¼”å‡º =========
     void Off()
     {
         if (IsLocked()) return;
@@ -155,24 +172,24 @@ public class LightOff : MonoBehaviour
         if (Time.time - _lastToggleTime < ToggleDebounceSeconds) return;
         _lastToggleTime = Time.time;
 
-        // ‡”ÔF‰Ÿ‚·„ŠÔ~‚ß‚é„ƒŒƒo[„ƒJƒƒ‰Ø‘Ö„F•Ï‚¦‚é„‘Ò‹@„ƒJƒƒ‰–ß‚·„ŠÔ–ß‚·
+        // é †ç•ªï¼šæŠ¼ã™ï¼æ™‚é–“æ­¢ã‚ã‚‹ï¼ãƒ¬ãƒãƒ¼ï¼ã‚«ãƒ¡ãƒ©åˆ‡æ›¿ï¼è‰²å¤‰ãˆã‚‹ï¼å¾…æ©Ÿï¼ã‚«ãƒ¡ãƒ©æˆ»ã™ï¼æ™‚é–“æˆ»ã™
         if (lever && RotateLever != 0f)
         {
             if (!_isLeverAnimating) StartCoroutine(CoRotateLeverThenShowcaseThenWarmify());
             return;
         }
 
-        // ƒŒƒo[–³‚µFƒJƒƒ‰Ø‘Ö„F„‘Ò‹@„–ß‚·„ŠÔ–ß‚·
+        // ãƒ¬ãƒãƒ¼ç„¡ã—ï¼šã‚«ãƒ¡ãƒ©åˆ‡æ›¿ï¼è‰²ï¼å¾…æ©Ÿï¼æˆ»ã™ï¼æ™‚é–“æˆ»ã™
         StartCoroutine(CoOnlyShowcaseThenWarmify());
     }
 
-    // ƒŒƒo[‚ ‚è
+    // ãƒ¬ãƒãƒ¼ã‚ã‚Š
     private System.Collections.IEnumerator CoRotateLeverThenShowcaseThenWarmify()
     {
         _isLeverAnimating = true;
         PauseGameForLever();
 
-        // ƒŒƒo[‰ñ“]
+        // ãƒ¬ãƒãƒ¼å›è»¢
         Transform tf = lever.transform;
         Vector3 euler = tf.localEulerAngles;
         float startX = euler.x;
@@ -181,7 +198,7 @@ public class LightOff : MonoBehaviour
         float t = 0f;
         while (t < duration)
         {
-            t += Time.unscaledDeltaTime;                    // ’â~’†‚Å‚àis
+            t += Time.unscaledDeltaTime;                    // åœæ­¢ä¸­ã§ã‚‚é€²è¡Œ
             float x = Mathf.LerpAngle(startX, endX, Mathf.Clamp01(t / duration));
             euler = tf.localEulerAngles; euler.x = x;
             tf.localEulerAngles = euler;
@@ -189,7 +206,7 @@ public class LightOff : MonoBehaviour
         }
         euler = tf.localEulerAngles; euler.x = endX; tf.localEulerAngles = euler;
 
-        // ƒJƒƒ‰Ø‘Ö¨’gF¨Œ©‚¹¨–ß‚·
+        // ã‚«ãƒ¡ãƒ©åˆ‡æ›¿â†’æš–è‰²â†’è¦‹ã›â†’æˆ»ã™
         SwitchToShowcaseCamera();
         DoWarmifyInternal();
         yield return new WaitForSecondsRealtime(Mathf.Max(0f, ShowcaseHoldSeconds));
@@ -199,7 +216,7 @@ public class LightOff : MonoBehaviour
         ResumeGameIfPausedForLever();
     }
 
-    // ƒŒƒo[–³‚µ
+    // ãƒ¬ãƒãƒ¼ç„¡ã—
     private System.Collections.IEnumerator CoOnlyShowcaseThenWarmify()
     {
         PauseGameForLever();
@@ -212,26 +229,30 @@ public class LightOff : MonoBehaviour
         ResumeGameIfPausedForLever();
     }
 
-    // ’gF‰»ienabled‚ÍG‚ç‚¸F‚Ì‚İj
+    // æš–è‰²åŒ–ï¼ˆenabledã¯è§¦ã‚‰ãšè‰²ã®ã¿ï¼‰
     private void DoWarmifyInternal()
     {
         foreach (var l in LightLists)
         {
             if (!l) continue;
-            l.color = WarmLightColor;                       // š ’g‚©‚¢F‚ğ“K—p
-        }
+                var tut = GetTutorial();
+                if (tut)
+                {
+                    //----------- Unlock door after lever show -----------//
+                    tut.ForceUnlockDoors();
+                }
 
-        OnLight = false;                                    // UIã‚ÌgOFF‘¤hˆµ‚¢
-        Debug.Log("ƒ‰ƒCƒg‚ğ’gF‚É‚µ‚½");
+            var tut = GetTutorial();
+        Debug.Log("ãƒ©ã‚¤ãƒˆã‚’æš–è‰²ã«ã—ãŸ");
 
-        if (Ghost) Destroy(Ghost.gameObject);               // ”CˆÓF’gF‰»‚ÉƒS[ƒXƒg”jŠü
+        if (Ghost) Destroy(Ghost.gameObject);               // ä»»æ„ï¼šæš–è‰²åŒ–æ™‚ã«ã‚´ãƒ¼ã‚¹ãƒˆç ´æ£„
 
         ShowEventMessage(MsgTurnedOff);
 
-        // ===== is“x‚ğã‚°‚éi‚±‚±‚ª–{–½j =====
+        // ===== é€²è¡Œåº¦ã‚’ä¸Šã’ã‚‹ï¼ˆã“ã“ãŒæœ¬å‘½ï¼‰ =====
         if (HintRef && AdvanceAmountOnOff > 0)
         {
-            // ˆê‰ñ‚«‚èƒIƒvƒVƒ‡ƒ“
+            // ä¸€å›ãã‚Šã‚ªãƒ—ã‚·ãƒ§ãƒ³
             if (!CountOnlyOncePerThisLight || (CountOnlyOncePerThisLight && !_alreadyCounted))
             {
                 int before = HintRef.ProgressStage;
@@ -241,7 +262,7 @@ public class LightOff : MonoBehaviour
 
                 Debug.Log($"[LightOff] Warmify: stage {before} -> {after} (HintRef={HintRef.GetInstanceID()})");
 
-                // i”CˆÓjTutorial ‚Éè“®Ä“K—p‚ğ‘£‚·•ÛŒ¯
+                // ï¼ˆä»»æ„ï¼‰Tutorial ã«æ‰‹å‹•å†é©ç”¨ã‚’ä¿ƒã™ä¿é™º
                 var tut = FindObjectOfType<Tutorial>(true);
                 if (tut) tut.ReapplyDoorByCurrentProgress();
 
@@ -250,11 +271,11 @@ public class LightOff : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning("[LightOff] HintRef ‚ª–¢İ’èA‚Ü‚½‚Í AdvanceAmountOnOff <= 0 ‚Ì‚½‚ßis“x‚ªã‚ª‚è‚Ü‚¹‚ñB");
+            Debug.LogWarning("[LightOff] HintRef ãŒæœªè¨­å®šã€ã¾ãŸã¯ AdvanceAmountOnOff <= 0 ã®ãŸã‚é€²è¡Œåº¦ãŒä¸ŠãŒã‚Šã¾ã›ã‚“ã€‚");
         }
     }
 
-    // ========= ‘Sƒ‰ƒCƒgONFis“x‚ğ‰º‚°‚éi”CˆÓj =========
+    // ========= å…¨ãƒ©ã‚¤ãƒˆONï¼šé€²è¡Œåº¦ã‚’ä¸‹ã’ã‚‹ï¼ˆä»»æ„ï¼‰ =========
     void On()
     {
         if (IsLocked()) return;
@@ -267,7 +288,7 @@ public class LightOff : MonoBehaviour
             if (l) l.enabled = true;
         }
         OnLight = true;
-        Debug.Log("ƒ‰ƒCƒg‚ğ“_‚¯‚½");
+        Debug.Log("ãƒ©ã‚¤ãƒˆã‚’ç‚¹ã‘ãŸ");
         ShowEventMessage(MsgTurnedOn);
 
         if (HintRef && DecreaseAmountOnOn > 0)
@@ -282,11 +303,11 @@ public class LightOff : MonoBehaviour
             if (tut) tut.ReapplyDoorByCurrentProgress();
         }
 
-        _lockedOn = true;                                   // ˆÈ~‚Í–³”½‰
+        _lockedOn = true;                                   // ä»¥é™ã¯ç„¡åå¿œ
         if (PromptText) PromptText.gameObject.SetActive(false);
     }
 
-    // ========= ƒJƒƒ‰Ø‚è‚©‚¦ =========
+    // ========= ã‚«ãƒ¡ãƒ©åˆ‡ã‚Šã‹ãˆ =========
     private void SwitchToShowcaseCamera()
     {
         if (!MainCamera && Camera.main) MainCamera = Camera.main;
@@ -305,7 +326,7 @@ public class LightOff : MonoBehaviour
         if (MainCamera) MainCamera.enabled = true;
     }
 
-    // ========= ƒƒbƒZ[ƒW•\¦‹¤’Ê =========
+    // ========= ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸è¡¨ç¤ºå…±é€š =========
     void ShowEventMessage(string msg)
     {
         if (!MsgText) return;
