@@ -209,4 +209,14 @@ public class OpenDoor : MonoBehaviour
         }
         RebuildOpenRotations();
     }
+
+    //=========== ドアのロック制御 ===========//
+    //----------- 現在のロック状態を返す挙動 -----------//
+    public bool IsLocked => isLocked;
+
+    //----------- 外部からロック状態を切り替える挙動 -----------//
+    public void SetLocked(bool locked)
+    {
+        isLocked = locked;
+    }
 }
