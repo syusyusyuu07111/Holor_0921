@@ -34,7 +34,7 @@ public class Tutorial : MonoBehaviour
     [Header("制御対象（OpenDoor のみ）")]
     public List<OpenDoor> DoorScripts = new();
     private int _lastAppliedProgress = int.MinValue;
-    private bool _doorUnlockedOnce = false;
+    private bool _doorUnlockedOnce = false; // 一度でも到達したら永続で解錠扱い
 
     // ========== ドア入力フック ==========
     [Header("ドア：ロック時の入力フック")]
@@ -112,11 +112,11 @@ public class Tutorial : MonoBehaviour
 
     // ========== ポーズ時のオーディオ ==========
     [Header("ポーズ時のオーディオ制御")]
-    public bool PauseAudioWhilePanel = true;      // ★不足していたフィールド
+    public bool PauseAudioWhilePanel = true;
     private bool _prevListenerPause = false;
 
     // ========== Hint 連携：キュー ==========
-    private readonly Queue<string[]> _queuedHintTutorials = new Queue<string[]>(); // ★不足していたキュー
+    private readonly Queue<string[]> _queuedHintTutorials = new Queue<string[]>();
 
     // ========== ミッションUI ==========
     [Header("ドア用ミッション（別テキストUI）")]
@@ -158,7 +158,6 @@ public class Tutorial : MonoBehaviour
     }
 
     //=========== ドア関連公開API ===========//
-    //----------- Unlock door after lever show -----------//
     public void ForceUnlockDoors()
     {
         _doorUnlockedOnce = true;
@@ -177,7 +176,6 @@ public class Tutorial : MonoBehaviour
 #elif UNITY_2022_2_OR_NEWER
             HintRef = UnityEngine.Object.FindFirstObjectByType<HintText>(FindObjectsInactive.Include);
 #else
-            // 古いLTS向けフォールバック（警告は出ません）
             HintRef = UnityEngine.Object.FindObjectOfType<HintText>();
 #endif
         }
@@ -308,6 +306,7 @@ public class Tutorial : MonoBehaviour
     {
         if (!EnableAttackSkip) return;
         if (_input == null || !_input.Player.enabled) return;
+
         if (!(EnableBasicTutorial && !_basicDone))
         {
             _attackSkipCount = 0;
@@ -387,10 +386,17 @@ public class Tutorial : MonoBehaviour
         {
             var od = DoorScripts[i];
             if (!od) continue;
-            if (od.enabled) continue; // 既に開けられる段階ならスルー
 
+            // ロック中だけ案内を出す。OpenDoor に IsLocked があればそれを使う
+            bool locked = true;
+            try { locked = od.IsLocked; } catch { locked = !od.enabled; }
+
+            if (!locked) continue; // 既に開けられる段階ならスルー（開く操作はOpenDoor側）
+
+            // 距離
             if (Vector3.Distance(Player.position, od.transform.position) > DoorInteractDistance) continue;
 
+            // 表側チェック（必要なら）
             if (DoorRequireFacingSide)
             {
                 Vector3 toPlayer = (Player.position - od.transform.position).normalized;
@@ -402,9 +408,11 @@ public class Tutorial : MonoBehaviour
             ShowOneShot(DoorLockedMessage);
             _doorMsgCD = DoorLockedCooldown;
 
+            // ミッション：ステージ1達成
             if (EnableDoorMission && _doorMission == DoorMissionStage.DoorCheck)
                 AdvanceDoorMissionTo(DoorMissionStage.FindGhost);
 
+            // Step3 を予約（初回だけ）
             if (!_didStep2)
             {
                 _didStep2 = true;
@@ -523,30 +531,42 @@ public class Tutorial : MonoBehaviour
         bool unlockedByProgress = progress >= MinProgressToEnableDoor;
         if (unlockedByProgress) _doorUnlockedOnce = true;
 
-        bool enableDoor = _doorUnlockedOnce;
-        bool anyJustEnabled = false;
+        bool doorShouldBeUnlocked = _doorUnlockedOnce;
+
+        bool anyJustUnlocked = false;
 
         for (int i = 0; i < DoorScripts.Count; i++)
         {
             var od = DoorScripts[i];
             if (!od) continue;
 
-            bool wasEnabled = od.enabled;
+            // OpenDoor は常に有効化（enableで封じるとCanOpen()自体が動かないゲームが多い）
+            if (!od.enabled) od.enabled = true;
 
-            // OpenDoor に IsLocked/SetLocked があれば同期
+            // 正式APIがあればそれでロック同期
+            bool hadProperty = true;
             try
             {
-                bool shouldLock = !enableDoor;
-                if (od.IsLocked != shouldLock) od.SetLocked(shouldLock);
+                bool lockedNow = od.IsLocked;
+                bool wantLocked = !doorShouldBeUnlocked;
+                if (lockedNow != wantLocked) od.SetLocked(wantLocked);
+                if (lockedNow && !wantLocked) anyJustUnlocked = true;
             }
-            catch { /* 実装に無ければ無視 */ }
+            catch
+            {
+                hadProperty = false;
+            }
 
-            od.enabled = enableDoor;
-
-            if (!wasEnabled && enableDoor) anyJustEnabled = true;
+            // 旧実装互換：プロパティ無い場合は enable で代用（推奨はしないが保険）
+            if (!hadProperty)
+            {
+                bool wasEnabled = od.enabled;
+                od.enabled = doorShouldBeUnlocked;
+                if (!wasEnabled && od.enabled) anyJustUnlocked = true;
+            }
         }
 
-        if (unlockedByProgress && anyJustEnabled && !_didAnnounceDoorUnlocked && !_pauseGate)
+        if ((unlockedByProgress || doorShouldBeUnlocked) && anyJustUnlocked && !_didAnnounceDoorUnlocked && !_pauseGate)
         {
             ShowOneShot(string.IsNullOrEmpty(DoorUnlockedMessage) ? "ドアが開いたようだ" : DoorUnlockedMessage);
             _didAnnounceDoorUnlocked = true;
@@ -671,7 +691,11 @@ public class Tutorial : MonoBehaviour
         {
             var od = DoorScripts[i];
             if (!od) continue;
-            if (!od.enabled) continue;
+
+            // 解錠済みか確認（プロパティがあれば優先）
+            bool unlocked = true;
+            try { unlocked = !od.IsLocked; } catch { unlocked = od.enabled; }
+            if (!unlocked) continue;
 
             if (Vector3.Distance(Player.position, od.transform.position) > DoorInteractDistance) continue;
 
