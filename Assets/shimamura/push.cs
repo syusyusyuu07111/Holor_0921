@@ -1,9 +1,6 @@
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem;
-using UnityEngine.Video;
-using static UnityEditor.Experimental.GraphView.GraphView;
 
 public class push : MonoBehaviour
 {
@@ -29,6 +26,13 @@ public class push : MonoBehaviour
     [SerializeField] private TextMeshProUGUI _itemTextMeshPro;  //アイテム取得テキスト
     [SerializeField] private TextMeshProUGUI _pushTextMeshPro;  //椅子を押す＋乗るテキスト
 
+    [Header("Item")]
+    [SerializeField] private ItemDetailUManager _itemDetailUIManager; // 参照をInspectorで設定
+
+
+    [SerializeField] private MonoBehaviour _playerControllerScript;
+    private InputSystem_Actions _input;
+
     private Rigidbody _pushingRb = null;                    // 押しているオブジェクト
     private Vector3 _pushDirection;                         // 押す方向
 
@@ -48,6 +52,13 @@ public class push : MonoBehaviour
         {
             UpdateJump();
             return;
+        }
+
+        if (_itemDetailUIManager != null && _itemDetailUIManager.IsOpen && Input.GetKeyDown(KeyCode.R))
+        {
+            Debug.Log("Rキーでウィンドウ閉じる");
+            _itemDetailUIManager.HideWindow();
+            return; // 閉じたら他の処理スキップ
         }
 
         //UpdateFurnitureStatus();
@@ -118,7 +129,7 @@ public class push : MonoBehaviour
         if (t >= 1f)
         {
             _isJumping = false;
-            _isOnFurniture = true; // ←ここ追加
+            _isOnFurniture = true;
             Debug.Log("家具の上に着地完了！");
         }
     }
@@ -179,12 +190,19 @@ public class push : MonoBehaviour
             }
         }
 
-        //一番近いアイテムがあり、Eキーを押したら拾う
+        //一番近いアイテムがあり、Rキーを押したら拾う
         if (nearestItem != null && Input.GetKeyDown(KeyCode.R))
         {
             _inventory.Add(nearestItem.gameObject);//インベントリ追加
             Debug.Log($"アイテム取得: {nearestItem.name}");
-            Destroy(nearestItem.gameObject);
+
+            if (_itemDetailUIManager != null)
+            {
+                Debug.Log("itemとじれた");
+                _itemDetailUIManager.ToggleItem(nearestItem.gameObject);
+            }
+
+            Destroy(nearestItem.gameObject); // 必要なら削除
         }
     }
 
@@ -224,8 +242,5 @@ public class push : MonoBehaviour
             Gizmos.DrawRay(_rayOrigin.position, _rayOrigin.forward * _pushDistance);
         }
     }
-
-
-
 }
 
