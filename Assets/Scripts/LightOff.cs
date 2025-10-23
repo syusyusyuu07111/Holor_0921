@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using TMPro;
-using Unity.VisualScripting;
 using UnityEngine;
 
 public class LightOff : MonoBehaviour
@@ -19,9 +18,9 @@ public class LightOff : MonoBehaviour
 
     [SerializeField] private List<Light> LightLists = new();// 操作対象ライト群
 
-    // ==== 暖色設定（Inspector） ====
+    // ==== 暖色設定 ====
     [Header("ライト暖色（OFF操作時に適用）")]
-    public Color WarmLightColor = new Color(1.0f, 0.78f, 0.56f, 1f); // デフォ“暖かい色”
+    public Color WarmLightColor = new Color(1.0f, 0.78f, 0.56f, 1f);
 
     // ==== 見せカメラ切替 ====
     [Header("見せ用カメラ（任意）")]
@@ -50,8 +49,12 @@ public class LightOff : MonoBehaviour
     [Header("進行度（ミッション）")]
     public HintText HintRef;
     public bool AutoFindHintRef = true;
-    public int AdvanceAmountOnOff = 1;                      // 暖色化で進む
-    public int DecreaseAmountOnOn = 1;                      // 点灯で下がる
+
+    [Tooltip("暖色化で進む量（>=1 推奨）")]
+    public int AdvanceAmountOnOff = 1;
+
+    [Tooltip("点灯で下げる量（>=1 なら減る）")]
+    public int DecreaseAmountOnOn = 0;
 
     [Tooltip("同じライトでは最初の“暖色化”だけを進行度にカウントする")]
     public bool CountOnlyOncePerThisLight = false;
@@ -85,12 +88,13 @@ public class LightOff : MonoBehaviour
     private void Awake()
     {
         input = new InputSystem_Actions();
+
         if (AutoFindHintRef && !HintRef)
         {
 #if UNITY_2023_1_OR_NEWER
             HintRef = UnityEngine.Object.FindAnyObjectByType<HintText>(FindObjectsInactive.Include);
 #else
-            HintRef = FindObjectOfType<HintText>(true);
+            HintRef = GameObject.FindObjectOfType<HintText>(true);
 #endif
         }
 
@@ -125,8 +129,8 @@ public class LightOff : MonoBehaviour
             PromptText.text = OnLight ? PromptOn : PromptOff;
         }
 
-        // 入力
-        if (inRange && !_isLeverAnimating && !IsLocked() && input.Player.Jump.triggered) // Jump=インタラクト
+        // 入力（Jump=インタラクト）
+        if (inRange && !_isLeverAnimating && !IsLocked() && input.Player.Jump.triggered)
         {
             if (OnLight) Off(); else On();
         }
@@ -151,24 +155,24 @@ public class LightOff : MonoBehaviour
         if (Time.time - _lastToggleTime < ToggleDebounceSeconds) return;
         _lastToggleTime = Time.time;
 
-        // 順番：押す＞時間止める＞レバー＞カメラ切替＞色変える＞数秒待つ＞カメラ戻す＞時間戻す
+        // 順番：押す＞時間止める＞レバー＞カメラ切替＞色変える＞待機＞カメラ戻す＞時間戻す
         if (lever && RotateLever != 0f)
         {
             if (!_isLeverAnimating) StartCoroutine(CoRotateLeverThenShowcaseThenWarmify());
             return;
         }
 
-        // レバー無し：カメラ切替＞色＞待つ＞戻す＞時間戻す
+        // レバー無し：カメラ切替＞色＞待機＞戻す＞時間戻す
         StartCoroutine(CoOnlyShowcaseThenWarmify());
     }
 
-    // レバーあり：押す＞時間止める＞レバー＞カメラ切替＞色＞待つ＞カメラ戻す＞時間戻す
+    // レバーあり
     private System.Collections.IEnumerator CoRotateLeverThenShowcaseThenWarmify()
     {
         _isLeverAnimating = true;
-        PauseGameForLever();                                // ★時間停止
+        PauseGameForLever();
 
-        // レバー回転（Xのみ、停止中でも進む）
+        // レバー回転
         Transform tf = lever.transform;
         Vector3 euler = tf.localEulerAngles;
         float startX = euler.x;
@@ -185,35 +189,27 @@ public class LightOff : MonoBehaviour
         }
         euler = tf.localEulerAngles; euler.x = endX; tf.localEulerAngles = euler;
 
-        // カメラ切替（メイン→見せ）
+        // カメラ切替→暖色→見せ→戻す
         SwitchToShowcaseCamera();
-
-        // 直ちに色変更
         DoWarmifyInternal();
-
-        // “見せ”のための待機（実時間）
         yield return new WaitForSecondsRealtime(Mathf.Max(0f, ShowcaseHoldSeconds));
-
-        // カメラ戻す（見せ→メイン）
         SwitchBackToMainCamera();
 
         _isLeverAnimating = false;
-
-        // 最後に時間再開
         ResumeGameIfPausedForLever();
     }
 
-    // レバー無し：カメラ切替＞色＞待つ＞戻す＞時間戻す
+    // レバー無し
     private System.Collections.IEnumerator CoOnlyShowcaseThenWarmify()
     {
-        PauseGameForLever();                                // ★時間停止
+        PauseGameForLever();
 
         SwitchToShowcaseCamera();
         DoWarmifyInternal();
         yield return new WaitForSecondsRealtime(Mathf.Max(0f, ShowcaseHoldSeconds));
         SwitchBackToMainCamera();
 
-        ResumeGameIfPausedForLever();                       // ★時間再開
+        ResumeGameIfPausedForLever();
     }
 
     // 暖色化（enabledは触らず色のみ）
@@ -225,26 +221,40 @@ public class LightOff : MonoBehaviour
             l.color = WarmLightColor;                       // ★ 暖かい色を適用
         }
 
-        OnLight = false;                                    // UIテキスト上の“OFF側”扱い
+        OnLight = false;                                    // UI上の“OFF側”扱い
         Debug.Log("ライトを暖色にした");
 
         if (Ghost) Destroy(Ghost.gameObject);               // 任意：暖色化時にゴースト破棄
 
         ShowEventMessage(MsgTurnedOff);
 
-        // 進行度（必要なら一回きり）
-        if (!CountOnlyOncePerThisLight || (CountOnlyOncePerThisLight && !_alreadyCounted))
+        // ===== 進行度を上げる（ここが本命） =====
+        if (HintRef && AdvanceAmountOnOff > 0)
         {
-            if (HintRef && AdvanceAmountOnOff > 0)
+            // 一回きりオプション
+            if (!CountOnlyOncePerThisLight || (CountOnlyOncePerThisLight && !_alreadyCounted))
             {
+                int before = HintRef.ProgressStage;
                 for (int i = 0; i < AdvanceAmountOnOff; i++)
                     HintRef.AdvanceProgress();
+                int after = HintRef.ProgressStage;
+
+                Debug.Log($"[LightOff] Warmify: stage {before} -> {after} (HintRef={HintRef.GetInstanceID()})");
+
+                // （任意）Tutorial に手動再適用を促す保険
+                var tut = FindObjectOfType<Tutorial>(true);
+                if (tut) tut.ReapplyDoorByCurrentProgress();
+
+                _alreadyCounted = true;
             }
-            _alreadyCounted = true;
+        }
+        else
+        {
+            Debug.LogWarning("[LightOff] HintRef が未設定、または AdvanceAmountOnOff <= 0 のため進行度が上がりません。");
         }
     }
 
-    // ========= 全ライトON：進行度－＆固定ONロック =========
+    // ========= 全ライトON：進行度を下げる（任意） =========
     void On()
     {
         if (IsLocked()) return;
@@ -258,13 +268,18 @@ public class LightOff : MonoBehaviour
         }
         OnLight = true;
         Debug.Log("ライトを点けた");
-
         ShowEventMessage(MsgTurnedOn);
 
         if (HintRef && DecreaseAmountOnOn > 0)
         {
+            int before = HintRef.ProgressStage;
             for (int i = 0; i < DecreaseAmountOnOn; i++)
                 HintRef.SetProgress(HintRef.ProgressStage - 1);
+            int after = HintRef.ProgressStage;
+            Debug.Log($"[LightOff] Turn ON: stage {before} -> {after} (HintRef={HintRef.GetInstanceID()})");
+
+            var tut = FindObjectOfType<Tutorial>(true);
+            if (tut) tut.ReapplyDoorByCurrentProgress();
         }
 
         _lockedOn = true;                                   // 以降は無反応
@@ -296,6 +311,6 @@ public class LightOff : MonoBehaviour
         if (!MsgText) return;
         MsgText.text = msg;
         MsgText.gameObject.SetActive(true);
-        _msgTimer = Mathf.Max(0.01f, EventMsgDuration);     // timeScaleの影響を受ける
+        _msgTimer = Mathf.Max(0.01f, EventMsgDuration);
     }
 }
