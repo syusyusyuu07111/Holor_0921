@@ -1,5 +1,3 @@
-using NUnit.Framework.Interfaces;
-using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -10,13 +8,10 @@ public class ItemDetailUManager : MonoBehaviour
     [SerializeField] private GameObject _panel;          // 詳細ウィンドウ全体
     [SerializeField] private Image _icon;                // アイコン画像
     [SerializeField] private TMP_Text _nameText;         // アイテム名
-    [SerializeField] private TMP_Text _descText;         // アイテム説明
-    [SerializeField] private TMP_Text _amountText;       // 所持数など（任意）
+    [SerializeField] private TMP_Text _explanatoryText;  // アイテム説明
 
     private bool _isOpen = false;                        // 現在ウィンドウが開いているか
-    private bool _isTime = false;                        //タイムスケールの0，1
 
-    private Coroutine _closeRoutine;
     public bool IsOpen => _isOpen;                       //外部から読み取れるように
 
 
@@ -34,7 +29,6 @@ public class ItemDetailUManager : MonoBehaviour
     /// </summary>
     public void ShowItem(GameObject itemObject)
     {
-        Debug.Log("ShowItem");
         if (itemObject == null) return;
 
         var data = itemObject.GetComponent<ItemDate>();
@@ -45,10 +39,9 @@ public class ItemDetailUManager : MonoBehaviour
         }
 
         // --- UIに反映 ---
-        if (_icon != null) _icon.sprite = data.icon;
-        if (_nameText != null) _nameText.text = data.itemName;
-        if (_descText != null) _descText.text = data.description;
-        if (_amountText != null) _amountText.text = $"x{data.amount}";
+        if (_icon != null) _icon.sprite = data.icon;//アイコン画像の表示
+        if (_nameText != null) _nameText.text = data.itemName;//アイテム名
+        if (_explanatoryText != null) _explanatoryText.text = data.explanatoryText;//アイテムテキスト
 
         // --- パネル表示 ---
         _panel.SetActive(true);
