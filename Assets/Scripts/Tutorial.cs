@@ -33,6 +33,9 @@ public class Tutorial : MonoBehaviour
     [Header("制御対象（OpenDoor のみ）")]
     public List<OpenDoor> DoorScripts = new();
     private int _lastAppliedProgress = int.MinValue;
+    // ========== ドア：一度解除したら永続で有効にするフラグ ==========
+    private bool _doorUnlockedOnce = false;
+    private bool _doorUnlockPendingAfterLights = false;
 
     // ========== ドア：ロック時の入力フック（Step2 トリガ） ==========
     [Header("ドア：ロック時の入力フック")]
@@ -592,7 +595,37 @@ public class Tutorial : MonoBehaviour
     private void ApplyDoorEnableByProgress(int progress)
     {
         _lastAppliedProgress = progress;
-        bool enableDoor = progress >= MinProgressToEnableDoor;
+        bool unlockedByProgress = progress >= MinProgressToEnableDoor;
+        if (unlockedByProgress)
+        {
+            _doorUnlockPendingAfterLights = true;
+        }
+        else if (!_doorUnlockedOnce)
+        {
+            _doorUnlockPendingAfterLights = false;
+        }
+
+        ApplyDoorEnableState(false);
+    }
+
+    private void OnProgressChanged(int newProgress) => ApplyDoorEnableByProgress(newProgress);
+
+    // ========== ドア：ライト消灯後の解放 ==========
+    public void UnlockDoorAfterLightsDim()
+    {
+        if (_doorUnlockedOnce) return;
+        if (!_doorUnlockPendingAfterLights && MinProgressToEnableDoor > 0) return;
+
+        _doorUnlockedOnce = true;
+        _doorUnlockPendingAfterLights = false;
+
+        ApplyDoorEnableState(true);
+    }
+
+    // ========== ドア：制御対象の enabled を更新 ==========
+    private void ApplyDoorEnableState(bool allowUnlockAnnouncement)
+    {
+        bool enableDoor = _doorUnlockedOnce;
 
         bool anyJustEnabled = false;
         for (int i = 0; i < DoorScripts.Count; i++)
@@ -605,15 +638,12 @@ public class Tutorial : MonoBehaviour
             if (!wasEnabled && enableDoor) anyJustEnabled = true;
         }
 
-        // いまロック解除された → 一度だけテキスト（パネル中は出さない）
-        if (enableDoor && anyJustEnabled && !_didAnnounceDoorUnlocked && !_pauseGate)
+        if (allowUnlockAnnouncement && anyJustEnabled && !_didAnnounceDoorUnlocked && !_pauseGate)
         {
             ShowOneShot(string.IsNullOrEmpty(DoorUnlockedMessage) ? "ドアが開いたようだ" : DoorUnlockedMessage);
             _didAnnounceDoorUnlocked = true;
         }
     }
-
-    private void OnProgressChanged(int newProgress) => ApplyDoorEnableByProgress(newProgress);
 
     // ========== Hint 連携：全部開示トリガ ==========
     private void OnHintAllRevealed(string id)
