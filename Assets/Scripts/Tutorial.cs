@@ -33,6 +33,8 @@ public class Tutorial : MonoBehaviour
     [Header("制御対象（OpenDoor のみ）")]
     public List<OpenDoor> DoorScripts = new();
     private int _lastAppliedProgress = int.MinValue;
+    // ========== ドア：一度解除したら永続で有効にするフラグ ==========
+    private bool _doorUnlockedOnce = false;
 
     // ========== ドア：ロック時の入力フック（Step2 トリガ） ==========
     [Header("ドア：ロック時の入力フック")]
@@ -592,7 +594,10 @@ public class Tutorial : MonoBehaviour
     private void ApplyDoorEnableByProgress(int progress)
     {
         _lastAppliedProgress = progress;
-        bool enableDoor = progress >= MinProgressToEnableDoor;
+        bool unlockedByProgress = progress >= MinProgressToEnableDoor;
+        if (unlockedByProgress) _doorUnlockedOnce = true;
+
+        bool enableDoor = _doorUnlockedOnce;
 
         bool anyJustEnabled = false;
         for (int i = 0; i < DoorScripts.Count; i++)
@@ -606,7 +611,7 @@ public class Tutorial : MonoBehaviour
         }
 
         // いまロック解除された → 一度だけテキスト（パネル中は出さない）
-        if (enableDoor && anyJustEnabled && !_didAnnounceDoorUnlocked && !_pauseGate)
+        if (unlockedByProgress && anyJustEnabled && !_didAnnounceDoorUnlocked && !_pauseGate)
         {
             ShowOneShot(string.IsNullOrEmpty(DoorUnlockedMessage) ? "ドアが開いたようだ" : DoorUnlockedMessage);
             _didAnnounceDoorUnlocked = true;
