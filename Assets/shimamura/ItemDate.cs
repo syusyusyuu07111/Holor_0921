@@ -5,8 +5,6 @@ public class ItemDate : MonoBehaviour
 {
 
     public string itemName;
-    public string description;
-    public Sprite icon;
-    public int amount = 1;
-   
+    public string explanatoryText;
+    public Sprite icon;  
 }
