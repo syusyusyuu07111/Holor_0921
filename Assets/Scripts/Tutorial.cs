@@ -71,6 +71,10 @@ public class Tutorial : MonoBehaviour
     private bool _didStep3 = false;                // 抽選開始したか
     private bool _step3TextShown = false;          // Step3Lines を一度だけ
 
+    [Header("レバー出現制御")]
+    public List<GameObject> LeversActivateOnFirstGhost = new();
+    private bool _leversRevealed = false;
+
     // ========== 前段チュートリアル（移動／視点／ダッシュ） ==========
     [Header("前段チュートリアル（移動／視点／ダッシュ）")]
     public bool EnableBasicTutorial = true;        // セーブなしなので毎回ここで制御
@@ -201,6 +205,8 @@ public class Tutorial : MonoBehaviour
             for (int i = 0; i < Spawners.Count; i++)
                 if (Spawners[i]) Spawners[i].OnGhostSpawned.AddListener(OnAnyGhostSpawned_FirstTime);
         }
+
+        if (!_leversRevealed) SetLeversActive(false);
     }
 
     private void OnDisable()
@@ -227,6 +233,15 @@ public class Tutorial : MonoBehaviour
         {
             for (int i = 0; i < Spawners.Count; i++)
                 if (Spawners[i]) Spawners[i].OnGhostSpawned.RemoveListener(OnAnyGhostSpawned_FirstTime);
+        }
+    }
+
+    private void SetLeversActive(bool active)
+    {
+        if (LeversActivateOnFirstGhost == null) return;
+        for (int i = 0; i < LeversActivateOnFirstGhost.Count; i++)
+        {
+            if (LeversActivateOnFirstGhost[i]) LeversActivateOnFirstGhost[i].SetActive(active);
         }
     }
 
@@ -467,6 +482,13 @@ public class Tutorial : MonoBehaviour
     private void OnAnyGhostSpawned_FirstTime()
     {
         if (!IsEventAllowed()) return;
+
+        if (!_leversRevealed)
+        {
+            _leversRevealed = true;
+            SetLeversActive(true);
+        }
+
         if (_step3TextShown) return;
         _step3TextShown = true;
 
