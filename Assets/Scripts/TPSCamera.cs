@@ -148,6 +148,14 @@ public class TPSCamera : MonoBehaviour
     {
         if (!ControlEnable || cam == null || Pivot == null) return;
 
+        // =========== 時間停止中はカメラ更新を止めて補間のNaN化を防ぐ挙動 ===========
+        if (Time.deltaTime <= Mathf.Epsilon)
+        {
+            _pitchVel = 0f;
+            _camVel = Vector3.zero;
+            return;
+        }
+
         // 入力
         Vector2 look = input.Player.Look.ReadValue<Vector2>();
         bool usingGamepad =
