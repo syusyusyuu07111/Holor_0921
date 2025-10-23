@@ -253,7 +253,8 @@ public class Tutorial : MonoBehaviour
     private void Start()
     {
         if (BottomText) { BottomText.text = ""; BottomText.gameObject.SetActive(false); }
-        if (TutoriaSkipText) TutoriaSkipText.enabled = true;
+        //if (TutoriaSkipText) TutoriaSkipText.enabled = true;
+        if (TutoriaSkipText) TutoriaSkipText.enabled = (EnableBasicTutorial && !_basicDone);
         if (Step4Panel_StateAny) Step4Panel_StateAny.SetActive(false);
         if (Step5Panel_State2) Step5Panel_State2.SetActive(false);
         if (HidePanel) HidePanel.SetActive(false);
@@ -355,6 +356,7 @@ public class Tutorial : MonoBehaviour
             BottomText.gameObject.SetActive(true);
             BottomText.text = BasicDoneText;
         }
+        if (TutoriaSkipText) TutoriaSkipText.enabled = false;
 
         Step1();
         if (EnableDoorMission) StartDoorMissionIfNeeded();
@@ -870,6 +872,7 @@ public class Tutorial : MonoBehaviour
 
         _basicDone = true;
         _basicRunning = false;
+        if (TutoriaSkipText) TutoriaSkipText.enabled = false;
 
         if (_pendingHidePanel)
         {
