@@ -1,0 +1,31 @@
+# Unity generated (�ǐՂ��Ȃ�)
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+MemoryCaptures/
+Recordings/
+
+# �r���h���ʕ�
+Build_*/
+*.apk
+*.aab
+*.unitypackage
+*BurstDebugInformation*/
+
+# IDE / �c�[��
+.vs/
+.vscode/
+.idea/
+.gradle/
+
+# VS/Unity ���Đ�������v���W�F�N�g�n
+*.csproj
+*.sln
+*.user
+*.pidb
+*.DotSettings.user
+Assets/TextMesh Pro/Resources/Fonts & Materials/AkazukiPOP SDF.asset
