@@ -1533,7 +1533,6 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 287429235}
-  - {fileID: 283837258}
   - {fileID: 1378993543}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -4718,72 +4717,6 @@ Transform:
   - {fileID: 1990483530}
   m_Father: {fileID: 901311486}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1001 &283837257
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 68349563}
-    m_Modifications:
-    - target: {fileID: -8679921383154817045, guid: 657b9de56644e4e499fd981bcd98d54c, type: 3}
-      propertyPath: m_LocalScale.y
-      value: 0.1
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 657b9de56644e4e499fd981bcd98d54c, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 8.158471
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 657b9de56644e4e499fd981bcd98d54c, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: -9.763
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 657b9de56644e4e499fd981bcd98d54c, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 1.71
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 657b9de56644e4e499fd981bcd98d54c, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 657b9de56644e4e499fd981bcd98d54c, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 657b9de56644e4e499fd981bcd98d54c, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 657b9de56644e4e499fd981bcd98d54c, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 657b9de56644e4e499fd981bcd98d54c, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 657b9de56644e4e499fd981bcd98d54c, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 657b9de56644e4e499fd981bcd98d54c, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 919132149155446097, guid: 657b9de56644e4e499fd981bcd98d54c, type: 3}
-      propertyPath: m_Name
-      value: BgMD_carpet_red (3)
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 657b9de56644e4e499fd981bcd98d54c, type: 3}
---- !u!4 &283837258 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 657b9de56644e4e499fd981bcd98d54c, type: 3}
-  m_PrefabInstance: {fileID: 283837257}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &285738712
 GameObject:
   m_ObjectHideFlags: 0
@@ -13792,7 +13725,7 @@ MonoBehaviour:
   HintRef: {fileID: 1534714873}
   AutoFindHintRef: 1
   AdvanceAmountOnOff: 1
-  DecreaseAmountOnOn: 1
+  DecreaseAmountOnOn: 0
   CountOnlyOncePerThisLight: 0
   ToggleDebounceSeconds: 0.25
 --- !u!114 &788558995
@@ -14139,9 +14072,6 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       insertIndex: -1
       addedObject: {fileID: 956023719}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 956023720}
   m_SourcePrefab: {fileID: 100100000, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
 --- !u!1 &807589548
 GameObject:
@@ -16980,31 +16910,6 @@ PlayableDirector:
   m_ExposedReferences:
     m_References:
     - 2a294069147d21446a77785ad6141e04: {fileID: 956023711}
---- !u!114 &956023720
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 956023711}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a3a08ec567ae7dc4496d9572c4a59f4e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  prefsKey: GAME_STATE_V1
-  checkpointKey: CHECKPOINT_V1
-  Data:
-    tutorialCleared: 0
-    basicDone: 0
-    doorMissionStage: 0
-    missionVisible: 0
-    missionText: 
-    hintProgressStage: 0
-    didStep4: 0
-    didStep5: 0
-    didHidePanel: 0
-    lightsActivatedAfterM3: 0
 --- !u!4 &958501860 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 9ccb15c75ac03544f9afb6cdbe628d46, type: 3}
@@ -28254,6 +28159,7 @@ MonoBehaviour:
   - "\u3068\u306B\u304B\u304F\u3001\u51FA\u53E3\u3092\u63A2\u3055\u306A\u3044\u3068\u3002"
   Step3Lines:
   - "\u2026\u2026\u4F55\u304B\u97F3\u304C\u3057\u305F\u305E\uFF01\u5468\u308A\u3092\u898B\u6E21\u3057\u3066\u307F\u3088\u3046\uFF01"
+  DoorLockedMessage: "\u30C9\u30A2\u306B\u546A\u3044\u304C\u304B\u304B\u3063\u3066\u3044\u3066\u89E6\u308C\u308B\u3053\u3068\u304C\u3067\u304D\u306A\u3044"
   DoorUnlockedMessage: "\u5E7D\u970A\u304C\u30C9\u30A2\u306E\u546A\u3044\u3092\u89E3\u3044\u3066\u304F\u308C\u305F\u3088\u3046\u3060"
   HintRef: {fileID: 1534714873}
   AutoFindHintRef: 1
@@ -28264,7 +28170,6 @@ MonoBehaviour:
   DoorInteractDistance: 1.6
   DoorRequireFacingSide: 0
   DoorFacingDotThreshold: 0
-  DoorLockedMessage: "\u30C9\u30A2\u306B\u546A\u3044\u304C\u304B\u304B\u3063\u3066\u3044\u3066\u89E6\u308C\u308B\u3053\u3068\u304C\u3067\u304D\u306A\u3044"
   DoorLockedCooldown: 3
   Step4Panel_StateAny: {fileID: 1804235}
   Step5Panel_State2: {fileID: 1893773540}
