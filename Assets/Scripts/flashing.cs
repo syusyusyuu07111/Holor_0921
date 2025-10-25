@@ -3,38 +3,40 @@
 public class flashing : MonoBehaviour
 {
     // ==== 調整用（Inspector） ====
-    [Header("二値フラッシュ（0/100）")]
-    public float offIntensity = 0f;     // 暗転（0）
-    public float onIntensity = 100f;   // 点灯（100）
+    [Header("二値フラッシュ（通常ON→一瞬OFF）")]
+    public float onIntensity = 100f;    // ふだんの明るさ（ついてる状態）
+    public float offIntensity = 0f;     // 一瞬だけ落とす明るさ（ほぼ真っ暗）
 
     [Header("基本テンポ")]
-    public float baseInterval = 5.0f;   // 1発ごとの基準間隔（秒）…「5秒に一回」
-    [Range(0f, 0.9f)] public float intervalJitter = 0.2f; // 間隔のブレ率（±20%）
+    public float baseInterval = 5.0f;   // 何秒ごとに一回ビクッと落ちるか（平均）
+    [Range(0f, 0.9f)] public float intervalJitter = 0.2f; // 間隔のブレ率（±20%とか）
 
-    [Header("点灯時間（チカッと）")]
-    public Vector2 onHold = new Vector2(0.06f, 0.12f); // 明るい状態の保持時間（短め）
+    [Header("消灯してる時間（ブツッ…）")]
+    public Vector2 offHold = new Vector2(0.06f, 0.12f); // 暗いままにする時間のランダム幅
 
     [Header("時間の種類")]
     public bool useUnscaledTime = false; // ポーズ中も動かすなら true
 
     // ==== 内部 ====
     private Light _light;
-    private float lightStrength;   // 現在強度（0 or 100）
-    private bool _isOn;           // 現在が点灯か
-    private float _tNext;          // 次に切り替える時刻
+    private bool _isOffNow = false; // 今が消灯中か
+    private float _tNext;           // 次に状態を切り替える時刻
 
     void Start()
     {
         _light = GetComponent<Light>();
-        if (!_light) { enabled = false; return; }
+        if (!_light)
+        {
+            enabled = false;
+            return;
+        }
 
-        // 初期化（開始は暗転）
-        _isOn = false;
-        lightStrength = offIntensity;
-        Apply(lightStrength);
+        // スタート時は「通常点いてる」
+        _isOffNow = false;
+        Apply(onIntensity);
 
-        // 最初の「次の点灯」を予約（= baseInterval 付近で1発目）
-        _tNext = Now() + NextOffDuration();
+        // 最初の「一瞬落ちるタイミング」を予約
+        _tNext = Now() + NextOnDuration();
     }
 
     void Update()
@@ -43,38 +45,44 @@ public class flashing : MonoBehaviour
 
         if (Now() >= _tNext)
         {
-            if (_isOn)
+            if (_isOffNow)
             {
-                // 点灯終了 → 消灯に戻す → 次の点灯までの“長い間”を予約
-                _isOn = false;
-                lightStrength = offIntensity;
-                Apply(lightStrength);
-                _tNext = Now() + NextOffDuration();
+                // 今OFF中 → ONに戻す
+                _isOffNow = false;
+                Apply(onIntensity);
+
+                // 次の「一瞬OFF」が来るタイミングを決める（数秒〜）
+                _tNext = Now() + NextOnDuration();
             }
             else
             {
-                // 消灯 → 一瞬だけ点灯 → 点灯終わり時刻を予約
-                _isOn = true;
-                lightStrength = onIntensity;
-                Apply(lightStrength);
-                _tNext = Now() + Random.Range(onHold.x, onHold.y);
+                // 今ON中 → 一瞬だけOFFに落とす
+                _isOffNow = true;
+                Apply(offIntensity);
+
+                // どれくらい落ちたままにするか（短い）
+                float hold = Random.Range(offHold.x, offHold.y);
+                _tNext = Now() + Mathf.Max(0.001f, hold);
             }
         }
     }
 
-    // 次の「消灯中の長い間隔」を決める（5秒±ジッター）
-    float NextOffDuration()
+    // 次に「一瞬OFFするまでどれくらいONを維持するか」
+    // baseInterval に ±jitter かけた値
+    float NextOnDuration()
     {
-        float jitter = 1f + Random.Range(-intervalJitter, intervalJitter);
+        float jitter = 1f + Random.Range(-intervalJitter, intervalJitter); // 0.8〜1.2とか
         float dur = Mathf.Max(0.001f, baseInterval * jitter);
-        // onHold 分は“点灯側”で消費するので、そのまま dur を使う（= チカッが5秒ごとに来る体感）
         return dur;
     }
 
     // 現在時刻（scaled / unscaled 切替）
-    float Now() => useUnscaledTime ? Time.unscaledTime : Time.time;
+    float Now()
+    {
+        return useUnscaledTime ? Time.unscaledTime : Time.time;
+    }
 
-    // 強度を反映（完全二値：補間なし）
+    // Lightの明るさだけ切り替える（スナップ、補間なし）
     void Apply(float value)
     {
         _light.intensity = value;
@@ -82,13 +90,13 @@ public class flashing : MonoBehaviour
 
     void OnValidate()
     {
-        // 強度の妥当化
-        if (offIntensity < 0f) offIntensity = 0f;
+        // 明るさの妥当化
         if (onIntensity < 0f) onIntensity = 0f;
+        if (offIntensity < 0f) offIntensity = 0f;
 
-        // 点灯時間の妥当化
-        if (onHold.x < 0f) onHold.x = 0f;
-        if (onHold.y < onHold.x) onHold.y = onHold.x + 0.001f;
+        // OFF時間の妥当化
+        if (offHold.x < 0f) offHold.x = 0f;
+        if (offHold.y < offHold.x) offHold.y = offHold.x + 0.001f;
 
         // 間隔の妥当化
         if (baseInterval < 0.01f) baseInterval = 0.01f;
