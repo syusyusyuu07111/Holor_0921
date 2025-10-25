@@ -69,9 +69,15 @@ public class Tutorial : MonoBehaviour
     private bool _didStep3 = false;
     private bool _step3TextShown = false;
 
+    // ========== レバー出現制御 ==========
     [Header("レバー出現制御")]
     public List<GameObject> LeversActivateOnFirstGhost = new();
     private bool _leversRevealed = false;
+
+    // MutteringToLine 側から呼んでもらう用
+    // (MutteringToLine.OnMutterShown -> Tutorial.OnLeverTriggerMutterShown という流れ)
+    [Header("MutteringToLine(レバー解禁トリガ用)")]
+    public MutteringToLine LeverTriggerMutter;
 
     // ========== 前段チュートリアル ==========
     [Header("前段チュートリアル（移動／視点／ダッシュ）")]
@@ -159,7 +165,7 @@ public class Tutorial : MonoBehaviour
         ApplyDoorEnableByProgress(HintRef ? HintRef.ProgressStage : 0);
     }
 
-    //=========== ドア関連公開API ===========//
+    //=========== ドア関連公開API ===========
     public void ForceUnlockDoors()
     {
         _doorUnlockedOnce = true;
@@ -204,9 +210,21 @@ public class Tutorial : MonoBehaviour
 
         if (EnableDoorMission) StartDoorMissionIfNeeded();
 
+        // 幽霊スポナーのイベント登録（テキスト演出用）
         if (Spawners != null)
+        {
             for (int i = 0; i < Spawners.Count; i++)
-                if (Spawners[i]) Spawners[i].OnGhostSpawned.AddListener(OnAnyGhostSpawned_FirstTime);
+            {
+                if (Spawners[i])
+                    Spawners[i].OnGhostSpawned.AddListener(OnAnyGhostSpawned_FirstTime);
+            }
+        }
+
+        // レバー出現トリガ (MutteringToLine 側の OnMutterShown を拾う)
+        if (LeverTriggerMutter != null)
+        {
+            LeverTriggerMutter.OnMutterShown.AddListener(OnLeverTriggerMutterShown);
+        }
 
         if (!_leversRevealed) SetLeversActive(false);
     }
@@ -232,8 +250,18 @@ public class Tutorial : MonoBehaviour
         if (Time.timeScale == 0f) Time.timeScale = 1f;
 
         if (Spawners != null)
+        {
             for (int i = 0; i < Spawners.Count; i++)
-                if (Spawners[i]) Spawners[i].OnGhostSpawned.RemoveListener(OnAnyGhostSpawned_FirstTime);
+            {
+                if (Spawners[i])
+                    Spawners[i].OnGhostSpawned.RemoveListener(OnAnyGhostSpawned_FirstTime);
+            }
+        }
+
+        if (LeverTriggerMutter != null)
+        {
+            LeverTriggerMutter.OnMutterShown.RemoveListener(OnLeverTriggerMutterShown);
+        }
     }
 
     private void OnDestroy()
@@ -255,12 +283,12 @@ public class Tutorial : MonoBehaviour
     private void Start()
     {
         if (BottomText) { BottomText.text = ""; BottomText.gameObject.SetActive(false); }
-        //if (TutoriaSkipText) TutoriaSkipText.enabled = true;
         if (TutoriaSkipText) TutoriaSkipText.enabled = (EnableBasicTutorial && !_basicDone);
         if (Step4Panel_StateAny) Step4Panel_StateAny.SetActive(false);
         if (Step5Panel_State2) Step5Panel_State2.SetActive(false);
         if (HidePanel) HidePanel.SetActive(false);
 
+        // 最初は湧き止めておく
         if (Spawners != null)
             for (int i = 0; i < Spawners.Count; i++)
                 if (Spawners[i]) Spawners[i].StopSpawning();
@@ -279,6 +307,9 @@ public class Tutorial : MonoBehaviour
         if (HideLightsUntilMission3 && LightsToToggle != null)
             for (int i = 0; i < LightsToToggle.Count; i++)
                 if (LightsToToggle[i]) LightsToToggle[i].SetActive(false);
+
+        // レバーは基本非表示スタートでOK
+        if (!_leversRevealed) SetLeversActive(false);
     }
 
     private void Update()
@@ -347,41 +378,33 @@ public class Tutorial : MonoBehaviour
 
     private void ForceSkipBasicTutorialNow()
     {
-        // いままで走ってた全コルーチン(CoRunBasicTutorial内のCoTypeOneなど含む)を止める
+        // 走ってるコルーチンを一旦全部止める
         StopAllCoroutines();
 
-        // 基本チュートリアル管理用の参照をクリア
         _basicCo = null;
         _typing = null;
 
-        // 基本チュートリアル状態を強制的に終了扱いにする
         _basicRunning = false;
         _basicDone = true;
 
-        // 「準備完了」を一度だけ表示
+        // 「準備完了。」を出す
         if (BottomText)
         {
             BottomText.gameObject.SetActive(true);
             BottomText.text = BasicDoneText;
         }
 
-        // スキップ案内テキストは消す
         if (TutoriaSkipText) TutoriaSkipText.enabled = false;
 
-        // このあと本編( Step1 / ミッション開始 )に入るのは別コルーチンで少し遅らせて実行する
+        // 一呼吸おいてから本編Step1開始
         StartCoroutine(CoAfterSkipStartStep1());
     }
 
-    // スキップ後：「準備完了」を一定時間見せてから本編Step1に入る
     private IEnumerator CoAfterSkipStartStep1()
     {
-        // Time.timeScaleが0でも待てるようにRealtimeで待つ
         yield return new WaitForSecondsRealtime(SkipDoneHoldSeconds);
 
-        // ここから本編チュートリアル（Step1）開始
         Step1();
-
-        // ミッション開始チェック
         if (EnableDoorMission) StartDoorMissionIfNeeded();
     }
 
@@ -412,16 +435,13 @@ public class Tutorial : MonoBehaviour
             var od = DoorScripts[i];
             if (!od) continue;
 
-            // ロック中だけ案内を出す。OpenDoor に IsLocked があればそれを使う
             bool locked = true;
             try { locked = od.IsLocked; } catch { locked = !od.enabled; }
 
-            if (!locked) continue; // 既に開けられる段階ならスルー（開く操作はOpenDoor側）
+            if (!locked) continue;
 
-            // 距離
             if (Vector3.Distance(Player.position, od.transform.position) > DoorInteractDistance) continue;
 
-            // 表側チェック（必要なら）
             if (DoorRequireFacingSide)
             {
                 Vector3 toPlayer = (Player.position - od.transform.position).normalized;
@@ -433,11 +453,11 @@ public class Tutorial : MonoBehaviour
             ShowOneShot(DoorLockedMessage);
             _doorMsgCD = DoorLockedCooldown;
 
-            // ミッション：ステージ1達成
+            // ミッション進行
             if (EnableDoorMission && _doorMission == DoorMissionStage.DoorCheck)
                 AdvanceDoorMissionTo(DoorMissionStage.FindGhost);
 
-            // Step3 を予約（初回だけ）
+            // Step3 の予約（初回だけ）
             if (!_didStep2)
             {
                 _didStep2 = true;
@@ -460,16 +480,17 @@ public class Tutorial : MonoBehaviour
         _didStep3 = true;
         if (!IsEventAllowed()) return;
 
+        // ここでスポーン開始
         if (Spawners != null)
             for (int i = 0; i < Spawners.Count; i++)
                 if (Spawners[i]) Spawners[i].BeginSpawning();
     }
 
+    // 幽霊が初めて湧いた時のコールバック
+    // ※ここではもうレバーを出さない。テキスト演出だけやる
     private void OnAnyGhostSpawned_FirstTime()
     {
         if (!IsEventAllowed()) return;
-
-        if (!_leversRevealed) { _leversRevealed = true; SetLeversActive(true); }
 
         if (_step3TextShown) return;
         _step3TextShown = true;
@@ -483,6 +504,17 @@ public class Tutorial : MonoBehaviour
                 _typing = StartCoroutine(CoTypeLines(Step3Lines));
             }
         }
+    }
+
+    // MutteringToLine から呼ばれるやつ
+    // (インスペクタのイベント or コードのAddListenerで飛んでくる)
+    private void OnLeverTriggerMutterShown()
+    {
+        if (_leversRevealed) return; // もう出してたら何もしない
+
+        _leversRevealed = true;
+        SetLeversActive(true);
+        Debug.Log("[Tutorial] Lever revealed by MutteringToLine.");
     }
 
     // ========== 初見パネル ==========
@@ -565,10 +597,8 @@ public class Tutorial : MonoBehaviour
             var od = DoorScripts[i];
             if (!od) continue;
 
-            // OpenDoor は常に有効化（enableで封じるとCanOpen()自体が動かないゲームが多い）
             if (!od.enabled) od.enabled = true;
 
-            // 正式APIがあればそれでロック同期
             bool hadProperty = true;
             try
             {
@@ -582,7 +612,6 @@ public class Tutorial : MonoBehaviour
                 hadProperty = false;
             }
 
-            // 旧実装互換：プロパティ無い場合は enable で代用（推奨はしないが保険）
             if (!hadProperty)
             {
                 bool wasEnabled = od.enabled;
@@ -717,7 +746,6 @@ public class Tutorial : MonoBehaviour
             var od = DoorScripts[i];
             if (!od) continue;
 
-            // 解錠済みか確認（プロパティがあれば優先）
             bool unlocked = true;
             try { unlocked = !od.IsLocked; } catch { unlocked = od.enabled; }
             if (!unlocked) continue;
