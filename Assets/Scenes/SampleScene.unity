@@ -3681,6 +3681,7 @@ GameObject:
   - component: {fileID: 229316993}
   - component: {fileID: 229316995}
   - component: {fileID: 229316994}
+  - component: {fileID: 229316996}
   m_Layer: 0
   m_Name: Spot Light1
   m_TagString: Untagged
@@ -3791,6 +3792,24 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &229316996
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 229316992}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  onIntensity: 100
+  offIntensity: 0
+  baseInterval: 2
+  intervalJitter: 0.9
+  offHold: {x: 0.06, y: 0.12}
+  useUnscaledTime: 0
 --- !u!4 &234598971 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 11574d5107d8fe8419059a035e7f7a4b, type: 3}
@@ -4575,6 +4594,7 @@ GameObject:
   - component: {fileID: 281273391}
   - component: {fileID: 281273393}
   - component: {fileID: 281273392}
+  - component: {fileID: 281273394}
   m_Layer: 0
   m_Name: Spot Light8
   m_TagString: Untagged
@@ -4685,6 +4705,24 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &281273394
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 281273390}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  onIntensity: 100
+  offIntensity: 0
+  baseInterval: 2
+  intervalJitter: 0.9
+  offHold: {x: 0.06, y: 0.12}
+  useUnscaledTime: 0
 --- !u!1 &282598495
 GameObject:
   m_ObjectHideFlags: 0
@@ -4927,11 +4965,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  offIntensity: 0
   onIntensity: 100
+  offIntensity: 0
   baseInterval: 5
   intervalJitter: 0.2
-  onHold: {x: 0.03, y: 0.12}
+  offHold: {x: 0.06, y: 0.12}
   useUnscaledTime: 0
 --- !u!1 &283357547
 GameObject:
@@ -7079,11 +7117,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  offIntensity: 0
   onIntensity: 100
+  offIntensity: 0
   baseInterval: 5
   intervalJitter: 0.2
-  onHold: {x: 0.03, y: 0.12}
+  offHold: {x: 0.06, y: 0.12}
   useUnscaledTime: 0
 --- !u!65 &367263288
 BoxCollider:
@@ -7240,11 +7278,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  offIntensity: 0
   onIntensity: 100
+  offIntensity: 0
   baseInterval: 5
   intervalJitter: 0.2
-  onHold: {x: 0.03, y: 0.12}
+  offHold: {x: 0.06, y: 0.12}
   useUnscaledTime: 0
 --- !u!1 &374886578
 GameObject:
@@ -7879,6 +7917,7 @@ GameObject:
   - component: {fileID: 401769487}
   - component: {fileID: 401769489}
   - component: {fileID: 401769488}
+  - component: {fileID: 401769490}
   m_Layer: 0
   m_Name: Spot Light6
   m_TagString: Untagged
@@ -7989,6 +8028,24 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &401769490
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 401769486}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  onIntensity: 100
+  offIntensity: 0
+  baseInterval: 2
+  intervalJitter: 0.9
+  offHold: {x: 0.06, y: 0.12}
+  useUnscaledTime: 0
 --- !u!1 &406530638
 GameObject:
   m_ObjectHideFlags: 0
@@ -8714,6 +8771,7 @@ GameObject:
   - component: {fileID: 430584103}
   - component: {fileID: 430584105}
   - component: {fileID: 430584104}
+  - component: {fileID: 430584106}
   m_Layer: 0
   m_Name: Spot Light7
   m_TagString: Untagged
@@ -8824,6 +8882,24 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &430584106
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 430584102}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  onIntensity: 100
+  offIntensity: 0
+  baseInterval: 2
+  intervalJitter: 0.9
+  offHold: {x: 0.06, y: 0.12}
+  useUnscaledTime: 0
 --- !u!1 &431438182
 GameObject:
   m_ObjectHideFlags: 0
@@ -10181,6 +10257,7 @@ GameObject:
   - component: {fileID: 486985076}
   - component: {fileID: 486985078}
   - component: {fileID: 486985077}
+  - component: {fileID: 486985079}
   m_Layer: 0
   m_Name: Spot Light2
   m_TagString: Untagged
@@ -10291,6 +10368,24 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &486985079
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 486985075}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  onIntensity: 100
+  offIntensity: 0
+  baseInterval: 2
+  intervalJitter: 0.9
+  offHold: {x: 0.06, y: 0.12}
+  useUnscaledTime: 0
 --- !u!1 &487324546 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2638072287705615690, guid: 9264ced940604ee408e2f6a99db9ad07, type: 3}
@@ -12124,6 +12219,7 @@ GameObject:
   - component: {fileID: 640520202}
   - component: {fileID: 640520204}
   - component: {fileID: 640520203}
+  - component: {fileID: 640520205}
   m_Layer: 0
   m_Name: Spot Light1
   m_TagString: Untagged
@@ -12234,6 +12330,24 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &640520205
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 640520201}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  onIntensity: 100
+  offIntensity: 0
+  baseInterval: 2
+  intervalJitter: 0.9
+  offHold: {x: 0.06, y: 0.12}
+  useUnscaledTime: 0
 --- !u!1001 &644028254
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -12309,6 +12423,7 @@ GameObject:
   - component: {fileID: 650190406}
   - component: {fileID: 650190408}
   - component: {fileID: 650190407}
+  - component: {fileID: 650190409}
   m_Layer: 0
   m_Name: Spot Light3
   m_TagString: Untagged
@@ -12419,6 +12534,24 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &650190409
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 650190405}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  onIntensity: 100
+  offIntensity: 0
+  baseInterval: 2
+  intervalJitter: 0.9
+  offHold: {x: 0.06, y: 0.12}
+  useUnscaledTime: 0
 --- !u!1 &657220342
 GameObject:
   m_ObjectHideFlags: 0
@@ -13347,6 +13480,7 @@ GameObject:
   - component: {fileID: 687335084}
   - component: {fileID: 687335086}
   - component: {fileID: 687335085}
+  - component: {fileID: 687335087}
   m_Layer: 0
   m_Name: Spot Light7
   m_TagString: Untagged
@@ -13457,6 +13591,24 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &687335087
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 687335083}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  onIntensity: 100
+  offIntensity: 0
+  baseInterval: 2
+  intervalJitter: 0.9
+  offHold: {x: 0.06, y: 0.12}
+  useUnscaledTime: 0
 --- !u!4 &687481364 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 9005cb9fe5479ce4cb4d00f95b584bb3, type: 3}
@@ -14017,6 +14169,7 @@ GameObject:
   - component: {fileID: 736232390}
   - component: {fileID: 736232392}
   - component: {fileID: 736232391}
+  - component: {fileID: 736232393}
   m_Layer: 0
   m_Name: Spot Light6
   m_TagString: Untagged
@@ -14127,6 +14280,24 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &736232393
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 736232389}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  onIntensity: 100
+  offIntensity: 0
+  baseInterval: 2
+  intervalJitter: 0.9
+  offHold: {x: 0.06, y: 0.12}
+  useUnscaledTime: 0
 --- !u!1 &736362452
 GameObject:
   m_ObjectHideFlags: 0
@@ -16318,11 +16489,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  offIntensity: 0
   onIntensity: 100
+  offIntensity: 0
   baseInterval: 5
   intervalJitter: 0.2
-  onHold: {x: 0.03, y: 0.12}
+  offHold: {x: 0.06, y: 0.12}
   useUnscaledTime: 0
 --- !u!1 &845719444 stripped
 GameObject:
@@ -16367,11 +16538,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  offIntensity: 0
   onIntensity: 10
+  offIntensity: 0
   baseInterval: 5
   intervalJitter: 0.2
-  onHold: {x: 0.03, y: 0.12}
+  offHold: {x: 0.06, y: 0.12}
   useUnscaledTime: 0
 --- !u!4 &845929632 stripped
 Transform:
@@ -17610,11 +17781,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  offIntensity: 0
   onIntensity: 100
+  offIntensity: 0
   baseInterval: 5
   intervalJitter: 0.2
-  onHold: {x: 0.03, y: 0.12}
+  offHold: {x: 0.06, y: 0.12}
   useUnscaledTime: 0
 --- !u!1 &924504100
 GameObject:
@@ -17750,11 +17921,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  offIntensity: 0
   onIntensity: 100
+  offIntensity: 0
   baseInterval: 5
   intervalJitter: 0.2
-  onHold: {x: 0.03, y: 0.12}
+  offHold: {x: 0.06, y: 0.12}
   useUnscaledTime: 0
 --- !u!1001 &925509764
 PrefabInstance:
@@ -19707,11 +19878,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  offIntensity: 0
   onIntensity: 100
+  offIntensity: 0
   baseInterval: 5
   intervalJitter: 0.2
-  onHold: {x: 0.03, y: 0.12}
+  offHold: {x: 0.06, y: 0.12}
   useUnscaledTime: 0
 --- !u!1001 &998740444
 PrefabInstance:
@@ -26238,11 +26409,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  offIntensity: 0
   onIntensity: 100
+  offIntensity: 0
   baseInterval: 5
   intervalJitter: 0.2
-  onHold: {x: 0.03, y: 0.12}
+  offHold: {x: 0.06, y: 0.12}
   useUnscaledTime: 0
 --- !u!4 &1318291676 stripped
 Transform:
@@ -26805,6 +26976,7 @@ GameObject:
   - component: {fileID: 1361584826}
   - component: {fileID: 1361584828}
   - component: {fileID: 1361584827}
+  - component: {fileID: 1361584829}
   m_Layer: 0
   m_Name: Spot Light5
   m_TagString: Untagged
@@ -26915,6 +27087,24 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &1361584829
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1361584825}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  onIntensity: 100
+  offIntensity: 0
+  baseInterval: 2
+  intervalJitter: 0.9
+  offHold: {x: 0.06, y: 0.12}
+  useUnscaledTime: 0
 --- !u!1 &1365101599
 GameObject:
   m_ObjectHideFlags: 0
@@ -26926,6 +27116,7 @@ GameObject:
   - component: {fileID: 1365101600}
   - component: {fileID: 1365101602}
   - component: {fileID: 1365101601}
+  - component: {fileID: 1365101603}
   m_Layer: 0
   m_Name: Spot Light8
   m_TagString: Untagged
@@ -27036,6 +27227,24 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &1365101603
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1365101599}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  onIntensity: 100
+  offIntensity: 0
+  baseInterval: 2
+  intervalJitter: 0.9
+  offHold: {x: 0.06, y: 0.12}
+  useUnscaledTime: 0
 --- !u!1 &1375737368 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -7136652589025924861, guid: 9264ced940604ee408e2f6a99db9ad07, type: 3}
@@ -29328,11 +29537,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  offIntensity: 0
   onIntensity: 100
+  offIntensity: 0
   baseInterval: 5
   intervalJitter: 0.2
-  onHold: {x: 0.03, y: 0.12}
+  offHold: {x: 0.06, y: 0.12}
   useUnscaledTime: 0
 --- !u!1 &1524552800
 GameObject:
@@ -33515,11 +33724,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  offIntensity: 0
   onIntensity: 100
+  offIntensity: 0
   baseInterval: 5
   intervalJitter: 0.2
-  onHold: {x: 0.03, y: 0.12}
+  offHold: {x: 0.06, y: 0.12}
   useUnscaledTime: 0
 --- !u!1 &1689751872
 GameObject:
@@ -34231,11 +34440,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  offIntensity: 0
   onIntensity: 100
+  offIntensity: 0
   baseInterval: 5
   intervalJitter: 0.2
-  onHold: {x: 0.03, y: 0.12}
+  offHold: {x: 0.06, y: 0.12}
   useUnscaledTime: 0
 --- !u!1 &1707533796
 GameObject:
@@ -36343,6 +36552,7 @@ GameObject:
   - component: {fileID: 1831542896}
   - component: {fileID: 1831542898}
   - component: {fileID: 1831542897}
+  - component: {fileID: 1831542899}
   m_Layer: 0
   m_Name: Spot Light2
   m_TagString: Untagged
@@ -36453,6 +36663,24 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &1831542899
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1831542895}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  onIntensity: 100
+  offIntensity: 0
+  baseInterval: 2
+  intervalJitter: 0.9
+  offHold: {x: 0.06, y: 0.12}
+  useUnscaledTime: 0
 --- !u!4 &1836523329 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 6b63bb204d045ff40ae944655cd795a2, type: 3}
@@ -37060,6 +37288,7 @@ GameObject:
   - component: {fileID: 1856647608}
   - component: {fileID: 1856647610}
   - component: {fileID: 1856647609}
+  - component: {fileID: 1856647611}
   m_Layer: 0
   m_Name: Spot Light4
   m_TagString: Untagged
@@ -37170,6 +37399,24 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &1856647611
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1856647607}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  onIntensity: 100
+  offIntensity: 0
+  baseInterval: 2
+  intervalJitter: 0.9
+  offHold: {x: 0.06, y: 0.12}
+  useUnscaledTime: 0
 --- !u!1 &1857137448
 GameObject:
   m_ObjectHideFlags: 0
@@ -37221,6 +37468,7 @@ GameObject:
   - component: {fileID: 1861884747}
   - component: {fileID: 1861884749}
   - component: {fileID: 1861884748}
+  - component: {fileID: 1861884750}
   m_Layer: 0
   m_Name: Spot Light3
   m_TagString: Untagged
@@ -37331,6 +37579,24 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &1861884750
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1861884746}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  onIntensity: 100
+  offIntensity: 0
+  baseInterval: 2
+  intervalJitter: 0.9
+  offHold: {x: 0.06, y: 0.12}
+  useUnscaledTime: 0
 --- !u!1 &1866074286
 GameObject:
   m_ObjectHideFlags: 0
@@ -39989,6 +40255,7 @@ GameObject:
   - component: {fileID: 1992425481}
   - component: {fileID: 1992425483}
   - component: {fileID: 1992425482}
+  - component: {fileID: 1992425484}
   m_Layer: 0
   m_Name: Spot Light5
   m_TagString: Untagged
@@ -40099,6 +40366,24 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &1992425484
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1992425480}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  onIntensity: 100
+  offIntensity: 0
+  baseInterval: 2
+  intervalJitter: 0.9
+  offHold: {x: 0.06, y: 0.12}
+  useUnscaledTime: 0
 --- !u!1 &2000470037
 GameObject:
   m_ObjectHideFlags: 0
@@ -40627,6 +40912,7 @@ GameObject:
   - component: {fileID: 2041538667}
   - component: {fileID: 2041538669}
   - component: {fileID: 2041538668}
+  - component: {fileID: 2041538670}
   m_Layer: 0
   m_Name: Spot Light4
   m_TagString: Untagged
@@ -40737,6 +41023,24 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &2041538670
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2041538666}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  onIntensity: 100
+  offIntensity: 0
+  baseInterval: 2
+  intervalJitter: 0.9
+  offHold: {x: 0.06, y: 0.12}
+  useUnscaledTime: 0
 --- !u!4 &2044492408 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 2feec511fe739a94ba74e818deac6d7d, type: 3}
@@ -41723,11 +42027,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef0cdeb2a5a5b2e4bb8c026d4cc02f3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  offIntensity: 0
   onIntensity: 100
+  offIntensity: 0
   baseInterval: 5
   intervalJitter: 0.2
-  onHold: {x: 0.03, y: 0.12}
+  offHold: {x: 0.06, y: 0.12}
   useUnscaledTime: 0
 --- !u!4 &2117808001 stripped
 Transform:
