@@ -9,8 +9,12 @@ public class AudioManager : MonoBehaviour
     [Header("ドアを閉める音 (SE_doorclose)")]
     [SerializeField] private CriAtomSource doorCloseSource;
 
-    [Header("幽霊出現SE (CRI_CUESHEET_0_SE_GHOST_APPEAR)")]
+    [Header("幽霊出現SE (GHOST_APPEAR)")]
     [SerializeField] private CriAtomSource GhostAppearSource;
+
+    [Header("幽霊に捕まったきの音 (SE_catch)")]
+    [SerializeField] private CriAtomSource SE_catchSource;
+
 
     // ドアを開けた時のSEを鳴らす-----------------------------------------------------------------
     public void PlayDoorOpen()
@@ -48,6 +52,19 @@ public class AudioManager : MonoBehaviour
         else
         {
             Debug.LogWarning("AudioManager: GhostAppearSource が割り当てられていません。");
+        }
+    }
+    //------------------------------------------------------------------------------------------------------
+    //幽霊につかまった時のSE-------------------------------------------------------------------------------
+    public void CatchSource()
+    {
+        if (SE_catchSource != null)
+        {
+            SE_catchSource.Play();
+        }
+        else
+        {
+            Debug.LogWarning("AudioManager: SE_catchSource が割り当てられていません。");
         }
     }
 }
