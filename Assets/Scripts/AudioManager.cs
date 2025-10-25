@@ -1,23 +1,53 @@
 using UnityEngine;
 using CriWare;
+
 public class AudioManager : MonoBehaviour
 {
-    [Header("ドアを開ける音")]
-    public CriAtomSource DoorOpenSource;
+    [Header("ドアを開ける音 (SE_dooropen)")]
+    [SerializeField] private CriAtomSource doorOpenSource;
 
-    [Header("ドアを閉める音")]
-    public CriAtomSource DoorCloseSource;
+    [Header("ドアを閉める音 (SE_doorclose)")]
+    [SerializeField] private CriAtomSource doorCloseSource;
 
-    //ドアを開けた時にSEを鳴らす------------------------------------------------------------------------------
-    public void DoorOpenAudio()
+    [Header("幽霊出現SE (CRI_CUESHEET_0_SE_GHOST_APPEAR)")]
+    [SerializeField] private CriAtomSource GhostAppearSource;
+
+    // ドアを開けた時のSEを鳴らす-----------------------------------------------------------------
+    public void PlayDoorOpen()
     {
-        DoorOpenSource.Play();
+        if (doorOpenSource != null)
+        {
+            doorOpenSource.Play();
+        }
+        else
+        {
+            Debug.LogWarning("AudioManager: doorOpenSource が割り当てられていません。");
+        }
     }
-    //---------------------------------------------------------------------------------------------------------
-    //ドアをしめた時に音を鳴らす-------------------------------------------------------------------------------
-    public void DoorCloseDoor()
+    //-----------------------------------------------------------------------------------------------
+    // ドアを閉めた時のSEを鳴らす--------------------------------------------------------------------
+    public void PlayDoorClose()
     {
-        DoorCloseSource.Play();
+        if (doorCloseSource != null)
+        {
+            doorCloseSource.Play();
+        }
+        else
+        {
+            Debug.LogWarning("AudioManager: doorCloseSource が割り当てられていません。");
+        }
     }
-    //------------------------------------------------------------------------------------------------------------
+    //---------------------------------------------------------------------------------------------------
+    //幽霊が出現した時のSE-------------------------------------------------------------------------------
+    public void GHOSTAPPEAR()
+    {
+        if (GhostAppearSource != null)
+        {
+            GhostAppearSource.Play();
+        }
+        else
+        {
+            Debug.LogWarning("AudioManager: GhostAppearSource が割り当てられていません。");
+        }
+    }
 }
