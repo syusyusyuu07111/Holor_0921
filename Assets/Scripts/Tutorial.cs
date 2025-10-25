@@ -107,6 +107,8 @@ public class Tutorial : MonoBehaviour
     public bool EnableAttackSkip = true;
     public int AttackSkipRequired = 3;
     public float AttackSkipWindow = 2.0f;
+    public float SkipDoneHoldSeconds = 2.0f; // スキップ後「準備完了。」を表示しておく時間（Realtime）
+
     private int _attackSkipCount = 0;
     private float _attackSkipTimer = 0f;
 
@@ -345,20 +347,41 @@ public class Tutorial : MonoBehaviour
 
     private void ForceSkipBasicTutorialNow()
     {
-        if (_basicCo != null) { StopCoroutine(_basicCo); _basicCo = null; }
-        SkipCurrentTyping();
+        // いままで走ってた全コルーチン(CoRunBasicTutorial内のCoTypeOneなど含む)を止める
+        StopAllCoroutines();
 
+        // 基本チュートリアル管理用の参照をクリア
+        _basicCo = null;
+        _typing = null;
+
+        // 基本チュートリアル状態を強制的に終了扱いにする
         _basicRunning = false;
         _basicDone = true;
 
+        // 「準備完了」を一度だけ表示
         if (BottomText)
         {
             BottomText.gameObject.SetActive(true);
             BottomText.text = BasicDoneText;
         }
+
+        // スキップ案内テキストは消す
         if (TutoriaSkipText) TutoriaSkipText.enabled = false;
 
+        // このあと本編( Step1 / ミッション開始 )に入るのは別コルーチンで少し遅らせて実行する
+        StartCoroutine(CoAfterSkipStartStep1());
+    }
+
+    // スキップ後：「準備完了」を一定時間見せてから本編Step1に入る
+    private IEnumerator CoAfterSkipStartStep1()
+    {
+        // Time.timeScaleが0でも待てるようにRealtimeで待つ
+        yield return new WaitForSecondsRealtime(SkipDoneHoldSeconds);
+
+        // ここから本編チュートリアル（Step1）開始
         Step1();
+
+        // ミッション開始チェック
         if (EnableDoorMission) StartDoorMissionIfNeeded();
     }
 
