@@ -15,6 +15,11 @@ public class AudioManager : MonoBehaviour
     [Header("幽霊に捕まったきの音 (SE_catch)")]
     [SerializeField] private CriAtomSource SE_catchSource;
 
+    [Header("足音ループ (SE_walk / loop)")]
+    [SerializeField] private CriAtomSource SE_walk;
+
+    // 足音ループの状態を自前で覚える（ループを二重で鳴らさないため）
+    private bool isFootstepPlaying = false;
 
     // ドアを開けた時のSEを鳴らす-----------------------------------------------------------------
     public void PlayDoorOpen()
@@ -67,4 +72,35 @@ public class AudioManager : MonoBehaviour
             Debug.LogWarning("AudioManager: SE_catchSource が割り当てられていません。");
         }
     }
+    //----------------------------------------------------------------------------------------------------------
+    // 足音ループを開始（歩いてる間だけ再生したい）
+    //----------------------------------------------------------------------------------------------------------
+    public void StartFootstepLoop()
+    {
+        if (SE_walk == null)
+        {
+            Debug.LogWarning("AudioManager: SE_walk が割り当てられていません。");
+            return;
+        }
+
+        // すでに鳴ってるなら何もしない（重複スタート防止）
+        if (isFootstepPlaying) return;
+
+        SE_walk.Play();          // CriAtomSource 側でループ設定されたキューを再生
+        isFootstepPlaying = true;
+    }
+
+    //----------------------------------------------------------------------------------------------------------
+    // 足音ループを止める（立ち止まったら呼ぶ）
+    //----------------------------------------------------------------------------------------------------------
+    public void StopFootstepLoop()
+    {
+        if (SE_walk == null) return;
+
+        if (!isFootstepPlaying) return;
+
+        SE_walk.Stop();          // 再生停止
+        isFootstepPlaying = false;
+    }
+    //----------------------------------------------------------------------------------------------------------
 }
