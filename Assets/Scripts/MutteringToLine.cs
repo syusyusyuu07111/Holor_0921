@@ -1,6 +1,7 @@
 using TMPro;
 using UnityEngine;
-using System.Collections;  // コルーチン用
+using System.Collections;      // コルーチン用
+using UnityEngine.Events;      // UnityEvent用
 
 //==================================================
 // MutteringToLine
@@ -10,6 +11,7 @@ using System.Collections;  // コルーチン用
 // - 既に開示済みなら有効化時に即表示して追いつく
 // - テキストは visibleSeconds 秒後に自動で消える
 // - showOnce=true なら一度だけ
+// - OnMutterShown は「実際に今しゃべった瞬間」に発火する
 //==================================================
 public class MutteringToLine : MonoBehaviour
 {
@@ -31,6 +33,9 @@ public class MutteringToLine : MonoBehaviour
 
     [Header("表示時間(秒) (この秒数経ったら自動で消える)")]
     public float visibleSeconds = 3f;
+
+    [Header("イベント(台詞を実際に表示した瞬間に呼ばれる)")]
+    public UnityEvent OnMutterShown;
 
     // 内部状態
     private bool _fired;          // もう出したかどうか（showOnce=true用）
@@ -103,6 +108,7 @@ public class MutteringToLine : MonoBehaviour
     // 実際に台詞を画面に出すトリガ。
     // - text に line を入れてActiveにする
     // - visibleSeconds 秒後に自動で消すコルーチンを走らせる
+    // - OnMutterShown.Invoke() で外部に通知する
     //==================================================
     private void ShowNow()
     {
@@ -124,6 +130,12 @@ public class MutteringToLine : MonoBehaviour
 
         _fired = true;
         Debug.Log("[MutteringToLine] SHOWN (temp)");
+
+        // ★ ここで「今しゃべったよ」を通知
+        if (OnMutterShown != null)
+        {
+            OnMutterShown.Invoke();
+        }
     }
 
     //==================================================
