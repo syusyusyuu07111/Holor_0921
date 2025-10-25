@@ -32,8 +32,12 @@ public class EnemyAI : MonoBehaviour
 
     // ====== 登場SE ======
     [Header("登場SE")]
-    public AudioSource AudioSource;          // インスペクタでアタッチ
-    public AudioClip AudioClip;              // インスペクタでアタッチ（AudioSource.clip にも入れてOK）
+    // 以前は Unity の AudioSource / AudioClip を使っていた
+    // public AudioSource AudioSource;
+    // public AudioClip AudioClip;
+
+    [Tooltip("CRIのAudioManager。幽霊出現SEをここから鳴らす")]
+    public AudioManager AudioMgr;
 
     // ====== イベント：湧いた瞬間 ======
     [Header("イベント")]
@@ -66,34 +70,30 @@ public class EnemyAI : MonoBehaviour
     {
         if (ResetCounterOnStart) s_GlobalSpawnCount = 0;
 
-        if (AudioSource == null) AudioSource = GetComponent<AudioSource>();
-
-        // Inspectorで指定したClipをAudioSource.clipにも同期（見落とし防止）
-        if (AudioSource && AudioClip && AudioSource.clip != AudioClip)
-            AudioSource.clip = AudioClip;
+        // UnityのAudioSource系を使ってた頃の初期化は削除
+        // if (AudioSource == null) AudioSource = GetComponent<AudioSource>();
+        // if (AudioSource && AudioClip && AudioSource.clip != AudioClip)
+        //     AudioSource.clip = AudioClip;
 
         if (ForceUnpauseAudioListener) AudioListener.pause = false;
 
-        // 参考ログ
+        // デバッグログ（とりあえず生かしておく）
 #if UNITY_2023_1_OR_NEWER
         var listeners = Object.FindObjectsByType<AudioListener>(FindObjectsSortMode.None);
 #else
         var listeners = Object.FindObjectsOfType<AudioListener>();
 #endif
         Debug.Log($"[EnemyAI] Listeners={(listeners?.Length ?? 0)}, " +
-                  $"ASrc={(AudioSource ? "OK" : "null")}, " +
-                  $"Clip={(AudioClip ? AudioClip.name : "null")}, " +
-                  $"ASrc.Mute={(AudioSource ? AudioSource.mute : false)}, " +
-                  $"ASrc.Vol={(AudioSource ? AudioSource.volume : 0f):0.00}, " +
-                  $"Listener.pause={AudioListener.pause}");
+                  $"Listener.pause={AudioListener.pause}, " +
+                  $"AudioMgr={(AudioMgr ? "OK" : "null")}");
 
         if (AutoStart) _spawnLoop = StartCoroutine(SpawnLoop());
     }
 
     void OnValidate()
     {
-        // 編集中に差し替えたときも同期
-        if (AudioSource && AudioClip) AudioSource.clip = AudioClip;
+        // UnityのAudioSource/Clipを同期してた処理はもう不要
+        // if (AudioSource && AudioClip) AudioSource.clip = AudioClip;
     }
 
     void Update()
@@ -130,7 +130,7 @@ public class EnemyAI : MonoBehaviour
         ForceFirstTwoStates(CurrentGhost);
         OnGhostSpawned?.Invoke();
 
-        TryPlaySpawnSE();    // ★ 生成直後にSE
+        TryPlaySpawnSE();    // ★ 生成直後にSE（CRI経由）
 
         StartCoroutine(GhostLifecycle(CurrentGhost));
         _firstRollDone = true;
@@ -221,38 +221,22 @@ public class EnemyAI : MonoBehaviour
         s_GlobalSpawnCount++;
     }
 
-    // ================= SE再生（開始/終了ログ付き） =================
-
-    // 実際の再生処理
+    // ================= SE再生（CRI版） =================
     private void TryPlaySpawnSE()
     {
         // 他所でポーズされてても鳴るよう一応解除（任意）
-        if (ForceUnpauseAudioListener && AudioListener.pause) AudioListener.pause = false;
+        if (ForceUnpauseAudioListener && AudioListener.pause)
+            AudioListener.pause = false;
 
-        if (AudioSource != null && AudioClip != null)
+        if (AudioMgr != null)
         {
-            // 再生開始ログ
-            Debug.Log($"[EnemyAI] SE start: {AudioClip.name}  " +
-                      $"vol={AudioSource.volume:0.00}, pitch={AudioSource.pitch:0.00}, " +
-                      $"listener.pause={AudioListener.pause}, src.mute={AudioSource.mute}");
-
-            AudioSource.PlayOneShot(AudioClip);
-
-            // ピッチを考慮して長さを算出 → 実時間で終了ログ
-            float dur = AudioClip.length / Mathf.Max(0.01f, Mathf.Abs(AudioSource.pitch));
-            StartCoroutine(LogSEndAfter(dur, AudioClip.name));
+            Debug.Log("[EnemyAI] Ghost spawn -> Play SE (AudioManager.GHOSTAPPEAR)");
+            AudioMgr.GHOSTAPPEAR();
         }
         else
         {
-            Debug.LogWarning("[EnemyAI] SE 再生不可：AudioSource か AudioClip が未設定です。");
+            Debug.LogWarning("[EnemyAI] AudioMgr が割り当てられていないので幽霊SEは鳴りません。");
         }
-    }
-
-    // 再生終了ログ用（timeScale=0でも確実に動く）
-    private IEnumerator LogSEndAfter(float seconds, string clipName)
-    {
-        yield return new WaitForSecondsRealtime(Mathf.Max(0.01f, seconds));
-        Debug.Log($"[EnemyAI] SE end: {clipName}");
     }
 
     // ================= スポーン地点選定 =================

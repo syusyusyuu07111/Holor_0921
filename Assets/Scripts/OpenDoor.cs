@@ -11,6 +11,7 @@ public class OpenDoor : MonoBehaviour
         [Header("Rotate (+Δ)")]
         [Tooltip("今の回転から各軸でどれだけ回すか（例: Y=90で横開き）")]
         public Vector3 openDeltaEuler = new Vector3(0f, 90f, 0f);
+
         [Tooltip("1 = 指定Δそのまま、-1 = 指定Δを反転（左右の開き方向反転）")]
         public int direction = 1;
 
@@ -20,6 +21,10 @@ public class OpenDoor : MonoBehaviour
 
     [Header("Refs")]
     [SerializeField] Transform player;
+
+    // ★ここ追加：AudioManager への参照
+    [Header("Audio")]
+    [SerializeField] AudioManager audioManager;
 
     [Header("Door Leaves (max 2)")]
     [Tooltip("両開きにしたい場合はサイズを2にして各ピボットを割り当て")]
@@ -34,6 +39,7 @@ public class OpenDoor : MonoBehaviour
     [Header("Options")]
     [Tooltip("プレイヤーが“ドアの表側”にいる必要があるか（表側判定は0番リーフのforward基準）")]
     [SerializeField] bool requireFacingSide = false;
+
     [Tooltip("表側判定のしきい値（leaf[0].pivot.forward と プレイヤー方向の内積）。0で前方半球。")]
     [SerializeField, Range(-1f, 1f)] float facingDotThreshold = 0f;
 
@@ -48,7 +54,12 @@ public class OpenDoor : MonoBehaviour
 
     // 入力（新Input Systemの自動生成クラスを想定）
     InputSystem_Actions input;
+
+    // 今ドアが開いているかどうか
     bool isOpen;
+
+    // ★追加：直前フレームの状態を覚えておく
+    bool prevIsOpen;
 
     //================== 参照の自己修復 ==================//
     private void TryAssignPlayer()
@@ -88,13 +99,17 @@ public class OpenDoor : MonoBehaviour
 
         CaptureClosedFromCurrentIfNeeded();
         RebuildOpenRotations();
+
+        // 初期状態をそろえる
+        prevIsOpen = isOpen;
     }
 
     void Update()
     {
-        // リトライ時の保険
+        // プレイヤー参照なかったら毎フレーム探す保険
         TryAssignPlayer();
 
+        // --- ここで状態を決める ---
         bool shouldOpen = CanOpen();
 
         if (shouldOpen)
@@ -106,7 +121,31 @@ public class OpenDoor : MonoBehaviour
             isOpen = false;
         }
 
-        // 目標回転へ各リーフを回す
+        // ★状態が変わった瞬間を検出
+        if (isOpen != prevIsOpen)
+        {
+            // 開いた瞬間
+            if (isOpen)
+            {
+                if (audioManager != null)
+                {
+                    audioManager.PlayDoorOpen();  // ← ここで開く音を鳴らす
+                }
+            }
+            // 閉じた瞬間
+            else
+            {
+                if (audioManager != null)
+                {
+                    audioManager.PlayDoorClose();  // ← ここで閉じる音を鳴らす
+                }
+            }
+
+            // 今の状態を「前の状態」として記録
+            prevIsOpen = isOpen;
+        }
+
+        // --- ドアの回転をターゲットに寄せる ---
         float step = rotateSpeedDegPerSec * Time.deltaTime;
         for (int i = 0; i < leaves.Length; i++)
         {
@@ -114,7 +153,11 @@ public class OpenDoor : MonoBehaviour
             if (leaf == null || leaf.pivot == null) continue;
 
             Quaternion target = isOpen ? leaf.openLocalRot : leaf.closedLocalRot;
-            leaf.pivot.localRotation = Quaternion.RotateTowards(leaf.pivot.localRotation, target, step);
+            leaf.pivot.localRotation = Quaternion.RotateTowards(
+                leaf.pivot.localRotation,
+                target,
+                step
+            );
         }
     }
 
@@ -124,15 +167,15 @@ public class OpenDoor : MonoBehaviour
         if (isLocked) return false;
         if (!player || leaves == null || leaves.Length == 0) return false;
 
-        // 1) 距離：最も近いピボットとの距離で判定
+        // 1) 距離チェック
         if (NearestDistanceToAnyLeaf() >= openDistance) return false;
 
-        // 2) 入力：今フレーム押されたらOK（DoorOpen か Interact のどちらでも）
+        // 2) 入力チェック（今フレーム押された？）
         if (!(input.Player.DoorOpen.WasPressedThisFrame() ||
               input.Player.Interact.WasPressedThisFrame()))
             return false;
 
-        // 3) 表側必須なら0番リーフ基準でチェック
+        // 3) 向きのチェック
         if (requireFacingSide && !IsPlayerOnFacingSide()) return false;
 
         return true;
@@ -145,10 +188,10 @@ public class OpenDoor : MonoBehaviour
         // 距離外なら閉じる
         if (NearestDistanceToAnyLeaf() >= openDistance) return true;
 
-        // 表側必須なら、裏側に回ったら閉じる（0番リーフ基準）
+        // 裏側に回ったら閉じる（オプション）
         if (requireFacingSide && !IsPlayerOnFacingSide()) return true;
 
-        // 施錠されたら閉じる
+        // ロックされたら閉じる
         if (isLocked) return true;
 
         return false;
@@ -162,6 +205,7 @@ public class OpenDoor : MonoBehaviour
         {
             var leaf = leaves[i];
             if (leaf == null || leaf.pivot == null) continue;
+
             float d = Vector3.Distance(player.position, leaf.pivot.position);
             if (d < minDist) minDist = d;
         }
@@ -171,7 +215,7 @@ public class OpenDoor : MonoBehaviour
     bool IsPlayerOnFacingSide()
     {
         var leaf0 = (leaves != null && leaves.Length > 0) ? leaves[0] : null;
-        if (leaf0 == null || leaf0.pivot == null) return true; // 判断不能なら許容
+        if (leaf0 == null || leaf0.pivot == null) return true; // 判定できないなら許可しちゃう
 
         Vector3 toPlayer = (player.position - leaf0.pivot.position).normalized;
         float dot = Vector3.Dot(leaf0.pivot.forward, toPlayer);
@@ -187,14 +231,13 @@ public class OpenDoor : MonoBehaviour
             var leaf = leaves[i];
             if (leaf == null || leaf.pivot == null) continue;
 
-            // 起動時の姿勢を「閉」として採用
+            // 起動時の姿勢を「閉じてる回転」として記録
             if (captureClosedOnStart)
             {
                 leaf.closedLocalRot = leaf.pivot.localRotation;
             }
             else
             {
-                // 必要なら別の方法で「閉」を決める余地
                 leaf.closedLocalRot = leaf.pivot.localRotation;
             }
         }
@@ -209,13 +252,13 @@ public class OpenDoor : MonoBehaviour
             var leaf = leaves[i];
             if (leaf == null || leaf.pivot == null) continue;
 
-            // 「基準（閉）」×「Δ回転（方向±）」で開き姿勢を合成
+            // 「閉」×「開きたい差分角度」で開いた時の回転を作る
             var delta = Quaternion.Euler(leaf.openDeltaEuler * Mathf.Sign(leaf.direction));
             leaf.openLocalRot = leaf.closedLocalRot * delta;
         }
     }
 
-    // エディタから呼べるように残しておく
+    // エディタから呼べるように
     public void SetClosedFromCurrent()
     {
         if (leaves == null) return;
@@ -235,7 +278,8 @@ public class OpenDoor : MonoBehaviour
     public void SetLocked(bool locked)
     {
         isLocked = locked;
-        // ロックが入った瞬間は閉方向へ寄せる（見た目の違和感軽減・任意）
+
+        // ロックされた瞬間は閉め方向に寄せる
         if (locked) isOpen = false;
     }
 }
