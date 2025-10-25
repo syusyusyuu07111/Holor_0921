@@ -42,6 +42,10 @@ public class GameOver : MonoBehaviour
     // 内部：現在の強度（スムージング用）
     private float _currIntensity = 0f;
 
+    // ===== サウンド再生用 =====
+    [Header("SE再生用")]
+    public AudioManager AudioMgr;               // 捕まった時のSEを鳴らすための参照（インスペクタで割り当て）
+
     void Awake()
     {
         // 参照の自動補完
@@ -78,10 +82,9 @@ public class GameOver : MonoBehaviour
             PostVolume = UnityEngine.Object.FindFirstObjectByType<Volume>();
             if (!PostVolume) PostVolume = UnityEngine.Object.FindAnyObjectByType<Volume>();
 #else
-    PostVolume = UnityEngine.Object.FindObjectOfType<Volume>();
+            PostVolume = UnityEngine.Object.FindObjectOfType<Volume>();
 #endif
         }
-
 
         // Vignette/Chromatic をプロファイルから取得
         if (PostVolume && PostVolume.profile)
@@ -123,7 +126,7 @@ public class GameOver : MonoBehaviour
             {
                 // 距離計測 & ログ出力
                 float dist = Vector3.Distance(Player.position, Ghost.position);
-               // Debug.Log($"[GameOver] distance = {dist:0.000}");
+                // Debug.Log($"[GameOver] distance = {dist:0.000}");
 
                 if (ShouldSkipCatch())
                 {
@@ -188,6 +191,16 @@ public class GameOver : MonoBehaviour
     {
         if (_gameOverFired) return;
         _gameOverFired = true;
+
+        // ★ 捕まったSEを鳴らす（AudioManager経由）
+        if (AudioMgr != null)
+        {
+            AudioMgr.CatchSource();
+        }
+        else
+        {
+            Debug.LogWarning("[GameOver] AudioMgr が割り当てられていないので、捕まったSEは鳴りません。");
+        }
 
         // 遷移前にNavMeshAgentを止めて暴れ防止
         if (StopAgentsOnGameOver)

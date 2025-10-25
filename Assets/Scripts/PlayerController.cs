@@ -33,6 +33,11 @@ public class PlayerController : MonoBehaviour
     Vector3 _lockedPos;
     Quaternion _lockedRot;
 
+    // ===== 足音用 =====
+    [Header("サウンド")]
+    [SerializeField] private AudioManager audioManager; // 足音などを鳴らす
+    bool _footstepActiveNow = false;                    // 直前フレームで足音が鳴いてたかどうか
+
     void Awake()
     {
         Input = new InputSystem_Actions();
@@ -72,6 +77,10 @@ public class PlayerController : MonoBehaviour
             IsDashingNow = false;
             IsSlowWalkingNow = false;
             if (_prevDash) { OnDashEnd.Invoke(); _prevDash = false; }
+
+            // 足音停止（完全に止まってる扱い）
+            HandleFootstepAudio(false);
+
             return;
         }
 
@@ -137,7 +146,7 @@ public class PlayerController : MonoBehaviour
         }
 
         // 公開状態＆イベント
-        bool nowMoving = true;
+        bool nowMoving = true;          // hasInput が true なので移動中扱い
         bool nowDashing = isDashing;
         bool nowSlow = isSlowWalking;
 
@@ -148,5 +157,35 @@ public class PlayerController : MonoBehaviour
         IsMovingNow = nowMoving;
         IsDashingNow = nowDashing;
         IsSlowWalkingNow = nowSlow;
+
+        // 足音ループの制御
+        // hasInput == true の時点で「移動中」判定にしていい
+        HandleFootstepAudio(true);
+    }
+
+    // 足音をオンオフする処理をまとめておく
+    void HandleFootstepAudio(bool shouldPlay)
+    {
+        // AudioManagerが無ければ何もしない
+        if (audioManager == null) return;
+
+        if (shouldPlay)
+        {
+            // すでに鳴いてるなら何もしない
+            if (!_footstepActiveNow)
+            {
+                audioManager.StartFootstepLoop();
+                _footstepActiveNow = true;
+            }
+        }
+        else
+        {
+            // 止めたいときだけ止める
+            if (_footstepActiveNow)
+            {
+                audioManager.StopFootstepLoop();
+                _footstepActiveNow = false;
+            }
+        }
     }
 }
