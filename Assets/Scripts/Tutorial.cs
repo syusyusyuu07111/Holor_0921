@@ -461,7 +461,7 @@ public class Tutorial : MonoBehaviour
     }
 
     // 幽霊が初めて湧いた時のコールバック
-    // レバーの表示はもうここではやらない
+    // ここでは Step3Lines のテキストだけやる
     private void OnAnyGhostSpawned_FirstTime()
     {
         if (!IsEventAllowed()) return;
@@ -560,7 +560,6 @@ public class Tutorial : MonoBehaviour
             var od = DoorScripts[i];
             if (!od) continue;
 
-            // OpenDoor は常に有効化（enableで封じるとCanOpen()自体が動かないゲームが多い）
             if (!od.enabled) od.enabled = true;
 
             bool hadProperty = true;
