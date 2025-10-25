@@ -4450,7 +4450,7 @@ GameObject:
   - component: {fileID: 281273393}
   - component: {fileID: 281273392}
   m_Layer: 0
-  m_Name: Spot Light
+  m_Name: Spot Light8
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -7754,7 +7754,7 @@ GameObject:
   - component: {fileID: 401769489}
   - component: {fileID: 401769488}
   m_Layer: 0
-  m_Name: Spot Light
+  m_Name: Spot Light6
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -9057,7 +9057,7 @@ Transform:
   m_GameObject: {fileID: 446601663}
   serializedVersion: 2
   m_LocalRotation: {x: -0.14744255, y: 0.3817364, z: 0.06182779, w: 0.91033804}
-  m_LocalPosition: {x: -1026.27, y: -453.22, z: -91.66}
+  m_LocalPosition: {x: -1031.24, y: -451.46, z: -92.43}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -11665,7 +11665,7 @@ GameObject:
   - component: {fileID: 640520204}
   - component: {fileID: 640520203}
   m_Layer: 0
-  m_Name: Spot Light
+  m_Name: Spot Light1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -12767,7 +12767,7 @@ GameObject:
   - component: {fileID: 687335086}
   - component: {fileID: 687335085}
   m_Layer: 0
-  m_Name: Spot Light
+  m_Name: Spot Light7
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -14377,47 +14377,15 @@ MonoBehaviour:
   RotateLever: 45
   LeverRotateSpeed: 180
   LightLists:
-  - {fileID: 1312124100}
-  - {fileID: 373192913}
-  - {fileID: 924504103}
-  - {fileID: 2111509277}
-  - {fileID: 282616570}
-  - {fileID: 357938706}
-  - {fileID: 810198868}
-  - {fileID: 1667296677}
-  - {fileID: 1988444222}
-  - {fileID: 454383608}
-  - {fileID: 1686598731}
-  - {fileID: 1029470257}
-  - {fileID: 1146226073}
-  - {fileID: 1466319841}
-  - {fileID: 408206634}
-  - {fileID: 1697865452}
-  - {fileID: 747831888}
-  - {fileID: 991880523}
-  - {fileID: 1705857237}
-  - {fileID: 659345863}
-  - {fileID: 2111054285}
-  - {fileID: 1182683556}
-  - {fileID: 1701507979}
-  - {fileID: 659345863}
-  - {fileID: 2111054285}
-  - {fileID: 1182683556}
-  - {fileID: 1701507979}
-  - {fileID: 769539990}
-  - {fileID: 343650694}
-  - {fileID: 2145187776}
-  - {fileID: 1776033707}
-  - {fileID: 353991397}
-  - {fileID: 1201639904}
-  - {fileID: 226227611}
-  - {fileID: 844958754}
-  - {fileID: 675523216}
-  - {fileID: 1949084924}
-  - {fileID: 2145555923}
-  - {fileID: 1686598731}
-  - {fileID: 1521313960}
-  - {fileID: 845605906}
+  - {fileID: 640520204}
+  - {fileID: 1831542898}
+  - {fileID: 1861884749}
+  - {fileID: 2041538669}
+  - {fileID: 1992425483}
+  - {fileID: 401769489}
+  - {fileID: 687335086}
+  - {fileID: 281273393}
+  - {fileID: 582614329}
   WarmLightColor: {r: 1, g: 0.78, b: 0.56, a: 1}
   MainCamera: {fileID: 330585545}
   ShowcaseCamera: {fileID: 446601667}
@@ -35415,7 +35383,7 @@ GameObject:
   - component: {fileID: 1831542898}
   - component: {fileID: 1831542897}
   m_Layer: 0
-  m_Name: Spot Light
+  m_Name: Spot Light2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -36172,7 +36140,7 @@ GameObject:
   - component: {fileID: 1861884749}
   - component: {fileID: 1861884748}
   m_Layer: 0
-  m_Name: Spot Light
+  m_Name: Spot Light3
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -38940,7 +38908,7 @@ GameObject:
   - component: {fileID: 1992425483}
   - component: {fileID: 1992425482}
   m_Layer: 0
-  m_Name: Spot Light
+  m_Name: Spot Light5
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -39578,7 +39546,7 @@ GameObject:
   - component: {fileID: 2041538669}
   - component: {fileID: 2041538668}
   m_Layer: 0
-  m_Name: Spot Light
+  m_Name: Spot Light4
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
