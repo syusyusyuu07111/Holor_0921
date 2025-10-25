@@ -69,16 +69,6 @@ public class Tutorial : MonoBehaviour
     private bool _didStep3 = false;
     private bool _step3TextShown = false;
 
-    // ========== レバー出現制御 ==========
-    [Header("レバー出現制御")]
-    public List<GameObject> LeversActivateOnFirstGhost = new();
-    private bool _leversRevealed = false;
-
-    // MutteringToLine 側から呼んでもらう用
-    // (MutteringToLine.OnMutterShown -> Tutorial.OnLeverTriggerMutterShown という流れ)
-    [Header("MutteringToLine(レバー解禁トリガ用)")]
-    public MutteringToLine LeverTriggerMutter;
-
     // ========== 前段チュートリアル ==========
     [Header("前段チュートリアル（移動／視点／ダッシュ）")]
     public bool EnableBasicTutorial = true;
@@ -219,14 +209,6 @@ public class Tutorial : MonoBehaviour
                     Spawners[i].OnGhostSpawned.AddListener(OnAnyGhostSpawned_FirstTime);
             }
         }
-
-        // レバー出現トリガ (MutteringToLine 側の OnMutterShown を拾う)
-        if (LeverTriggerMutter != null)
-        {
-            LeverTriggerMutter.OnMutterShown.AddListener(OnLeverTriggerMutterShown);
-        }
-
-        if (!_leversRevealed) SetLeversActive(false);
     }
 
     private void OnDisable()
@@ -256,11 +238,6 @@ public class Tutorial : MonoBehaviour
                 if (Spawners[i])
                     Spawners[i].OnGhostSpawned.RemoveListener(OnAnyGhostSpawned_FirstTime);
             }
-        }
-
-        if (LeverTriggerMutter != null)
-        {
-            LeverTriggerMutter.OnMutterShown.RemoveListener(OnLeverTriggerMutterShown);
         }
     }
 
@@ -307,9 +284,6 @@ public class Tutorial : MonoBehaviour
         if (HideLightsUntilMission3 && LightsToToggle != null)
             for (int i = 0; i < LightsToToggle.Count; i++)
                 if (LightsToToggle[i]) LightsToToggle[i].SetActive(false);
-
-        // レバーは基本非表示スタートでOK
-        if (!_leversRevealed) SetLeversActive(false);
     }
 
     private void Update()
@@ -487,7 +461,7 @@ public class Tutorial : MonoBehaviour
     }
 
     // 幽霊が初めて湧いた時のコールバック
-    // ※ここではもうレバーを出さない。テキスト演出だけやる
+    // レバーの表示はもうここではやらない
     private void OnAnyGhostSpawned_FirstTime()
     {
         if (!IsEventAllowed()) return;
@@ -504,17 +478,6 @@ public class Tutorial : MonoBehaviour
                 _typing = StartCoroutine(CoTypeLines(Step3Lines));
             }
         }
-    }
-
-    // MutteringToLine から呼ばれるやつ
-    // (インスペクタのイベント or コードのAddListenerで飛んでくる)
-    private void OnLeverTriggerMutterShown()
-    {
-        if (_leversRevealed) return; // もう出してたら何もしない
-
-        _leversRevealed = true;
-        SetLeversActive(true);
-        Debug.Log("[Tutorial] Lever revealed by MutteringToLine.");
     }
 
     // ========== 初見パネル ==========
@@ -597,6 +560,7 @@ public class Tutorial : MonoBehaviour
             var od = DoorScripts[i];
             if (!od) continue;
 
+            // OpenDoor は常に有効化（enableで封じるとCanOpen()自体が動かないゲームが多い）
             if (!od.enabled) od.enabled = true;
 
             bool hadProperty = true;
@@ -818,13 +782,6 @@ public class Tutorial : MonoBehaviour
             }
             yield return null;
         }
-    }
-
-    private void SetLeversActive(bool active)
-    {
-        if (LeversActivateOnFirstGhost == null) return;
-        for (int i = 0; i < LeversActivateOnFirstGhost.Count; i++)
-            if (LeversActivateOnFirstGhost[i]) LeversActivateOnFirstGhost[i].SetActive(active);
     }
 
     // ========== 前段チュートリアル本体 ==========
