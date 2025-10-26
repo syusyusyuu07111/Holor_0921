@@ -798,21 +798,21 @@ MonoBehaviour:
     delayBeforeShow: 0.5
     playWithPrevious: 0
     mode: 0
-    duration: 0.4
+    duration: 1
     thrownStartOffset: {x: -300, y: 200}
     thrownSpinDegrees: 540
   - target: {fileID: 1174553511}
-    delayBeforeShow: 0
+    delayBeforeShow: 1.5
     playWithPrevious: 0
     mode: 0
-    duration: 0
+    duration: 0.5
     thrownStartOffset: {x: -300, y: 200}
     thrownSpinDegrees: 540
   - target: {fileID: 445920864}
-    delayBeforeShow: 0
+    delayBeforeShow: 1.5
     playWithPrevious: 1
     mode: 0
-    duration: 0
+    duration: 0.5
     thrownStartOffset: {x: -300, y: 200}
     thrownSpinDegrees: 540
   hideAllOnStart: 1

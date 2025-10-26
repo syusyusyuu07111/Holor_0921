@@ -1,8 +1,5 @@
-﻿using Unity.Mathematics;
-using Unity.VisualScripting;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.UI;
 using TMPro;
 
 public class TPSCamera : MonoBehaviour
@@ -12,27 +9,27 @@ public class TPSCamera : MonoBehaviour
     // ===== カメラ入力/基本 =====
     [Header("基本")]
     public bool ControlEnable = true;
-    public Transform cam;                 // カメラ本体（通常は this.transform）
-    public Transform Pivot;               // 注視点（プレイヤー頭等）
-    public float Distance = 3.0f;         // Pivot からの距離
+    public Transform cam;
+    public Transform Pivot;
+    public float Distance = 3.0f;
 
     [Header("回転（横/Yaw）")]
-    public float yaw = 90f;               // 向いている角度（水平）
-    public float RotateSpeed = 1.0f;      // 感度（水平共通）
+    public float yaw = 90f;
+    public float RotateSpeed = 1.0f;
 
     [Header("回転（縦/Pitch）")]
-    public float pitch = 0f;              // 現在のピッチ
+    public float pitch = 0f;
     public Vector2 PitchClamp = new Vector2(-40f, 70f);
-    public float PitchSmoothTime = 0.06f; // スムーズ追従
-    public float MaxPitchSpeed = 240f;    // 最大角速度（deg/s）※少し控えめで安定
-    public float MouseYDeadZone = 0.02f;  // 縦の微小入力カット
-    public float PitchUpLimit = 30f;      // 上限（天井衝突を避け気味に）
-    public float PitchDownLimit = 10f;    // 下限
-    [Range(0.1f, 1.0f)] public float VerticalAmount = 0.5f; // 縦の感度係数
+    public float PitchSmoothTime = 0.06f;
+    public float MaxPitchSpeed = 240f;
+    public float MouseYDeadZone = 0.02f;
+    public float PitchUpLimit = 30f;
+    public float PitchDownLimit = 10f;
+    [Range(0.1f, 1.0f)] public float VerticalAmount = 0.5f;
     public bool InvertY = false;
 
-    private float _pitchVel;              // SmoothDamp用
-    private float _pitchTarget;           // 目標ピッチ
+    private float _pitchVel;
+    private float _pitchTarget;
 
     [Header("デバイス別 感度係数")]
     public float MouseSense = 1.0f;
@@ -41,24 +38,24 @@ public class TPSCamera : MonoBehaviour
     [Header("プレイヤー追従")]
     public Transform Player;
     public bool RotatePlayerWithCamera = false;
-    public float AimSpeed = 5.0f;         // プレイヤー回転追従の速さ
-    public float Deadyaw = 0.5f;          // 微小角の無視
+    public float AimSpeed = 5.0f;
+    public float Deadyaw = 0.5f;
 
-    [Tooltip("移動入力（移動スクリプトから代入してもらう想定）")]
-    public Vector2 MoveInput;             // 0に近い時は“停止中”とみなす
+    [Tooltip("移動入力（移動側から代入想定）")]
+    public Vector2 MoveInput;
     public bool RotatePlayerOnlyWhenMoving = true;
 
     [Header("ショルダー/配置")]
     public Vector3 ShoulderOffset = new Vector3(0.4f, 0.0f, 0f);
     public KeyCode ShoulderSwapKey = KeyCode.E;
-    public KeyCode QuickTurnKey = KeyCode.None; // 未使用
+    public KeyCode QuickTurnKey = KeyCode.None;
 
     [Header("カメラ衝突処理")]
     public LayerMask CollisionMask = ~0;
     public float CollisionBuffer = 0.05f;
     public float MinCameraDistance = 0.1f;
-    public bool KeepFixedDistance = false;   // ★ デフォルトで短縮する
-    public float CameraCollisionRadius = 0.15f; // ★ SphereCast 半径
+    public bool KeepFixedDistance = false;
+    public float CameraCollisionRadius = 0.15f;
 
     [Header("スムージング")]
     public float PositionSmoothTime = 0.08f;
@@ -71,51 +68,48 @@ public class TPSCamera : MonoBehaviour
     public float FOVLerp = 10f;
     public bool IsAiming = false;
 
-    // ===== UI: 感度（uGUI Sliderのみ） =====
-    [Header("UI: 感度（Slider）")]
-    public Slider RotateSpeedSlider;            // uGUI の Slider を割り当て
-    public float MinRotateSpeed = 0.1f;         // レンジ下限
-    public float MaxRotateSpeed = 10f;          // レンジ上限
-    public TMP_Text RotateSpeedLabel;           // 任意: 数値表示（TMP）
+    // ===== 感度保存/表示 =====
+    [Header("感度パラメータ")]
+    public float MinRotateSpeed = 0.1f;
+    public float MaxRotateSpeed = 10f;
 
-    [Tooltip("UIの値を保存する（PlayerPrefs）")]
+    [Tooltip("数値を出したいときだけ割り当て(任意)")]
+    public TMP_Text RotateSpeedLabel;
+
+    [Tooltip("感度をPlayerPrefsへ保存するか")]
     public bool SaveSensitivity = true;
     public string SensitivityPrefsKey = "Camera.RotateSpeed";
 
     public void Awake()
     {
         input = new InputSystem_Actions();
-        if (cam == null) cam = transform;
+        if (!cam) cam = transform;
+
+        if (SaveSensitivity && PlayerPrefs.HasKey(SensitivityPrefsKey))
+        {
+            float saved = PlayerPrefs.GetFloat(SensitivityPrefsKey);
+            RotateSpeed = Mathf.Clamp(saved, MinRotateSpeed, MaxRotateSpeed);
+        }
+
+        RefreshSensitivityLabel();
     }
 
     public void OnEnable()
     {
         input.Player.Enable();
 
-        // --- 感度Sliderの初期設定 ---
-        if (RotateSpeedSlider)
-        {
-            RotateSpeedSlider.minValue = MinRotateSpeed;
-            RotateSpeedSlider.maxValue = MaxRotateSpeed;
+        yaw = cam.eulerAngles.y;
+        _pitchTarget = pitch;
 
-            // 設定読み込み
-            float init = RotateSpeed;
-            if (SaveSensitivity && PlayerPrefs.HasKey(SensitivityPrefsKey))
-                init = Mathf.Clamp(PlayerPrefs.GetFloat(SensitivityPrefsKey), MinRotateSpeed, MaxRotateSpeed);
+        if (!UCam) UCam = GetComponentInChildren<Camera>();
+        if (UCam) UCam.fieldOfView = FOVNormal;
 
-            RotateSpeed = init;
-            RotateSpeedSlider.SetValueWithoutNotify(init);
-            RotateSpeedSlider.onValueChanged.AddListener(OnRotateSpeedChanged);
-        }
-        RefreshSensitivityLabel();
+        PitchClamp = new Vector2(-PitchDownLimit, PitchUpLimit);
     }
 
     public void OnDisable()
     {
         input?.Player.Disable();
-
-        if (RotateSpeedSlider)
-            RotateSpeedSlider.onValueChanged.RemoveListener(OnRotateSpeedChanged);
 
         if (SaveSensitivity)
         {
@@ -124,31 +118,10 @@ public class TPSCamera : MonoBehaviour
         }
     }
 
-    void Start()
+    private void LateUpdate()
     {
-        // 初期角
-        yaw = cam.eulerAngles.y;
-        _pitchTarget = pitch;
+        if (!ControlEnable || !cam || !Pivot) return;
 
-        // FOV 初期化
-        if (UCam == null) UCam = GetComponentInChildren<Camera>();
-        if (UCam != null) UCam.fieldOfView = FOVNormal;
-
-        // 上下制限の初期同期
-        PitchClamp = new Vector2(-PitchDownLimit, PitchUpLimit);
-
-        // 起動直後の表示合わせ
-        if (RotateSpeedSlider)
-            RotateSpeedSlider.SetValueWithoutNotify(RotateSpeed);
-        RefreshSensitivityLabel();
-    }
-
-    // ===== 物理の後で追従：揺れのフィードバックを抑える =====
-    void LateUpdate()
-    {
-        if (!ControlEnable || cam == null || Pivot == null) return;
-
-        // =========== 時間停止中はカメラ更新を止めて補間のNaN化を防ぐ挙動 ===========
         if (Time.deltaTime <= Mathf.Epsilon)
         {
             _pitchVel = 0f;
@@ -156,23 +129,18 @@ public class TPSCamera : MonoBehaviour
             return;
         }
 
-        // 入力
         Vector2 look = input.Player.Look.ReadValue<Vector2>();
-        bool usingGamepad =
-            (Gamepad.current != null && Gamepad.current.wasUpdatedThisFrame);
+        bool usingGamepad = (Gamepad.current != null && Gamepad.current.wasUpdatedThisFrame);
         float deviceSense = usingGamepad ? GamepadSense : MouseSense;
 
-        // ショルダー切替（任意）
         if (ShoulderSwapKey != KeyCode.None && Input.GetKeyDown(ShoulderSwapKey))
             ShoulderOffset.x *= -1f;
 
-        // 毎フレーム、上下限同期
         PitchUpLimit = Mathf.Clamp(PitchUpLimit, 0f, 80f);
         PitchDownLimit = Mathf.Clamp(PitchDownLimit, 0f, 80f);
         PitchClamp.x = -PitchDownLimit;
         PitchClamp.y = PitchUpLimit;
 
-        // 回転更新
         float dx = look.x;
         float ly = InvertY ? -look.y : look.y;
         if (Mathf.Abs(ly) < MouseYDeadZone) ly = 0f;
@@ -187,7 +155,6 @@ public class TPSCamera : MonoBehaviour
 
         Quaternion rot = Quaternion.Euler(pitch, yaw, 0f);
 
-        // ===== 衝突補正（SphereCastで距離短縮）=====
         float d = Distance;
         if (!KeepFixedDistance)
         {
@@ -199,15 +166,12 @@ public class TPSCamera : MonoBehaviour
             }
         }
 
-        // 目標位置（ショルダーオフセットは回転空間で適用）
         Vector3 desiredPos = Pivot.position + rot * new Vector3(ShoulderOffset.x, ShoulderOffset.y, -d);
 
-        // 位置スムーズ
         cam.position = Vector3.SmoothDamp(cam.position, desiredPos, ref _camVel, Mathf.Max(0f, PositionSmoothTime));
         cam.LookAt(Pivot.position, Vector3.up);
 
-        // ===== プレイヤー回転追従（任意 / 停止中は回さないオプション）=====
-        if (RotatePlayerWithCamera && Player != null)
+        if (RotatePlayerWithCamera && Player)
         {
             bool moving = MoveInput.sqrMagnitude > 0.0001f;
             if (!RotatePlayerOnlyWhenMoving || moving)
@@ -221,29 +185,29 @@ public class TPSCamera : MonoBehaviour
             }
         }
 
-        // FOV
-        if (UCam != null)
+        if (UCam)
         {
             float targetFov = IsAiming ? FOVAim : FOVNormal;
             UCam.fieldOfView = Mathf.Lerp(UCam.fieldOfView, targetFov, FOVLerp * Time.deltaTime);
         }
     }
 
-    // ===== Slider イベント =====
-    private void OnRotateSpeedChanged(float v)
+    // ===== Option から呼ぶ：感度を安全に反映 =====
+    public void SetRotateSpeedFromOption(float newSpeed)
     {
-        RotateSpeed = Mathf.Clamp(v, MinRotateSpeed, MaxRotateSpeed);
+        RotateSpeed = Mathf.Clamp(newSpeed, MinRotateSpeed, MaxRotateSpeed);
+        RefreshSensitivityLabel();
 
         if (SaveSensitivity)
+        {
             PlayerPrefs.SetFloat(SensitivityPrefsKey, RotateSpeed);
-
-        RefreshSensitivityLabel();
+            PlayerPrefs.Save();
+        }
     }
 
-    // ===== ラベル更新（任意）=====
     private void RefreshSensitivityLabel()
     {
-        if (RotateSpeedLabel)
+        if (RotateSpeedLabel != null)
             RotateSpeedLabel.text = $"Sensitivity : {RotateSpeed:0.00}";
     }
 }
