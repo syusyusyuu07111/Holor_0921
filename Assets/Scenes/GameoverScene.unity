@@ -712,7 +712,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 861312765}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 26b9b3c883432514c886c5328042ec23, type: 3}
   m_Name: 
@@ -745,46 +745,76 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   steps:
-  - target: {fileID: 1023257659}
-    delayBeforeShow: 0.5
-    mode: 0
-    duration: 0.4
-  - target: {fileID: 1947246362}
-    delayBeforeShow: 0.5
-    mode: 0
-    duration: 0.4
-  - target: {fileID: 596618554}
-    delayBeforeShow: 0
-    mode: 0
-    duration: 0.4
   - target: {fileID: 1734700727}
     delayBeforeShow: 0.5
     mode: 2
     duration: 0.4
+    StartWithPreviousStep: 0
+    throwStartOffset: {x: -500, y: 200}
+    throwSpinDegrees: 180
   - target: {fileID: 988789043}
     delayBeforeShow: 0.5
     mode: 2
     duration: 0.4
-  - target: {fileID: 1847906347}
-    delayBeforeShow: 0.5
-    mode: 1
-    duration: 0.4
+    StartWithPreviousStep: 0
+    throwStartOffset: {x: -500, y: 200}
+    throwSpinDegrees: 360
   - target: {fileID: 1874167029}
     delayBeforeShow: 0.5
-    mode: 1
+    mode: 6
+    duration: 0.7
+    StartWithPreviousStep: 0
+    throwStartOffset: {x: -500, y: 200}
+    throwSpinDegrees: 360
+  - target: {fileID: 1847906347}
+    delayBeforeShow: 0.5
+    mode: 6
     duration: 0.4
+    StartWithPreviousStep: 0
+    throwStartOffset: {x: -500, y: 200}
+    throwSpinDegrees: 180
+  - target: {fileID: 1023257659}
+    delayBeforeShow: 0
+    mode: 0
+    duration: 0
+    StartWithPreviousStep: 0
+    throwStartOffset: {x: -500, y: 200}
+    throwSpinDegrees: 360
+  - target: {fileID: 1947246362}
+    delayBeforeShow: 0
+    mode: 0
+    duration: 0.5
+    StartWithPreviousStep: 1
+    throwStartOffset: {x: -500, y: 200}
+    throwSpinDegrees: 360
+  - target: {fileID: 596618554}
+    delayBeforeShow: 0
+    mode: 0
+    duration: 0
+    StartWithPreviousStep: 1
+    throwStartOffset: {x: -500, y: 200}
+    throwSpinDegrees: 360
   - target: {fileID: 384395214}
     delayBeforeShow: 0.5
     mode: 0
     duration: 0.4
+    StartWithPreviousStep: 0
+    throwStartOffset: {x: -500, y: 200}
+    throwSpinDegrees: 360
   - target: {fileID: 1174553511}
     delayBeforeShow: 0.5
     mode: 0
-    duration: 0.4
+    duration: 0
+    StartWithPreviousStep: 1
+    throwStartOffset: {x: -500, y: 200}
+    throwSpinDegrees: 360
   - target: {fileID: 445920864}
-    delayBeforeShow: 0
+    delayBeforeShow: 0.5
     mode: 0
-    duration: 0.4
+    duration: 0
+    StartWithPreviousStep: 1
+    throwStartOffset: {x: -500, y: 200}
+    throwSpinDegrees: 360
   hideAllOnStart: 1
   playOnStart: 1
 --- !u!1 &906734116
