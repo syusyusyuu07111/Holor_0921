@@ -670,11 +670,11 @@ RectTransform:
   - {fileID: 597534077}
   - {fileID: 1926948041}
   - {fileID: 1438178251}
+  - {fileID: 1734700728}
+  - {fileID: 988789044}
   - {fileID: 1023257660}
   - {fileID: 1947246363}
   - {fileID: 596618555}
-  - {fileID: 1734700728}
-  - {fileID: 988789044}
   - {fileID: 1847906348}
   - {fileID: 1874167032}
   - {fileID: 384395215}
@@ -774,7 +774,7 @@ MonoBehaviour:
     thrownStartOffset: {x: -300, y: 200}
     thrownSpinDegrees: 540
   - target: {fileID: 1023257659}
-    delayBeforeShow: 0
+    delayBeforeShow: 0.3
     playWithPrevious: 0
     mode: 0
     duration: 0
@@ -782,14 +782,14 @@ MonoBehaviour:
     thrownSpinDegrees: 540
   - target: {fileID: 1947246362}
     delayBeforeShow: 0
-    playWithPrevious: 0
+    playWithPrevious: 1
     mode: 0
     duration: 0.5
     thrownStartOffset: {x: -300, y: 200}
     thrownSpinDegrees: 540
   - target: {fileID: 596618554}
     delayBeforeShow: 0
-    playWithPrevious: 0
+    playWithPrevious: 1
     mode: 0
     duration: 0
     thrownStartOffset: {x: -300, y: 200}
@@ -802,7 +802,7 @@ MonoBehaviour:
     thrownStartOffset: {x: -300, y: 200}
     thrownSpinDegrees: 540
   - target: {fileID: 1174553511}
-    delayBeforeShow: 0.5
+    delayBeforeShow: 0
     playWithPrevious: 1
     mode: 0
     duration: 0
@@ -1864,7 +1864,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 0.5686275}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
