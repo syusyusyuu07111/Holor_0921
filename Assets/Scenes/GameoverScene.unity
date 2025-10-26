@@ -774,17 +774,17 @@ MonoBehaviour:
     thrownStartOffset: {x: -300, y: 200}
     thrownSpinDegrees: 540
   - target: {fileID: 1023257659}
-    delayBeforeShow: 0.3
+    delayBeforeShow: 1
     playWithPrevious: 0
     mode: 0
-    duration: 0
+    duration: 1
     thrownStartOffset: {x: -300, y: 200}
     thrownSpinDegrees: 540
   - target: {fileID: 1947246362}
     delayBeforeShow: 0
     playWithPrevious: 1
     mode: 0
-    duration: 0.5
+    duration: 0
     thrownStartOffset: {x: -300, y: 200}
     thrownSpinDegrees: 540
   - target: {fileID: 596618554}
@@ -803,13 +803,13 @@ MonoBehaviour:
     thrownSpinDegrees: 540
   - target: {fileID: 1174553511}
     delayBeforeShow: 0
-    playWithPrevious: 1
+    playWithPrevious: 0
     mode: 0
     duration: 0
     thrownStartOffset: {x: -300, y: 200}
     thrownSpinDegrees: 540
   - target: {fileID: 445920864}
-    delayBeforeShow: 0.5
+    delayBeforeShow: 0
     playWithPrevious: 1
     mode: 0
     duration: 0
