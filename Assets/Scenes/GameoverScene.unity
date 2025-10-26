@@ -747,74 +747,74 @@ MonoBehaviour:
   steps:
   - target: {fileID: 1734700727}
     delayBeforeShow: 0.5
+    playWithPrevious: 0
     mode: 2
     duration: 0.4
-    StartWithPreviousStep: 0
-    throwStartOffset: {x: -500, y: 200}
-    throwSpinDegrees: 180
+    thrownStartOffset: {x: -300, y: 200}
+    thrownSpinDegrees: 540
   - target: {fileID: 988789043}
     delayBeforeShow: 0.5
+    playWithPrevious: 0
     mode: 2
     duration: 0.4
-    StartWithPreviousStep: 0
-    throwStartOffset: {x: -500, y: 200}
-    throwSpinDegrees: 360
+    thrownStartOffset: {x: -300, y: 200}
+    thrownSpinDegrees: 540
   - target: {fileID: 1874167029}
     delayBeforeShow: 0.5
+    playWithPrevious: 0
     mode: 6
-    duration: 0.7
-    StartWithPreviousStep: 0
-    throwStartOffset: {x: -500, y: 200}
-    throwSpinDegrees: 360
+    duration: 1.5
+    thrownStartOffset: {x: -300, y: 200}
+    thrownSpinDegrees: 540
   - target: {fileID: 1847906347}
     delayBeforeShow: 0.5
+    playWithPrevious: 1
     mode: 6
-    duration: 0.4
-    StartWithPreviousStep: 0
-    throwStartOffset: {x: -500, y: 200}
-    throwSpinDegrees: 180
+    duration: 1.5
+    thrownStartOffset: {x: -300, y: 200}
+    thrownSpinDegrees: 540
   - target: {fileID: 1023257659}
     delayBeforeShow: 0
+    playWithPrevious: 0
     mode: 0
     duration: 0
-    StartWithPreviousStep: 0
-    throwStartOffset: {x: -500, y: 200}
-    throwSpinDegrees: 360
+    thrownStartOffset: {x: -300, y: 200}
+    thrownSpinDegrees: 540
   - target: {fileID: 1947246362}
     delayBeforeShow: 0
+    playWithPrevious: 0
     mode: 0
     duration: 0.5
-    StartWithPreviousStep: 1
-    throwStartOffset: {x: -500, y: 200}
-    throwSpinDegrees: 360
+    thrownStartOffset: {x: -300, y: 200}
+    thrownSpinDegrees: 540
   - target: {fileID: 596618554}
     delayBeforeShow: 0
+    playWithPrevious: 0
     mode: 0
     duration: 0
-    StartWithPreviousStep: 1
-    throwStartOffset: {x: -500, y: 200}
-    throwSpinDegrees: 360
+    thrownStartOffset: {x: -300, y: 200}
+    thrownSpinDegrees: 540
   - target: {fileID: 384395214}
     delayBeforeShow: 0.5
+    playWithPrevious: 0
     mode: 0
     duration: 0.4
-    StartWithPreviousStep: 0
-    throwStartOffset: {x: -500, y: 200}
-    throwSpinDegrees: 360
+    thrownStartOffset: {x: -300, y: 200}
+    thrownSpinDegrees: 540
   - target: {fileID: 1174553511}
     delayBeforeShow: 0.5
+    playWithPrevious: 1
     mode: 0
     duration: 0
-    StartWithPreviousStep: 1
-    throwStartOffset: {x: -500, y: 200}
-    throwSpinDegrees: 360
+    thrownStartOffset: {x: -300, y: 200}
+    thrownSpinDegrees: 540
   - target: {fileID: 445920864}
     delayBeforeShow: 0.5
+    playWithPrevious: 1
     mode: 0
     duration: 0
-    StartWithPreviousStep: 1
-    throwStartOffset: {x: -500, y: 200}
-    throwSpinDegrees: 360
+    thrownStartOffset: {x: -300, y: 200}
+    thrownSpinDegrees: 540
   hideAllOnStart: 1
   playOnStart: 1
 --- !u!1 &906734116
