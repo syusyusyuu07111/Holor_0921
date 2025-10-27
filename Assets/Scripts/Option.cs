@@ -2,6 +2,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+using TMPro; // ★追加 TMPを使う
 
 public class Option : MonoBehaviour
 {
@@ -14,8 +15,8 @@ public class Option : MonoBehaviour
     // --- ポーズ管理 ---
     private float _prevTimeScale = 1f;
 
-    // ここに「止めたいスクリプト」を入れる（プレイヤー移動スクリプトとか）
     [Header("一時停止中は止めたいスクリプトたち")]
+    // プレイヤー移動とか、止めたいスクリプトをここに突っ込む
     public MonoBehaviour[] PauseTargets;
 
     // ===== 設定状態 =====
@@ -76,6 +77,10 @@ public class Option : MonoBehaviour
     // hover状態を覚える
     private bool _gameEndHover = false;
 
+    // ===== ESCヒント表示用 =====
+    [Header("ESCヒント用テキスト (TMP)")] // ★追加
+    public TMP_Text EscHintText;          // ここに「ESCでオプション開く」などを表示するTMP_Textをアタッチ // ★追加
+
     // ===== フォーカス行（ゲームパッド/キーボード用）=====
     // 0 = 左右反転
     // 1 = 上下反転
@@ -113,7 +118,10 @@ public class Option : MonoBehaviour
 
         // 色更新
         RefreshColors();
-        RefreshGameEndColor(); // 初期色
+        RefreshGameEndColor();
+
+        // ESCヒント初期化 // ★追加
+        RefreshEscHint();
     }
 
     private void OnEnable()
@@ -133,35 +141,10 @@ public class Option : MonoBehaviour
 
     private void Update()
     {
-        // ===== メニュー開閉 =====
+        // ===== メニュー開閉（Optionアクション。ここにESCも入ってる想定でもOK）=====
         if (input.UI.Option.WasPressedThisFrame())
         {
-            MenuOn = !MenuOn;
-
-            if (MenuWindow)
-                MenuWindow.SetActive(MenuOn);
-
-            // ゲームのポーズ状態もここで切り替え
-            ApplyPauseState(MenuOn);
-
-            _didMoveRight = _didMoveLeft = _didMoveUp = _didMoveDown = false;
-            _isDraggingSensitivity = false;
-
-            if (MenuOn)
-            {
-                // 開いた瞬間の同期
-                SyncFromCamera();
-                SyncSensitivityFromCamera();
-                StartCoroutine(RepositionNextFrame());
-                RefreshColors();
-                RefreshGameEndColor();
-            }
-            else
-            {
-                // 閉じた瞬間
-                _gameEndHover = false;
-                RefreshGameEndColor();
-            }
+            ToggleMenu();
         }
 
         if (!MenuOn)
@@ -201,8 +184,7 @@ public class Option : MonoBehaviour
             }
         }
 
-        // ===== ゲームパッド/キーボード入力 =====
-        // ポーズ中もメニュー操作だけはしたいので、入力は読む
+        // ===== ゲームパッド/キーボード入力（ポーズ中でもメニュー操作はOK）=====
         Vector2 move = input.Player.Move.ReadValue<Vector2>();
 
         // 上
@@ -263,6 +245,41 @@ public class Option : MonoBehaviour
     }
 
     // =============================================================================
+    // メニューのオン/オフまとめたやつ（ESC押したとき含めてここを呼ぶ） // ★追加
+    // =============================================================================
+    private void ToggleMenu()
+    {
+        MenuOn = !MenuOn;
+
+        if (MenuWindow)
+            MenuWindow.SetActive(MenuOn);
+
+        // ゲーム停止/再開
+        ApplyPauseState(MenuOn);
+
+        // メニュー開いた瞬間の初期化
+        _didMoveRight = _didMoveLeft = _didMoveUp = _didMoveDown = false;
+        _isDraggingSensitivity = false;
+
+        if (MenuOn)
+        {
+            SyncFromCamera();
+            SyncSensitivityFromCamera();
+            StartCoroutine(RepositionNextFrame());
+            RefreshColors();
+            RefreshGameEndColor();
+        }
+        else
+        {
+            _gameEndHover = false;
+            RefreshGameEndColor();
+        }
+
+        // ESCヒント更新
+        RefreshEscHint(); // ★追加
+    }
+
+    // =============================================================================
     // ゲームの時間と操作を止める/戻す
     // =============================================================================
     private void ApplyPauseState(bool pause)
@@ -288,7 +305,7 @@ public class Option : MonoBehaviour
                 }
             }
 
-            // ポーズ中はカーソルを見えるように＆画面から外せるように
+            // カーソルを解放
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
         }
@@ -312,8 +329,7 @@ public class Option : MonoBehaviour
                 }
             }
 
-            // ゲーム復帰したらカーソルロックに戻したい場合
-            // （マウスでTPSっぽく操作するタイプならこれ欲しい）
+            // プレイ復帰でカーソルをロックに戻す
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
         }
@@ -333,7 +349,7 @@ public class Option : MonoBehaviour
         // 画面モードを読む
 #if !UNITY_EDITOR
         // フルスクリーン中なら Screen.fullScreen = true
-        // なのでUI的には OFF が赤（＝ FullScreen = false）
+        // → UI的には OFF が赤（＝ FullScreen = false）
         FullScreen = !Screen.fullScreen;
 #endif
     }
@@ -400,6 +416,25 @@ public class Option : MonoBehaviour
         if (!GameEndImage) return;
 
         GameEndImage.color = _gameEndHover ? ActiveColor : InactiveColor;
+    }
+
+    // =============================================================================
+    // ESCヒントの文言を更新 // ★追加
+    // =============================================================================
+    private void RefreshEscHint()
+    {
+        if (!EscHintText) return;
+
+        // オプション閉じてるとき → 「ESCでオプション開く」
+        // オプション開いてるとき → 「ESCでオプション閉じる」
+        if (MenuOn)
+        {
+            EscHintText.text = "ESCでオプション閉じる";
+        }
+        else
+        {
+            EscHintText.text = "ESCでオプション開く";
+        }
     }
 
     // =============================================================================
@@ -707,7 +742,7 @@ public class Option : MonoBehaviour
         UpdateSensitivityHandlePosition();
     }
 
-    // 赤/白の切り替え
+    // 赤/白の切り替え（反転とスクリーンモード用）
     private void RefreshColors()
     {
         // 左右反転
