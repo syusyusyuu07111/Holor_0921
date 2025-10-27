@@ -6,83 +6,90 @@ using UnityEngine;
 public class LightOff : MonoBehaviour
 {
     public GameObject Player;                               // プレイヤー
-    public GameObject Light;                                // 近接判定の位置（スイッチ等）
+    public GameObject Light;                                // インタラクト地点（スイッチなど）
     public float PushDistance = 3.0f;                       // インタラクト距離
-    public bool OnLight = true;                             // 今ライトが点いているか（UI表示用）
-    public GameObject Ghost;                                // 暖色化時に消す対象（任意）
+    public bool OnLight = true;                             // 「いまは明るい(冷色側)？」UI表示用
+    public GameObject Ghost;                                // 暖色化後に消したいオブジェクト（敵とか）
     public GameObject lever;                                // 回すレバー
-    public float RotateLever = 30f;                         // 回す量（X度）
+    public float RotateLever = 30f;                         // 回す角度（X度）
 
     [Header("レバー回転")]
     public float LeverRotateSpeed = 180f;                   // 回転速度[deg/sec]
-    private bool _isLeverAnimating = false;                 // 回転中フラグ
+    private bool _isLeverAnimating = false;                 // レバー演出中フラグ
 
-    [SerializeField] private List<Light> LightLists = new();// 操作対象ライト群
+    [Header("操作対象ライト群")]
+    [SerializeField] private List<Light> LightLists = new List<Light>();
 
-    // ==== 暖色設定（最終状態）====
-    [Header("ライト暖色（OFF操作時の目標色）")]
+    // ==== 暖色の最終カラー設定 ====
+    [Header("暖色（最終の色味）")]
     public Color WarmLightColor = new Color(1.0f, 0.78f, 0.56f, 1f);
 
-    // 「どれくらい暗くするか」= 現在Intensity * この係数
-    [Range(0f, 2f)]
-    public float WarmIntensityMultiplier = 0.6f;
+    // ==== 明るさゴール設定 ====
+    [Header("最終の明るさ（元の明るさに対する％）")]
+    [Tooltip("例えば10にすると、最終は“最初の明るさの10%”まで落とす")]
+    [Range(0f, 200f)]
+    public float FinalIntensityPercent = 10f;
 
-    [Header("暖色化アニメーション")]
-    public float WarmifyLerpDuration = 0.5f;                // じわーっと変わる秒数（実時間）
+    // ライトごとの基準Intensityを保持。初回の暖色化前にキャプチャする
+    private List<float> _baselineIntensities;
+    private bool _baselineCaptured = false;
+
+    // ==== ゆっくり暖色化アニメ ====
+    [Header("暖色フェード(演出中はTimeScale=0でも進む)")]
+    public float WarmifyLerpDuration = 0.5f;                // じわーっと変える秒数（実時間）
     public AnimationCurve WarmifyCurve =
-        AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);           // 変化のカーブ(0→1)
+        AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);           // 0→1のイージング
 
-    // ==== 見せカメラ切替 ====
+    // ==== 見せカメラ ====
     [Header("見せ用カメラ")]
-    public Camera MainCamera;                               // 通常表示カメラ（未設定なら Camera.main）
-    public Camera ShowcaseCamera;                           // 見せ用の固定/演出カメラ
-    public float ShowcaseHoldSeconds = 0.5f;                // 変化し終わったあと、その状態を見せておく実時間
+    public Camera MainCamera;                               // 普段のカメラ（未指定なら Camera.main）
+    public Camera ShowcaseCamera;                           // スイッチ演出を見せるカメラ
+    public float ShowcaseHoldSeconds = 0.5f;                // 色が変わったあと見せ続ける秒数(実時間)
 
-    private InputSystem_Actions input;                      // 新InputSystem
+    private InputSystem_Actions input;                      // 新InputSystem参照
 
-    // ------- 2種類のテキスト -------
-    public TextMeshProUGUI PromptText;                      // 近づいた時だけ出す「キー案内」
-    public TextMeshProUGUI MsgText;                         // 点いた/消えた“瞬間だけ”出るメッセージ
+    // ==== UI系 ====
+    public TextMeshProUGUI PromptText;                      // 近づいたら出す「Eで〜」とか
+    public TextMeshProUGUI MsgText;                         // 「〜になった」メッセージ
 
-    // ------- 文言/表示時間 -------
-    [Header("文言設定")]
-    public string PromptOn = "【E】暖色にする";              // 点灯中：暖色にする
-    public string PromptOff = "【E】ライトを点ける";         // 消灯中の案内
+    [Header("文言")]
+    public string PromptOn = "【E】暖色にする";              // まだ冷色で明るい→「暖色にする」
+    public string PromptOff = "【E】ライトを点ける";         // すでに暖色で暗い→「戻す」系
     public string MsgTurnedOff = "ライトが暖かい色になった";
     public string MsgTurnedOn = "ライトが点いたようだ";
 
-    [Header("表示時間")]
-    public float EventMsgDuration = 5.0f;                   // メッセージ表示秒数（ゲーム時間）
+    [Header("メッセージの表示時間(ゲーム時間)")]
+    public float EventMsgDuration = 5.0f;
     private float _msgTimer = 0f;
 
-    // ------- 進行度連携 -------
-    [Header("進行度（ミッション）")]
+    // ==== 進行度・ドア連動 ====
+    [Header("進行度参照")]
     public HintText HintRef;
     public bool AutoFindHintRef = true;
 
-    [Tooltip("暖色化で進む量（>=1 推奨）")]
+    [Tooltip("暖色化した時に進める量（>=1 推奨）")]
     public int AdvanceAmountOnOff = 1;
 
-    [Tooltip("点灯で下げる量（>=1 なら減る）")]
+    [Tooltip("冷色に戻した時に下げる量（>=1なら下がる）")]
     public int DecreaseAmountOnOn = 0;
 
-    [Tooltip("同じライトでは最初の“暖色化”だけを進行度にカウントする")]
+    [Tooltip("このライトは最初の暖色化だけカウントするならtrue")]
     public bool CountOnlyOncePerThisLight = false;
     private bool _alreadyCounted = false;
 
-    [Tooltip("トグルの連打での多重カウント防止（秒）")]
+    [Tooltip("連打で多重カウントさせないためのクールダウン秒")]
     public float ToggleDebounceSeconds = 0.25f;
     private float _lastToggleTime = -999f;
 
-    // ------- “一度点けたら固定ON”ロック（例：戻せない演出にしたい時） -------
-    private bool _lockedOn = false;
+    // ==== ロック系 ====
+    private bool _lockedOn = false;                         // 「一度戻したら固定ON」みたいな縛り用
     private bool IsLocked() => _lockedOn;
 
-    // ------- レバー中はゲーム時間停止 -------
+    // ==== 時間停止 ====
     private bool _pausedForLever = false;
     private float _timeScaleBeforePause = 1f;
 
-    // ===== Tutorial 参照キャッシュ =====
+    // ==== Tutorial キャッシュ ====
     private Tutorial _cachedTutorial = null;
     private Tutorial GetTutorial()
     {
@@ -97,7 +104,7 @@ public class LightOff : MonoBehaviour
         return _cachedTutorial;
     }
 
-    // ===== HintRef を安全に取得（未設定なら Tutorial から貰う） =====
+    // ==== HintText 取得の保険 ====
     private HintText GetOrResolveHintRef()
     {
         if (HintRef) return HintRef;
@@ -125,12 +132,34 @@ public class LightOff : MonoBehaviour
         return HintRef;
     }
 
-    //================= TimeScale 停止/復帰 =================//
+    //==================================================
+    // 基準Intensityをキャプチャ（初回だけ）
+    //==================================================
+    private void CaptureBaselinesIfNeeded()
+    {
+        if (_baselineCaptured) return;
+
+        if (_baselineIntensities == null)
+            _baselineIntensities = new List<float>(LightLists.Count);
+        _baselineIntensities.Clear();
+
+        for (int i = 0; i < LightLists.Count; i++)
+        {
+            var l = LightLists[i];
+            _baselineIntensities.Add(l ? l.intensity : 0f);
+        }
+
+        _baselineCaptured = true;
+    }
+
+    //==================================================
+    // ゲーム停止/再開（Time.timeScaleを0にする演出）
+    //==================================================
     private void PauseGameForLever()
     {
         if (_pausedForLever) return;
         _timeScaleBeforePause = Time.timeScale;
-        Time.timeScale = 0f;                // ★演出中はゲーム止める
+        Time.timeScale = 0f;                // 時間停止（実時間ベースの演出で動かす）
         _pausedForLever = true;
     }
     private void ResumeGameIfPausedForLever()
@@ -140,13 +169,15 @@ public class LightOff : MonoBehaviour
         _pausedForLever = false;
     }
 
-    //================= Unity lifecycle =================//
+    //==================================================
+    // Unity lifecycle
+    //==================================================
     private void Awake()
     {
         input = new InputSystem_Actions();
 
         if (!MainCamera && Camera.main) MainCamera = Camera.main;
-        if (ShowcaseCamera) ShowcaseCamera.enabled = false; // 初期は無効
+        if (ShowcaseCamera) ShowcaseCamera.enabled = false; // 最初は見せカメラOFF
     }
 
     private void OnEnable()
@@ -180,27 +211,29 @@ public class LightOff : MonoBehaviour
     {
         if (!Player || !Light) return;
 
-        // 近接チェック
+        // プレイヤーが近い？
         float distance = Vector3.Distance(Player.transform.position, Light.transform.position);
         bool inRange = (distance < PushDistance);
 
-        // 案内表示（ロック/演出中は非表示）
+        // キー案内の表示（レバー中やロック中は出さない）
         if (PromptText) PromptText.gameObject.SetActive(inRange && !_isLeverAnimating && !IsLocked());
         if (inRange && PromptText && !IsLocked())
         {
+            // OnLight == true → まだ冷色側だから「暖色にする」
+            // OnLight == false → もう暖色側だから「ライトを点ける」
             PromptText.text = OnLight ? PromptOn : PromptOff;
         }
 
-        // 入力（Jump=インタラクト）
+        // 入力(Jumpでインタラクト想定)
         if (inRange && !_isLeverAnimating && !IsLocked() && input.Player.Jump.triggered)
         {
             if (OnLight)
-                TurnOffToWarm();
+                TurnOffToWarm();   // 冷たい白いライト → 暖色＆減光
             else
-                TurnOnCold();
+                TurnOnCold();      // 暖色で暗い → 明るい側に戻す
         }
 
-        // メッセージ寿命（Time.timeScaleの影響を受ける）
+        // メッセージの寿命（Time.timeScaleの影響を受けるほうでOK）
         if (_msgTimer > 0f)
         {
             _msgTimer -= Time.deltaTime;
@@ -212,7 +245,9 @@ public class LightOff : MonoBehaviour
         }
     }
 
-    // ========= OFF操作：冷たい白→暖色へ（レバー＆カメラ演出込み） =========
+    //==================================================
+    // 冷色→暖色に切り替える操作（レバー＆カメラ演出込み）
+    //==================================================
     private void TurnOffToWarm()
     {
         if (IsLocked()) return;
@@ -221,7 +256,8 @@ public class LightOff : MonoBehaviour
 
         if (lever && RotateLever != 0f)
         {
-            if (!_isLeverAnimating) StartCoroutine(CoRotateLeverThenShowcaseThenWarmify());
+            if (!_isLeverAnimating)
+                StartCoroutine(CoRotateLeverThenShowcaseThenWarmify());
         }
         else
         {
@@ -229,60 +265,61 @@ public class LightOff : MonoBehaviour
         }
     }
 
-    // レバーあり：
-    //   1. ゲーム停止
-    //   2. レバーを回す
-    //   3. 見せカメラに切替
-    //   4. ライトの色/明るさをじわっと変える
-    //   5. 少し見せる
-    //   6. 元カメラに戻す＆ゲーム再開
+    // レバーあり版：
+    // 1. 時間止める
+    // 2. レバー回す（unscaledDeltaTimeで進行）
+    // 3. 見せカメラON
+    // 4. ライトを徐々に暖色＆減光（基準比％まで）
+    // 5. 少し見せる
+    // 6. カメラ戻す / メッセージ / 進行度アップ / 時間戻す
     private IEnumerator CoRotateLeverThenShowcaseThenWarmify()
     {
         _isLeverAnimating = true;
         PauseGameForLever();
 
-        // 1) レバー回転（TimeScale=0なのでunscaledDeltaTimeで進める）
+        // レバー回転
         Transform tf = lever.transform;
         Vector3 euler = tf.localEulerAngles;
         float startX = euler.x;
         float endX = startX + RotateLever;
-        float duration = Mathf.Max(0.01f, Mathf.Abs(RotateLever) / Mathf.Max(1f, LeverRotateSpeed));
+        float rotDur = Mathf.Max(0.01f, Mathf.Abs(RotateLever) / Mathf.Max(1f, LeverRotateSpeed));
         float t = 0f;
-        while (t < duration)
+        while (t < rotDur)
         {
             t += Time.unscaledDeltaTime;
-            float x = Mathf.LerpAngle(startX, endX, Mathf.Clamp01(t / duration));
+            float x = Mathf.LerpAngle(startX, endX, Mathf.Clamp01(t / rotDur));
             euler = tf.localEulerAngles; euler.x = x;
             tf.localEulerAngles = euler;
             yield return null;
         }
+        // 最終角
         euler = tf.localEulerAngles; euler.x = endX; tf.localEulerAngles = euler;
 
-        // 2) 演出カメラに切り替え
+        // 見せカメラON
         SwitchToShowcaseCamera();
 
-        // 3) ライトをゆっくり暖色へ
+        // ライトをゆっくり暖色へ
         yield return StartCoroutine(CoWarmifyLightsGradually());
 
-        // 4) その状態を見せておく
+        // その状態で見せておく
         yield return new WaitForSecondsRealtime(Mathf.Max(0f, ShowcaseHoldSeconds));
 
-        // 5) カメラ戻す
+        // カメラ戻す
         SwitchBackToMainCamera();
 
-        // 6) 後処理（進行度など）
+        // 後処理（メッセージ・進行度など）
         AfterWarmifySideEffects();
 
         _isLeverAnimating = false;
         ResumeGameIfPausedForLever();
     }
 
-    // レバー無し：
-    //   1. ゲーム停止
-    //   2. 見せカメラに切替
-    //   3. 暖色にフェード
-    //   4. 見せる
-    //   5. カメラ戻す&再開
+    // レバーなし版：
+    // 1. 時間止める
+    // 2. 見せカメラON
+    // 3. 暖色フェード
+    // 4. 見せ続ける
+    // 5. カメラ戻す / 後処理 / 時間戻す
     private IEnumerator CoOnlyShowcaseThenWarmify()
     {
         PauseGameForLever();
@@ -300,18 +337,22 @@ public class LightOff : MonoBehaviour
         ResumeGameIfPausedForLever();
     }
 
-    // =====================================================
+    //==================================================
     // CoWarmifyLightsGradually
-    //   ライトカラーを白っぽい(今の値)から WarmLightColor へ
-    //   intensity もだんだん落とす
-    //   Time.timeScale=0中でもちゃんと動くように unscaledDeltaTime
-    // =====================================================
+    //
+    // ・呼ばれた瞬間のライト状態(色/明るさ)をスタートとする
+    // ・最終カラーは WarmLightColor
+    // ・最終明るさは「最初に記録した基準Intensity × FinalIntensityPercent%」
+    // ・Time.timeScale=0 でも unscaledDeltaTime でちゃんと進む
+    //==================================================
     private IEnumerator CoWarmifyLightsGradually()
     {
-        // 各ライトの初期値を記録
+        // ライトの基準強度をまだ記録してなければここで記録
+        CaptureBaselinesIfNeeded();
+
+        // 今の状態を出発点として保存
         var startColors = new List<Color>(LightLists.Count);
         var startIntensities = new List<float>(LightLists.Count);
-
         for (int i = 0; i < LightLists.Count; i++)
         {
             var l = LightLists[i];
@@ -324,6 +365,9 @@ public class LightOff : MonoBehaviour
             startColors.Add(l.color);
             startIntensities.Add(l.intensity);
         }
+
+        // 目標側：色は WarmLightColor、強さは baseline × percent
+        float percent = Mathf.Max(0f, FinalIntensityPercent) * 0.01f;
 
         float dur = Mathf.Max(0.01f, WarmifyLerpDuration);
         float t = 0f;
@@ -338,51 +382,54 @@ public class LightOff : MonoBehaviour
                 var l = LightLists[i];
                 if (!l) continue;
 
-                // 色Lerp
+                // 色を補間
                 Color fromC = startColors[i];
                 Color toC = WarmLightColor;
                 l.color = Color.Lerp(fromC, toC, eased);
 
-                // 明るさLerp (最終は start * WarmIntensityMultiplier)
-                float fromI = startIntensities[i];
-                float toI = fromI * WarmIntensityMultiplier;
-                l.intensity = Mathf.Lerp(fromI, toI, eased);
+                // intensityを補間
+                float baseI = (_baselineIntensities != null && i < _baselineIntensities.Count)
+                                ? _baselineIntensities[i]
+                                : startIntensities[i];
+                float targetI = baseI * percent;
+
+                l.intensity = Mathf.Lerp(startIntensities[i], targetI, eased);
             }
 
-            yield return null; // 次フレーム
+            yield return null;
         }
 
-        // 最終状態をしっかりセット
+        // 最終値で固定
         for (int i = 0; i < LightLists.Count; i++)
         {
             var l = LightLists[i];
             if (!l) continue;
 
-            Color fromC = startColors[i];
-            float fromI = startIntensities[i];
+            float baseI = (_baselineIntensities != null && i < _baselineIntensities.Count)
+                            ? _baselineIntensities[i]
+                            : startIntensities[i];
 
             l.color = WarmLightColor;
-            l.intensity = fromI * WarmIntensityMultiplier;
+            l.intensity = baseI * percent;
         }
 
-        // ここまでで見た目のフェードは完了
+        // 今はもう「暖色モード」ってことにする
         OnLight = false;
-        Debug.Log("ライトを暖色にフェード完了");
+        Debug.Log($"[LightOff] Warmify done. Final = baseline × {FinalIntensityPercent:F1}%");
     }
 
-    // =====================================================
-    // AfterWarmifySideEffects
-    //   フェード完了後にやる副作用（メッセージ、ゴースト削除、進行度アップなど）
-    // =====================================================
+    //==================================================
+    // 暖色化後にやる副作用（UIメッセージ / ゴースト消す / 進行度進める etc.）
+    //==================================================
     private void AfterWarmifySideEffects()
     {
-        // ゴースト退場（任意）
+        // ゴースト消す
         if (Ghost) Destroy(Ghost.gameObject);
 
-        // メッセージ
+        // メッセージ表示
         ShowEventMessage(MsgTurnedOff);
 
-        // 進行度を必ず上げるロジック
+        // 進行度を進める（必ず進めたいので保険付き）
         var hint = GetOrResolveHintRef();
         if (hint)
         {
@@ -390,11 +437,11 @@ public class LightOff : MonoBehaviour
             {
                 int before = hint.ProgressStage;
 
-                // ふつうに進める
+                // 普通にAdvance
                 for (int i = 0; i < Mathf.Max(1, AdvanceAmountOnOff); i++)
                     hint.AdvanceProgress();
 
-                // 念のための保険
+                // 動かなかったら強制Set
                 if (hint.ProgressStage == before)
                 {
                     hint.SetProgress(before + Mathf.Max(1, AdvanceAmountOnOff));
@@ -403,7 +450,7 @@ public class LightOff : MonoBehaviour
                 int after = hint.ProgressStage;
                 Debug.Log($"[LightOff] Warmify progress: {before} -> {after} (HintRef={hint.GetInstanceID()})");
 
-                // ドア解錠の保険
+                // ドアもちゃんと開けたい場合の保険
                 var tut = GetTutorial();
                 if (tut)
                 {
@@ -430,22 +477,41 @@ public class LightOff : MonoBehaviour
         }
     }
 
-    // ========= 全ライトON：進行度を下げる（任意の逆操作） =========
+    //==================================================
+    // 逆方向：ライトを明るい側(冷色)に戻す
+    //==================================================
     private void TurnOnCold()
     {
         if (IsLocked()) return;
         if (Time.time - _lastToggleTime < ToggleDebounceSeconds) return;
         _lastToggleTime = Time.time;
 
-        foreach (var l in LightLists)
+        // 基準キャプチャがまだなら一応取る
+        CaptureBaselinesIfNeeded();
+
+        // 明るい側に戻すイメージ：
+        // - intensity は baseline に戻す
+        // - 色は現在の色のまま or 好きなら白っぽい色に戻す処理をここで入れる
+        for (int i = 0; i < LightLists.Count; i++)
         {
-            if (l) l.enabled = true;
+            var l = LightLists[i];
+            if (!l) continue;
+
+            // baselineに戻す
+            float baseI = (_baselineIntensities != null && i < _baselineIntensities.Count)
+                            ? _baselineIntensities[i]
+                            : l.intensity;
+            l.intensity = baseI;
+
+            // 必要なら「冷たい白」に戻したい場合はここでやる
+            // 例: l.color = Color.white; とか
         }
 
         OnLight = true;
         Debug.Log("ライトを点けた(明るい側に戻した)");
         ShowEventMessage(MsgTurnedOn);
 
+        // 進行度を下げる（任意仕様）
         var hint = GetOrResolveHintRef();
         if (hint && DecreaseAmountOnOn > 0)
         {
@@ -458,12 +524,14 @@ public class LightOff : MonoBehaviour
             if (tut) tut.ReapplyDoorByCurrentProgress();
         }
 
-        // もし「一回ONにしたらロックしてもう触らせない」演出にしたいならここをtrueに
+        // 明るい側に戻したらもう触らせたくないならロック
         _lockedOn = true;
         if (PromptText) PromptText.gameObject.SetActive(false);
     }
 
-    // ========= カメラ切りかえ =========
+    //==================================================
+    // カメラ切り替え
+    //==================================================
     private void SwitchToShowcaseCamera()
     {
         if (!MainCamera && Camera.main) MainCamera = Camera.main;
@@ -482,12 +550,14 @@ public class LightOff : MonoBehaviour
         if (MainCamera) MainCamera.enabled = true;
     }
 
-    // ========= メッセージ表示共通 =========
+    //==================================================
+    // メッセージ表示
+    //==================================================
     private void ShowEventMessage(string msg)
     {
         if (!MsgText) return;
         MsgText.text = msg;
         MsgText.gameObject.SetActive(true);
-        _msgTimer = Mathf.Max(0.01f, EventMsgDuration);     // timeScale の影響を受ける
+        _msgTimer = Mathf.Max(0.01f, EventMsgDuration);
     }
 }
