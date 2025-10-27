@@ -16583,8 +16583,8 @@ MonoBehaviour:
   - {fileID: 687335086}
   - {fileID: 281273393}
   - {fileID: 582614329}
-  WarmLightColor: {r: 1, g: 0.78, b: 0.56, a: 1}
-  WarmIntensityMultiplier: 0.6
+  WarmLightColor: {r: 0.96981126, g: 0.546205, b: 0.12259876, a: 0.6156863}
+  WarmIntensityMultiplier: 0
   WarmifyLerpDuration: 0.5
   WarmifyCurve:
     serializedVersion: 2
@@ -31451,13 +31451,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 253f4bbe28cea55488bcd706480a401f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  text: {fileID: 1750382308}
+  TriggerTargets:
+  - state: 1
+    element: 3
+  - state: 2
+    element: 3
   hint: {fileID: 1534714873}
-  targetState: 1
-  targetElement: 3
+  text: {fileID: 1750382308}
   line: "\u660E\u308B\u3044\u306E\u304C\u6016\u3044\u2026\u3069\u3046\u3084\u3063\u3066\u96FB\u6C17\u3092\u6697\u304F\u3067\u304D\u308B\u3093\u3060\u308D\u3046"
-  showOnce: 1
   visibleSeconds: 3
+  showOnce: 1
   OnMutterShown:
     m_PersistentCalls:
       m_Calls:

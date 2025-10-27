@@ -1,81 +1,77 @@
 using TMPro;
 using UnityEngine;
-using System.Collections;      // コルーチン用
-using UnityEngine.Events;      // UnityEvent用
+using System.Collections;
+using UnityEngine.Events;
 
 // ------------------------------------------------------------
 // MutteringToLine
-//   ・HintText から「stateX.elementY が全部出たよ」という合図を受け取って動く
-//   ・その瞬間に：
 //
-//      1) text に line を表示して一時的にアクティブにする
-//         （visibleSeconds 経ったら自動で非表示）
+// ・HintText から「stateX.elementY が全文表示されたよ」という通知(id)を受け取る
+// ・その id が TriggerTargets[] のどれかと一致したら発火
 //
-//      2) RevealObjects[] に入っているオブジェクトを SetActive(true) にする
-//         （= レバー/スイッチなどが出現する）
+// 発火すると：
+//   1) text に line を表示して一定秒数後に消す
+//   2) RevealObjects[] を SetActive(true) にして出現させる
+//   3) OnMutterShown.Invoke() を呼ぶ（外に知らせたい用）
 //
-//   ・Start時点では RevealObjects[] は強制で全部 SetActive(false) にして隠す
-//     → セリフが全部出るまでは絶対に見えないようにする
-//
-//   ・showOnce=true の場合は一度だけ反応する
-//
-//   ・OnMutterShown は「いま実際にセリフを出したよ」というタイミングで呼びたい人向け
+// さらに、RevealObjects[] はゲーム開始時点では必ず隠す。
+// showOnce = true なら一回きり。
 // ------------------------------------------------------------
 public class MutteringToLine : MonoBehaviour
 {
-    // ----- 表示するテキストUI（このTextに line を流し込んで一時的に表示する） -----
-    [Header("一時的に表示するテキストUI")]
-    public TextMeshProUGUI text;
+    // ---- 複数トリガー対応用：監視したい (state, element) を並べる ----
+    [System.Serializable]
+    public struct TriggerTarget
+    {
+        [Min(1)] public int state;       // state1 / state2 / state3...
+        [Range(0, 4)] public int element; // element0 ~ element4 想定
+    }
 
-    // ----- HintText参照（どのヒント進行を監視するか） -----
+    [Header("どのヒント行(複数可)が全文出たら発火させるか")]
+    public TriggerTarget[] TriggerTargets;
+
+    // ---- ヒント管理コンポーネント ----
     [Header("ヒント管理 (同じシーンの HintText を割り当てる)")]
     public HintText hint;
 
-    // ----- どの行を監視するか：stateX / elementY -----
-    [Header("どの行が全部出たら反応するか")]
-    [Min(1)] public int targetState = 1;        // state1 / state2 / state3...
-    [Range(0, 4)] public int targetElement = 0; // element0 〜 element4 想定
+    // ---- セリフ表示まわり ----
+    [Header("一時的に表示するテキストUI")]
+    public TextMeshProUGUI text;
 
-    // ----- 出すセリフ本体 -----
     [Header("しゃべる内容")]
     [TextArea] public string line = "……（台詞）";
 
-    // ----- このセリフを出すのは一度だけにするか -----
-    [Header("一度だけ表示するか")]
-    public bool showOnce = true;
-
-    // ----- この秒数だけ text を表示したあと自動で消す -----
-    [Header("テキストの表示秒数")]
+    [Header("この秒数だけ表示してから自動で消す")]
     public float visibleSeconds = 3f;
 
-    // ----- イベント（必要な人用。外部に通知したいときに使える） -----
-    [Header("イベント: セリフを実際に表示した瞬間")]
+    [Header("一度だけ発火するか")]
+    public bool showOnce = true;
+
+    [Header("イベント: セリフを実際に表示した瞬間呼ぶ")]
     public UnityEvent OnMutterShown;
 
-    // ----- ここに入ってるオブジェクトは、最初に全部非表示にされる -----
-    // ----- そしてセリフが最後まで出たタイミングでまとめて表示される -----
-    [Header("セリフが全部出た瞬間に出現させたいオブジェクト(レバー/スイッチ等)")]
+    // ---- 出したいオブジェクト（レバーとか） ----
+    [Header("このタイミングで出現させたいオブジェクト(レバー/スイッチ等)")]
     public GameObject[] RevealObjects;
 
-    // ----- 内部状態 -----
-    private bool _fired;          // showOnce=true のとき もう発火したか
-    private bool _revealed;       // RevealObjects をもう表示済みか
-    private Coroutine _showCo;    // text の表示→待機→非表示コルーチン
+    // ---- 内部状態 ----
+    private bool _fired = false;        // showOnce の一回きり制御
+    private bool _revealed = false;     // RevealObjects をもう出したか
+    private Coroutine _showCo = null;   // テキストの表示コルーチン
 
-    // ------------------------------------------------------------
-    // Unityイベント系
-    // ------------------------------------------------------------
+    // ============================================================
+    // Unity ライフサイクル
+    // ============================================================
 
     private void Awake()
     {
-        // 念のため最初に全部消す（Awakeでもやっておく）
+        // 念のため Awake でも隠す
         HideRevealObjectsInitially();
     }
 
     private void Start()
     {
-        // Startでもう一回保険で消す
-        // （Unityの有効化順で Awake より後に SetActive(true) にされてもここで消す）
+        // Start でもう一回隠す（ほかのスクリプトに先に SetActive(true) されてもここで消す）
         HideRevealObjectsInitially();
     }
 
@@ -97,14 +93,17 @@ public class MutteringToLine : MonoBehaviour
             return;
         }
 
-        // HintText の「この行が最後まで出たよ」イベントを購読
+        // HintText の「この行が全部表示されたよ」イベントを購読
         hint.OnLineFullyRevealed.AddListener(OnHintLineFullyRevealed);
 
-        Debug.Log($"[MutteringToLine] Listening to {hint.name} for {MakeId(targetState, targetElement)}");
+        // デバッグ用ログ
+        for (int i = 0; i < TriggerTargets.Length; i++)
+        {
+            Debug.Log($"[MutteringToLine] Listen for {MakeId(TriggerTargets[i].state, TriggerTargets[i].element)}");
+        }
 
-        // ここでは「すでにもうその行が開示済みだったら即表示するか？」はやらない
-        // つまり、ゲーム開始時点で RevealObjects は必ず非表示のまま
-        // → プレイヤーがちゃんと今回ヒントを見終わるまでは出さない
+        // 今回は「すでに開示済みなら即出す」はやらない方針
+        // → 毎回ちゃんとその場でヒントを見切った瞬間だけレバー出したい、って用途想定
     }
 
     private void OnDisable()
@@ -115,39 +114,49 @@ public class MutteringToLine : MonoBehaviour
         }
     }
 
-    // ------------------------------------------------------------
-    // HintText から「stateX.elementY が全文出たよ」と呼ばれる
-    // ------------------------------------------------------------
+    // ============================================================
+    // Hint 側から飛んでくるコールバック
+    //   id は "stateX.elementY"
+    //   例: "state2.element0"
+    // ============================================================
     private void OnHintLineFullyRevealed(string id)
     {
         if (_fired && showOnce)
         {
-            // もうやった後ならスルー
+            // もう発火済みで1回きり設定ならスルー
             return;
         }
 
-        string targetId = MakeId(targetState, targetElement);
-        Debug.Log($"[MutteringToLine] Got id={id}, target={targetId}");
-
-        if (id == targetId)
+        // 受け取った id が TriggerTargets のどれかに一致する？
+        if (DoesMatchAnyTarget(id))
         {
-            // この瞬間にテキストを表示して、オブジェクトを出す
-            ShowNow();
+            ShowNow(); // その瞬間に実行
         }
     }
 
-    // ------------------------------------------------------------
+    // TriggerTargets のどれかと一致するか（OR条件）
+    private bool DoesMatchAnyTarget(string id)
+    {
+        for (int i = 0; i < TriggerTargets.Length; i++)
+        {
+            string want = MakeId(TriggerTargets[i].state, TriggerTargets[i].element);
+            if (id == want) return true;
+        }
+        return false;
+    }
+
+    // ============================================================
     // ShowNow
-    //   1) テキストUIを一時的に表示
-    //   2) RevealObjects[] を一斉に SetActive(true)
-    //   3) OnMutterShown.Invoke() で外部へ通知
-    // ------------------------------------------------------------
+    //   1) テキストを一時的に見せる
+    //   2) RevealObjects を一斉に SetActive(true)
+    //   3) OnMutterShown.Invoke() を呼ぶ
+    // ============================================================
     private void ShowNow()
     {
-        // ---- テキストを一瞬出す ----
+        // ---- テキスト ----
         if (text)
         {
-            // すでに表示中ならいったん止める
+            // すでに再生中なら止めてリスタート
             if (_showCo != null)
             {
                 StopCoroutine(_showCo);
@@ -157,26 +166,20 @@ public class MutteringToLine : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning("[MutteringToLine] text が割り当てられていませんが、RevealObjects は出します。");
+            Debug.LogWarning("[MutteringToLine] text 未設定。テキストは出せないけどオブジェクトは出します。");
         }
 
-        // ---- レバー / スイッチ の登場（この瞬間に本物として出す）----
+        // ---- レバー/スイッチなどを出す ----
         RevealObjectsOnce();
 
-        // ---- イベント通知（外部でなにかしたいなら使える） ----
-        if (OnMutterShown != null)
-        {
-            OnMutterShown.Invoke();
-        }
+        // ---- イベント通知 ----
+        OnMutterShown?.Invoke();
 
         _fired = true;
-        Debug.Log("[MutteringToLine] ShowNow() 完了");
+        Debug.Log("[MutteringToLine] ShowNow() 発火");
     }
 
-    // ------------------------------------------------------------
-    // CoShowTemp
-    //   text を visibleSeconds 秒だけ表示 → 消す
-    // ------------------------------------------------------------
+    // テキストを visibleSeconds 秒だけ表示して、その後消す
     private IEnumerator CoShowTemp()
     {
         text.gameObject.SetActive(true);
@@ -192,11 +195,9 @@ public class MutteringToLine : MonoBehaviour
         _showCo = null;
     }
 
-    // ------------------------------------------------------------
-    // HideRevealObjectsInitially
-    //   Start直後までは RevealObjects[] を必ず非表示にしておく
-    //   （「まだセリフを見切ってないのにレバーが見える」を防ぐ）
-    // ------------------------------------------------------------
+    // ============================================================
+    // RevealObjects をゲーム開始時は必ず隠す
+    // ============================================================
     private void HideRevealObjectsInitially()
     {
         if (RevealObjects == null) return;
@@ -209,18 +210,15 @@ public class MutteringToLine : MonoBehaviour
             }
         }
 
-        // まだ出してないのでフラグもリセットしておく
         _revealed = false;
     }
 
-    // ------------------------------------------------------------
-    // RevealObjectsOnce
-    //   RevealObjects[] を初回だけ SetActive(true) にする
-    //   二重で呼んでも一回目以降は何もしない
-    // ------------------------------------------------------------
+    // ============================================================
+    // RevealObjects を一度だけ出す
+    // ============================================================
     private void RevealObjectsOnce()
     {
-        if (_revealed) return; // もう出してるなら終わり
+        if (_revealed) return;
 
         if (RevealObjects != null)
         {
@@ -236,10 +234,10 @@ public class MutteringToLine : MonoBehaviour
         _revealed = true;
     }
 
-    // ------------------------------------------------------------
+    // ============================================================
     // MakeId
-    //   監視対象の "stateX.elementY" 文字列を作るユーティリティ
-    // ------------------------------------------------------------
+    //   state / element から "stateX.elementY" を作る
+    // ============================================================
     private static string MakeId(int state, int element)
     {
         return $"state{Mathf.Max(1, state)}.element{Mathf.Clamp(element, 0, 4)}";

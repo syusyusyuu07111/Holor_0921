@@ -117,7 +117,7 @@ public class PlayerController : MonoBehaviour
         Vector3 moveDir = (forward * move.y + right * move.x);
         if (moveDir.sqrMagnitude > 0.0001f) moveDir.Normalize();
 
-        // --- 後退判定（ここがポイント）---
+        // --- 後退判定---
         bool isBackward = move.y < -deadZone;
 
         if (moveDir.sqrMagnitude > 0f)
