@@ -16033,6 +16033,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Ghost_FBX_1026
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 42f8a4ef056797b4db0fb415cde202fa, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -16580,6 +16584,32 @@ MonoBehaviour:
   - {fileID: 281273393}
   - {fileID: 582614329}
   WarmLightColor: {r: 1, g: 0.78, b: 0.56, a: 1}
+  WarmIntensityMultiplier: 0.6
+  WarmifyLerpDuration: 0.5
+  WarmifyCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   MainCamera: {fileID: 330585545}
   ShowcaseCamera: {fileID: 446601667}
   ShowcaseHoldSeconds: 2
@@ -45112,6 +45142,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: 3RoomGhost (1)
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: f6fdab95170b9cc4ea18f05a1be624fa, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 4109679346317143619, guid: f6fdab95170b9cc4ea18f05a1be624fa, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
@@ -45201,7 +45235,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2672928710479239448, guid: 6c37b82c80289b94a82523e1b940c2e4, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5755080144915459183, guid: 6c37b82c80289b94a82523e1b940c2e4, type: 3}
       propertyPath: m_Enabled
