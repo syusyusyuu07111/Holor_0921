@@ -5579,6 +5579,9 @@ MonoBehaviour:
   RespawnDelayAfterDespawn: 5
   RetryIntervalWhileAlive: 0.25
   AudioMgr: {fileID: 1012635561}
+  SpawnEffectPrefab: {fileID: 2797927776944752618, guid: 4139219aaff00f440b4f8bbb35b408ab, type: 3}
+  AttachEffectToGhost: 1
+  EffectAutoDestroy: 2
   OnGhostSpawned:
     m_PersistentCalls:
       m_Calls:
@@ -39574,6 +39577,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 108dd426c94565c4bac58d18764e4e86, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  IsGameplayScene: 1
   MenuOn: 0
   MenuWindow: {fileID: 1987832709}
   PauseTargets:
@@ -46442,6 +46446,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6021703215066986084, guid: 6c37b82c80289b94a82523e1b940c2e4, type: 3}
+      propertyPath: anim
+      value: 
+      objectReference: {fileID: 663022220}
+    - target: {fileID: 6021703215066986084, guid: 6c37b82c80289b94a82523e1b940c2e4, type: 3}
       propertyPath: Player
       value: 
       objectReference: {fileID: 956023712}
@@ -46457,6 +46465,10 @@ PrefabInstance:
       propertyPath: surface
       value: 
       objectReference: {fileID: 1258492186}
+    - target: {fileID: 6021703215066986084, guid: 6c37b82c80289b94a82523e1b940c2e4, type: 3}
+      propertyPath: animator
+      value: 
+      objectReference: {fileID: 663022220}
     - target: {fileID: 6021703215066986084, guid: 6c37b82c80289b94a82523e1b940c2e4, type: 3}
       propertyPath: State1Text
       value: "\u30C7\u30D0\u30C3\u30B0\u7528STATE: 1  \u96A0\u308C\u3066\u3044\u308B\u9593\u306F\u898B\u3064\u304B\u3089\u306A\u3044"
@@ -46477,6 +46489,14 @@ PrefabInstance:
       propertyPath: StateLabelTMP
       value: 
       objectReference: {fileID: 1742442465}
+    - target: {fileID: 6021703215066986084, guid: 6c37b82c80289b94a82523e1b940c2e4, type: 3}
+      propertyPath: angryEffectPrefab
+      value: 
+      objectReference: {fileID: 8451559395783662054, guid: da958dc292349784dab0657ebb62dd66, type: 3}
+    - target: {fileID: 6021703215066986084, guid: 6c37b82c80289b94a82523e1b940c2e4, type: 3}
+      propertyPath: angryEffectFollowPoint
+      value: 
+      objectReference: {fileID: 1088747856}
     - target: {fileID: 6021703215066986084, guid: 6c37b82c80289b94a82523e1b940c2e4, type: 3}
       propertyPath: 'targetlist.Array.data[0]'
       value: 
