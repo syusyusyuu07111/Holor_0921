@@ -7,8 +7,8 @@ public class EnemyAI : MonoBehaviour
     // ====== 基本 ======
     [Header("基本")]
     public Transform Player;
-    public GameObject Ghost;                 // 生成プレハブ
-    public Vector3 GhostPosition;            // 次に湧く座標（Updateで更新）
+    public GameObject Ghost;                 // 生成する本体プレハブ
+    public Vector3 GhostPosition;            // 次に湧く予定の座標（Updateで更新）
     [Tooltip("直近の抽選値（デバッグ用）")]
     public int GhostEncountChance;
 
@@ -24,20 +24,27 @@ public class EnemyAI : MonoBehaviour
 
     // ====== 生成制御 ======
     [Header("生成制御")]
-    public GameObject CurrentGhost;          // 1体制限
-    public float GhostLifetime = 30f;
-    public float RespawnDelayAfterDespawn = 5f;
-    public float RetryIntervalWhileAlive = 0.25f;
+    public GameObject CurrentGhost;          // いま生きてるやつ（1体制限）
+    public float GhostLifetime = 30f;        // ゴーストの寿命(秒)
+    public float RespawnDelayAfterDespawn = 5f;   // 死んでから次の抽選を再開するまでの待ち
+    public float RetryIntervalWhileAlive = 0.25f; // すでに湧いてる間のポーリング間隔
     private bool _cooldown;
 
     // ====== 登場SE ======
     [Header("登場SE")]
-    // 以前は Unity の AudioSource / AudioClip を使っていた
-    // public AudioSource AudioSource;
-    // public AudioClip AudioClip;
-
     [Tooltip("CRIのAudioManager。幽霊出現SEをここから鳴らす")]
     public AudioManager AudioMgr;
+
+    // ====== 出現エフェクト ======
+    [Header("出現エフェクト")]
+    [Tooltip("ゴースト出現時に同じ場所で生成するVFXプレハブ")]
+    public GameObject SpawnEffectPrefab;   // ★追加: 出現エフェクト
+
+    [Tooltip("trueならエフェクトをゴーストの子にする（追従させたい時）")]
+    public bool AttachEffectToGhost = true; // ★追加
+
+    [Tooltip("エフェクトを自動で消す秒数。0以下なら放置")]
+    public float EffectAutoDestroy = 2f;    // ★追加
 
     // ====== イベント：湧いた瞬間 ======
     [Header("イベント")]
@@ -70,14 +77,8 @@ public class EnemyAI : MonoBehaviour
     {
         if (ResetCounterOnStart) s_GlobalSpawnCount = 0;
 
-        // UnityのAudioSource系を使ってた頃の初期化は削除
-        // if (AudioSource == null) AudioSource = GetComponent<AudioSource>();
-        // if (AudioSource && AudioClip && AudioSource.clip != AudioClip)
-        //     AudioSource.clip = AudioClip;
-
         if (ForceUnpauseAudioListener) AudioListener.pause = false;
 
-        // デバッグログ（とりあえず生かしておく）
 #if UNITY_2023_1_OR_NEWER
         var listeners = Object.FindObjectsByType<AudioListener>(FindObjectsSortMode.None);
 #else
@@ -92,8 +93,7 @@ public class EnemyAI : MonoBehaviour
 
     void OnValidate()
     {
-        // UnityのAudioSource/Clipを同期してた処理はもう不要
-        // if (AudioSource && AudioClip) AudioSource.clip = AudioClip;
+        // 以前のAudioSource同期処理は不要になったので空
     }
 
     void Update()
@@ -114,7 +114,11 @@ public class EnemyAI : MonoBehaviour
 
     public void StopSpawning()
     {
-        if (_spawnLoop != null) { StopCoroutine(_spawnLoop); _spawnLoop = null; }
+        if (_spawnLoop != null)
+        {
+            StopCoroutine(_spawnLoop);
+            _spawnLoop = null;
+        }
     }
 
     // ================= スポーン処理 =================
@@ -125,12 +129,17 @@ public class EnemyAI : MonoBehaviour
         if (CurrentGhost || _cooldown || !Ghost) return false;
 
         var pos = PickSpawnPointInRect();
+
+        // ゴースト本体生成
         CurrentGhost = Instantiate(Ghost, pos, Quaternion.identity);
+
+        // ★ 生成エフェクト
+        SpawnGhostEffect(pos, CurrentGhost);
 
         ForceFirstTwoStates(CurrentGhost);
         OnGhostSpawned?.Invoke();
 
-        TryPlaySpawnSE();    // ★ 生成直後にSE（CRI経由）
+        TryPlaySpawnSE();    // SE鳴らす
 
         StartCoroutine(GhostLifecycle(CurrentGhost));
         _firstRollDone = true;
@@ -144,6 +153,7 @@ public class EnemyAI : MonoBehaviour
         {
             if (CurrentGhost || _cooldown)
             {
+                // すでに誰かいる間は短いポーリング
                 yield return new WaitForSeconds(RetryIntervalWhileAlive);
                 continue;
             }
@@ -153,15 +163,24 @@ public class EnemyAI : MonoBehaviour
             {
                 _firstRollDone = true;
 
-                if (!Ghost) { Debug.LogWarning("[EnemyAI] Ghost prefab 未設定。"); yield return new WaitForSeconds(5f); continue; }
+                if (!Ghost)
+                {
+                    Debug.LogWarning("[EnemyAI] Ghost prefab 未設定。");
+                    yield return new WaitForSeconds(5f);
+                    continue;
+                }
 
                 var pos0 = PickSpawnPointInRect();
+
                 CurrentGhost = Instantiate(Ghost, pos0, Quaternion.identity);
+
+                // ★ 生成エフェクト
+                SpawnGhostEffect(pos0, CurrentGhost);
 
                 ForceFirstTwoStates(CurrentGhost);
                 OnGhostSpawned?.Invoke();
 
-                TryPlaySpawnSE();    // ★ ここでもSE
+                TryPlaySpawnSE();
 
                 StartCoroutine(GhostLifecycle(CurrentGhost));
                 yield return new WaitForSeconds(5f);
@@ -175,15 +194,24 @@ public class EnemyAI : MonoBehaviour
 
             if (spawn && !CurrentGhost)
             {
-                if (!Ghost) { Debug.LogWarning("[EnemyAI] Ghost prefab 未設定。"); yield return new WaitForSeconds(5f); continue; }
+                if (!Ghost)
+                {
+                    Debug.LogWarning("[EnemyAI] Ghost prefab 未設定。");
+                    yield return new WaitForSeconds(5f);
+                    continue;
+                }
 
                 var pos = PickSpawnPointInRect();
+
                 CurrentGhost = Instantiate(Ghost, pos, Quaternion.identity);
+
+                // ★ 生成エフェクト
+                SpawnGhostEffect(pos, CurrentGhost);
 
                 ForceFirstTwoStates(CurrentGhost);
                 OnGhostSpawned?.Invoke();
 
-                TryPlaySpawnSE();    // ★ ここでもSE
+                TryPlaySpawnSE();
 
                 StartCoroutine(GhostLifecycle(CurrentGhost));
             }
@@ -194,13 +222,48 @@ public class EnemyAI : MonoBehaviour
 
     private IEnumerator GhostLifecycle(GameObject ghost)
     {
+        // 一定時間生きる
         yield return new WaitForSeconds(GhostLifetime);
+
+        // 消す
         if (ghost) Destroy(ghost);
         if (CurrentGhost == ghost) CurrentGhost = null;
 
+        // クールダウンを挟んで再抽選許可
         _cooldown = true;
         yield return new WaitForSeconds(RespawnDelayAfterDespawn);
         _cooldown = false;
+    }
+
+    // ================= 出現エフェクト生成 =================
+    // ゴースト生成直後に呼ばれる
+    private void SpawnGhostEffect(Vector3 spawnPos, GameObject ghostInstance)
+    {
+        if (!SpawnEffectPrefab) return; // エフェクト未指定なら何もしない
+
+        // どの親につける？
+        Transform parent = null;
+        if (AttachEffectToGhost && ghostInstance)
+        {
+            parent = ghostInstance.transform;
+        }
+
+        // 生成
+        GameObject fx = Instantiate(
+            SpawnEffectPrefab,
+            spawnPos,
+            Quaternion.identity,
+            parent
+        );
+
+        // 子にした場合、足元にピタッと置きたいとかあればここでローカル補正もできる
+        // いまはそのまま。
+
+        // 一定時間後に消す
+        if (EffectAutoDestroy > 0f)
+        {
+            Destroy(fx, EffectAutoDestroy);
+        }
     }
 
     // ================= STATE固定（1回目=1、2回目=2） =================
@@ -209,14 +272,23 @@ public class EnemyAI : MonoBehaviour
         if (!ghostRoot) return;
 
         var chasers = ghostRoot.GetComponentsInChildren<SearchChase>(true);
-        if (chasers == null || chasers.Length == 0) { s_GlobalSpawnCount++; return; }
+        if (chasers == null || chasers.Length == 0)
+        {
+            s_GlobalSpawnCount++;
+            return;
+        }
 
         int forced =
             (s_GlobalSpawnCount == 0) ? 1 :
             (s_GlobalSpawnCount == 1) ? 2 : 0;
 
         if (forced != 0)
-            foreach (var sc in chasers) sc.ForceState(forced);
+        {
+            foreach (var sc in chasers)
+            {
+                sc.ForceState(forced);
+            }
+        }
 
         s_GlobalSpawnCount++;
     }
@@ -245,6 +317,7 @@ public class EnemyAI : MonoBehaviour
     {
         if (!Player)
         {
+            // プレイヤー不明なら矩形の中心あたり
             return new Vector3(
                 Mathf.Lerp(MinX, MaxX, 0.5f),
                 SpawnYOffset,
@@ -259,24 +332,37 @@ public class EnemyAI : MonoBehaviour
         float z0 = Mathf.Min(MinZ, MaxZ);
         float z1 = Mathf.Max(MinZ, MaxZ);
 
+        // 一定距離以上離れた点をランダムに試す
         for (int i = 0; i < MaxPickTrials; i++)
         {
             float x = Random.Range(x0, x1);
             float z = Random.Range(z0, z1);
             pick = new Vector3(x, Player.position.y + SpawnYOffset, z);
 
-            Vector2 d2 = new Vector2(pick.x - Player.position.x, pick.z - Player.position.z);
+            Vector2 d2 = new Vector2(
+                pick.x - Player.position.x,
+                pick.z - Player.position.z
+            );
             if (d2.sqrMagnitude >= MinSpawnDistance * MinSpawnDistance)
+            {
                 return pick; // 採用
+            }
         }
 
-        Vector3 far = FarthestPointFromPlayerInRect(new Vector2(x0, z0), new Vector2(x1, z1));
+        // どうしても取れなかったら、矩形の四隅のうち一番遠いところ
+        Vector3 far = FarthestPointFromPlayerInRect(
+            new Vector2(x0, z0),
+            new Vector2(x1, z1)
+        );
         return new Vector3(far.x, Player.position.y + SpawnYOffset, far.z);
     }
 
     private Vector3 FarthestPointFromPlayerInRect(Vector2 min, Vector2 max)
     {
-        Vector2 p = Player ? new Vector2(Player.position.x, Player.position.z) : Vector2.zero;
+        Vector2 p = Player
+            ? new Vector2(Player.position.x, Player.position.z)
+            : Vector2.zero;
+
         Vector2[] corners =
         {
             new Vector2(min.x, min.y),
@@ -285,12 +371,20 @@ public class EnemyAI : MonoBehaviour
             new Vector2(max.x, max.y)
         };
 
-        float best = -1f; Vector2 bestPt = corners[0];
+        float best = -1f;
+        Vector2 bestPt = corners[0];
+
         for (int i = 0; i < corners.Length; i++)
         {
             float d = (corners[i] - p).sqrMagnitude;
-            if (d > best) { best = d; bestPt = corners[i]; }
+            if (d > best)
+            {
+                best = d;
+                bestPt = corners[i];
+            }
         }
+
         return new Vector3(bestPt.x, 0f, bestPt.y);
     }
 }
+

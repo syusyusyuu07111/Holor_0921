@@ -9,9 +9,9 @@ using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.AI;
 using Unity.AI.Navigation;
-using TMPro;                 // 画面デバッグ用（任意）
-using UnityEngine.UI;        // 旧UI.Text（任意）
-using System.Collections;    // コルーチン用
+using TMPro;                 // デバッグ用（任意）
+using UnityEngine.UI;        // 旧UI.Text用（任意）
+using System.Collections;    // コルーチン
 
 public class SearchChase : MonoBehaviour
 {
@@ -20,25 +20,25 @@ public class SearchChase : MonoBehaviour
     public NavMeshSurface surface;
     public Transform Player;         // 追う対象（プレイヤー）
     public Transform target;         // 現在の目的地（lostposition か パトロール点）
-    public Transform lostposition;   // 最終確認したプレイヤー位置の退避先（Empty推奨）
+    public Transform lostposition;   // 最後に見失った位置（Emptyなど）
 
     [Header("経路/挙動")]
     public float maxdistance = 2.0f;       // NavMesh.SamplePosition の半径
     public float repathInterval = 0.25f;   // 経路再計算間隔
     private float repathtimer = 0f;
-    public float StopDistance = 0.5f;      // パトロール到達判定
-    public float WaitCount = 2.0f;         // 次ウェイポイントへ移る前の待機秒
+    public float StopDistance = 0.5f;      // パトロール到達のしきい
+    public float WaitCount = 2.0f;         // 次ウェイポイントに行く前の待ち秒
 
     [Header("検知/パトロール")]
-    public bool isDiscovery = false;       // 現在の発見状態
+    public bool isDiscovery = false;       // プレイヤーを見つけてる状態？
     public List<Transform> targetlist = new List<Transform>();
     int CurrenTtargetNum = 0;
 
-    // ログ立ち上がり検出
+    // 直前の isDiscovery を保持して「切り替わり」を検知する
     private bool _foundPrev = false;
 
     // --------------- 状態(1 or 2) ---------------
-    [SerializeField] private int fixedState = 1;     // 1 or 2
+    [SerializeField] private int fixedState = 1; // 1 or 2
     private bool _stateOverridden = false;
     public int GetState() => fixedState;
     public void ForceState(int state)
@@ -49,22 +49,38 @@ public class SearchChase : MonoBehaviour
     }
 
     // --------------- 隠れ状態参照 ---------------
-    public HideCroset HideRef; // HideCroset.hide == true で「クローゼット内」
+    public HideCroset HideRef; // HideCroset.hide == true で「クローゼットに隠れてる」
 
-    // --------------- デバッグ表示（画面テキスト） ---------------
+    // --------------- デバッグ表示 ---------------
     [Header("デバッグ表示（任意）")]
     public TextMeshProUGUI StateLabelTMP;
     public Text StateLabelLegacy;
     [TextArea] public string State1Text = "STATE: 1  隠れている間は見つからない（LoS必須）";
-    [TextArea] public string State2Text = "STATE: 2  クローゼット内でも見つかる（LoSは家具で遮られる限り必要）";
+    [TextArea] public string State2Text = "STATE: 2  クローゼット内でも見つかる（LoSほぼ無視）";
 
     // ===== 見渡し（サーチ） =====
-    [Header("見渡し（サーチ）")]
-    public float LookInterval = 5.0f;    // 何秒ごとに見渡すか
-    public float LookDuration = 2.0f;    // 何秒間見渡すか
-    public float LookAngle = 360f;       // その間の総回転角（度）
+    [Header("見渡し（サーチ挙動）")]
+    public float LookInterval = 5.0f;    // 何秒ごとに首を回して探すか
+    public float LookDuration = 2.0f;    // その見渡しをどのくらい続けるか
+    public float LookAngle = 360f;       // 何度ぶん回すか
     private float lookTimer = 0f;
-    private bool isLooking = false;      // 見渡し中フラグ
+    private bool isLooking = false;      // 今「見渡し行動中」か
+
+    // ===== アニメーション制御 =====
+    [Header("アニメーション")]
+    public Animator animator;
+    [Tooltip("追跡中にtrueになるフラグ名(AnimatorのBooleanパラメータ)")]
+    public string ChaseBoolName = "Chase";
+
+    // ===== 追跡エフェクト =====
+    [Header("怒りエフェクト（追跡時だけ出す）")]
+    public GameObject angryEffectPrefab;          // 怒りオーラとか
+    public Transform angryEffectFollowPoint;      // エフェクトを付けたい場所(頭の空オブジェとか)。nullならこの幽霊自身
+    private GameObject _angryEffectInstance;      // 実際に出したやつ
+
+    // ===== 追跡エフェクト位置オフセット（任意）=====
+    [Tooltip("エフェクトを頭の少し上などに浮かせたいならここで調整(ローカル座標)")]
+    public Vector3 angryEffectLocalOffset = Vector3.zero;
 
     void Start()
     {
@@ -76,65 +92,93 @@ public class SearchChase : MonoBehaviour
             surface.collectObjects = CollectObjects.All;
         }
 
-        // 外部から未指定のときだけランダム
+        // state 未固定ならランダム 1 or 2
         if (!_stateOverridden)
-            fixedState = Random.Range(1, 3); // 1 or 2（上限は排他的）
+            fixedState = Random.Range(1, 3); // 上限は排他的なので1か2
 
         UpdateStateLabel();
 
-        // 追跡寄りに調整
+        // NavMeshAgentの挙動を追跡向けに寄せる
         if (agent)
         {
-            agent.stoppingDistance = 0f;  // 追跡時に手前で止まらない
-            agent.autoBraking = false;    // 減速抑制
+            agent.stoppingDistance = 0f;  // できるだけ近づく
+            agent.autoBraking = false;    // 減速しないで詰める
         }
     }
 
     void Update()
     {
-        // 発見判定
+        // 1. 発見ロジック更新
         UpdateDiscovery();
 
-        // 切り替わりログ（false→true の立ち上がりのみ）
-        if (isDiscovery && !_foundPrev) Debug.Log("見つかってる状態");
+        // 2. 切り替わり（未発見→発見 / 発見→未発見）を検知
+        if (isDiscovery != _foundPrev)
+        {
+            if (isDiscovery)
+            {
+                Debug.Log("見つけたので追跡開始");
+
+                // AnimatorのChaseフラグON
+                SetChaseAnim(true);
+
+                // 怒りエフェクトを出す
+                SpawnAngryEffect();
+            }
+            else
+            {
+                Debug.Log("見失ったので探索に戻る");
+
+                // AnimatorのChaseフラグOFF
+                SetChaseAnim(false);
+
+                // 怒りエフェクトを消す
+                DespawnAngryEffect();
+            }
+        }
         _foundPrev = isDiscovery;
 
-        // 見渡し（未発見の時だけ）
+        // 3. 見渡し行動（未発見のときだけ）
         if (!isDiscovery)
         {
             lookTimer += Time.deltaTime;
             if (!isLooking && lookTimer >= LookInterval)
             {
-                if (agent && agent.isOnNavMesh) StartCoroutine(LookAround());
-                else lookTimer = 0f; // NavMesh外ならやり直し
+                if (agent && agent.isOnNavMesh)
+                    StartCoroutine(LookAround());
+                else
+                    lookTimer = 0f; // NavMesh外なら仕切り直し
             }
         }
         else
         {
-            lookTimer = 0f; // 発見中はリセット
+            lookTimer = 0f;
         }
 
-        // 経路更新
+        // 4. 経路更新（一定間隔で再セット）
         repathtimer += Time.deltaTime;
         if (repathtimer > repathInterval)
         {
             repathtimer = 0f;
             if (surface) surface.UpdateNavMesh(surface.navMeshData);
 
-            if (!isLooking) // 見渡し中は移動抑止
-                Chase();
+            if (!isLooking) // 見渡し中は足止め
+                ChaseMove();
         }
+
+        // 5. NavMeshの安全確認
         EnsureAgentOnNavMesh();
 
-        // パトロール停止/再開
+        // 6. パトロール/待機系
         if (agent && agent.hasPath && !agent.pathPending)
         {
             if (isDiscovery)
             {
-                agent.isStopped = false; // 追跡中は突っ込む
+                // 追跡中は止まらず突っ込む
+                agent.isStopped = false;
             }
             else
             {
+                // 未発見のとき waypoint に到達したら足止め→次の目標へ
                 if (agent.remainingDistance <= StopDistance)
                 {
                     agent.isStopped = true;
@@ -144,13 +188,13 @@ public class SearchChase : MonoBehaviour
         }
     }
 
-    // ========== 追跡 ==========
-    void Chase()
+    // ========== NavMesh に従って目的地へ動く ==========
+    void ChaseMove()
     {
         if (!agent || !agent.isOnNavMesh || !target) return;
 
-        // 発見中：lostposition（最新プレイヤー位置）へ
-        // 未発見：現在のウェイポイントへ
+        // 見つけてる間は lostposition(=最後に見たプレイヤー位置)、
+        // 見失ってる間はパトロール先へ
         if (NavMesh.SamplePosition(target.position, out var hit, maxdistance, NavMesh.AllAreas))
         {
             agent.ResetPath();
@@ -170,21 +214,21 @@ public class SearchChase : MonoBehaviour
         }
     }
 
-    // ========== パトロールの次点 ==========
+    // ========== 次のパトロール地点に回す ==========
     void TargetChange()
     {
         if (!agent) return;
-        if (!agent.isStopped) return;
+        if (!agent.isStopped) return; // 既に動き始めてたらスキップ
 
         CurrenTtargetNum++;
         if (targetlist.Count <= CurrenTtargetNum) CurrenTtargetNum = 0;
         if (targetlist.Count > 0) target = targetlist[CurrenTtargetNum];
 
         agent.isStopped = false;
-        Chase();
+        ChaseMove();
     }
 
-    // ========== 発見ロジック（LoS 必須＋クローゼット例外） ==========
+    // ========== 発見ロジック（LoS＋クローゼット例外） ==========
     private void UpdateDiscovery()
     {
         if (!Player)
@@ -193,7 +237,9 @@ public class SearchChase : MonoBehaviour
             return;
         }
 
-        // --- state1：隠れていれば未発見。隠れていなければ LoS が通れば発見 ---
+        // state1：
+        //   隠れてたら未発見
+        //   隠れてなければ LoS が通れば発見
         if (fixedState == 1)
         {
             if (HideRef && HideRef.hide)
@@ -207,10 +253,11 @@ public class SearchChase : MonoBehaviour
             return;
         }
 
-        // --- state2：クローゼット内なら LoS 無視で発見。それ以外は LoS 必須 ---
+        // state2：
+        //   クローゼット中(HideRef.hide==true)なら即発見（LoS無視）
+        //   それ以外は LoS が通れば発見
         if (fixedState == 2)
         {
-            // クローゼット（HideCroset）内は問答無用で発見
             if (HideRef && HideRef.hide)
             {
                 isDiscovery = true;
@@ -218,17 +265,17 @@ public class SearchChase : MonoBehaviour
                 return;
             }
 
-            // 家具など通常遮蔽物は LoS を遮れば未発見
             isDiscovery = HasLineOfSightToPlayer();
             if (isDiscovery) UpdateLostAndTarget();
             return;
         }
 
-        // フォールバック（未知値）
+        // フォールバック
         isDiscovery = HasLineOfSightToPlayer();
         if (isDiscovery) UpdateLostAndTarget();
     }
 
+    // いまのプレイヤー位置を lostposition に記憶し、追跡ターゲットにする
     private void UpdateLostAndTarget()
     {
         if (lostposition)
@@ -238,11 +285,11 @@ public class SearchChase : MonoBehaviour
         }
         else
         {
-            target = Player; // フォールバック
+            target = Player; // 保険
         }
     }
 
-    // プレイヤーへの視線が遮られていないかを Raycast で確認
+    // LoSチェック：Raycastで間に何があるか見る
     private bool HasLineOfSightToPlayer()
     {
         Vector3 origin = transform.position;
@@ -252,12 +299,13 @@ public class SearchChase : MonoBehaviour
 
         dir /= dist; // 正規化
 
-        // 最初に当たったコライダが Player なら視線が通っていると判定
         if (Physics.Raycast(origin, dir, out RaycastHit hit, dist))
         {
+            // まっさきにPlayerに当たれば見えてる扱い
             return hit.collider.CompareTag("Player");
         }
-        // 何にも当たらなかった＝障害物なし → 見えている扱い
+
+        // 何にも当たらない＝遮蔽物なし＝見えてる扱い
         return true;
     }
 
@@ -269,25 +317,25 @@ public class SearchChase : MonoBehaviour
         if (StateLabelLegacy) StateLabelLegacy.text = msg;
     }
 
-    // ===== 見渡しコルーチン（停止して回頭） =====
+    // ====== 見渡しモーション（ぐるっと回る） ======
     IEnumerator LookAround()
     {
         isLooking = true;
         float elapsed = 0f;
         float turnSpeed = (LookDuration > 0f) ? (LookAngle / LookDuration) : 0f;
 
-        // ウェイポイント切替の Invoke が重ならないように
+        // ウェイポイントのInvokeとかぶらないように
         CancelInvoke(nameof(TargetChange));
 
         if (agent)
         {
-            agent.isStopped = true;            // その場で停止
-            agent.ResetPath();                 // 経路破棄
-            agent.velocity = Vector3.zero;     // 慣性を即座に殺す
-            agent.updateRotation = false;      // 自動回頭OFF（手動で回す）
+            agent.isStopped = true;            // まず止まる
+            agent.ResetPath();                 // 経路クリア
+            agent.velocity = Vector3.zero;     // 慣性殺す
+            agent.updateRotation = false;      // 回頭は手動に
         }
 
-        // その間も発見判定は継続（見つけたら即中断）
+        // 回ってる間も発見判定は継続。見つけたら中断して即追跡モードへ
         while (elapsed < LookDuration)
         {
             UpdateDiscovery();
@@ -303,15 +351,57 @@ public class SearchChase : MonoBehaviour
 
         if (agent)
         {
-            agent.updateRotation = true;       // 復帰
-            agent.isStopped = false;           // 再開
+            agent.updateRotation = true;       // 自動回頭戻す
+            agent.isStopped = false;           // 移動再開
         }
 
-        // 現在の target へ復帰（発見していれば lostposition へ）
-        Chase();
+        // いまの target（発見中なら lostposition）に向けて再セット
+        ChaseMove();
     }
 
-    // ===== デバッグ可視化 =====
+    // ====== AnimatorのChaseフラグ制御 ======
+    private void SetChaseAnim(bool chasing)
+    {
+        if (!animator || string.IsNullOrEmpty(ChaseBoolName)) return;
+        animator.SetBool(ChaseBoolName, chasing);
+    }
+
+    // ====== 怒りエフェクトを出す（追跡開始時） ======
+    private void SpawnAngryEffect()
+    {
+        if (angryEffectPrefab == null) return;
+        if (_angryEffectInstance != null) return; // もうあるなら二重生成しない
+
+        Transform follow = angryEffectFollowPoint ? angryEffectFollowPoint : this.transform;
+
+        // 親(=follow)を指定してInstantiateする。
+        // これでエフェクトはプレハブのローカル向きのまま生成され、
+        // followの子になるので、勝手に追従する。
+        _angryEffectInstance = Instantiate(angryEffectPrefab, follow);
+
+        // 位置だけ微調整したいときはここでローカルオフセットを適用
+        _angryEffectInstance.transform.localPosition = angryEffectLocalOffset;
+
+        // 回転は触らない。
+        // → プレハブで作った「正しい向き」をそのまま使う。
+        //    （ここで localRotation をいじらないのが “横向きにならない” コツ）
+        //
+        // もし今後「ちょいだけ回したい」ってなったらここで
+        // _angryEffectInstance.transform.localRotation *= Quaternion.Euler(...);
+        // とか足してOK。
+    }
+
+    // ====== 怒りエフェクトを消す（見失ったとき） ======
+    private void DespawnAngryEffect()
+    {
+        if (_angryEffectInstance)
+        {
+            Destroy(_angryEffectInstance);
+            _angryEffectInstance = null;
+        }
+    }
+
+    // ====== デバッグ可視化 ======
     private void OnDrawGizmosSelected()
     {
         if (!Player) return;
