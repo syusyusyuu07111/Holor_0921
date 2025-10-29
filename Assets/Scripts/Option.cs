@@ -2,11 +2,16 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
-using TMPro; // ★追加 TMPを使う
+using TMPro;
 
 public class Option : MonoBehaviour
 {
     public InputSystem_Actions input;
+
+    // ===== このシーンはインゲーム扱い？ =====
+    // タイトルとかゲームオーバー画面では false にしておく
+    [Header("このシーンはインゲーム中として扱う？")]
+    public bool IsGameplayScene = true; // ★ここ重要
 
     // ===== メニュー本体 =====
     public bool MenuOn = false;
@@ -78,8 +83,8 @@ public class Option : MonoBehaviour
     private bool _gameEndHover = false;
 
     // ===== ESCヒント表示用 =====
-    [Header("ESCヒント用テキスト (TMP)")] // ★追加
-    public TMP_Text EscHintText;          // ここに「ESCでオプション開く」などを表示するTMP_Textをアタッチ // ★追加
+    [Header("ESCヒント用テキスト (TMP)")]
+    public TMP_Text EscHintText;
 
     // ===== フォーカス行（ゲームパッド/キーボード用）=====
     // 0 = 左右反転
@@ -120,8 +125,11 @@ public class Option : MonoBehaviour
         RefreshColors();
         RefreshGameEndColor();
 
-        // ESCヒント初期化 // ★追加
+        // ESCヒント初期化
         RefreshEscHint();
+
+        // ★起動時のマウス表示状態を整える
+        ApplyCursorStateInitial();
     }
 
     private void OnEnable()
@@ -141,7 +149,7 @@ public class Option : MonoBehaviour
 
     private void Update()
     {
-        // ===== メニュー開閉（Optionアクション。ここにESCも入ってる想定でもOK）=====
+        // ===== メニュー開閉（Optionアクション。ESC含む想定）=====
         if (input.UI.Option.WasPressedThisFrame())
         {
             ToggleMenu();
@@ -245,7 +253,28 @@ public class Option : MonoBehaviour
     }
 
     // =============================================================================
-    // メニューのオン/オフまとめたやつ（ESC押したとき含めてここを呼ぶ） // ★追加
+    // ★ 起動時にカーソル状態を整える
+    //    - インゲームシーンなら「プレイ中扱い」なので隠す
+    //    - それ以外なら表示
+    // =============================================================================
+    private void ApplyCursorStateInitial()
+    {
+        if (IsGameplayScene)
+        {
+            // ゲームプレイ開始状態：メニュー閉じてる想定なので隠す
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
+        else
+        {
+            // タイトル/ゲームオーバー等：常に見える
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+        }
+    }
+
+    // =============================================================================
+    // メニューのオン/オフまとめたやつ（ESC押したとき含めてここを呼ぶ）
     // =============================================================================
     private void ToggleMenu()
     {
@@ -276,16 +305,18 @@ public class Option : MonoBehaviour
         }
 
         // ESCヒント更新
-        RefreshEscHint(); // ★追加
+        RefreshEscHint();
     }
 
     // =============================================================================
     // ゲームの時間と操作を止める/戻す
+    // ここでカーソルの状態も決めるようにする
     // =============================================================================
     private void ApplyPauseState(bool pause)
     {
         if (pause)
         {
+            // ---- メニューを開いた瞬間 ----
             // 時間を止める
             _prevTimeScale = Time.timeScale;
             Time.timeScale = 0f;
@@ -305,12 +336,13 @@ public class Option : MonoBehaviour
                 }
             }
 
-            // カーソルを解放
+            // ★メニュー中はマウスを見せたいので常に解放
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
         }
         else
         {
+            // ---- メニューを閉じた瞬間 ----
             // 時間を元に戻す
             Time.timeScale = _prevTimeScale;
 
@@ -329,9 +361,19 @@ public class Option : MonoBehaviour
                 }
             }
 
-            // プレイ復帰でカーソルをロックに戻す
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
+            // ★ここが今回の一番大事な分岐
+            // ゲームプレイ中のシーンなら、閉じたらマウス消す
+            // それ以外のシーンなら、閉じてもマウスは表示のまま
+            if (IsGameplayScene)
+            {
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
+            }
+            else
+            {
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+            }
         }
     }
 
@@ -346,7 +388,6 @@ public class Option : MonoBehaviour
             InvertY = CameraController.InvertY;
         }
 
-        // 画面モードを読む
 #if !UNITY_EDITOR
         // フルスクリーン中なら Screen.fullScreen = true
         // → UI的には OFF が赤（＝ FullScreen = false）
@@ -419,14 +460,12 @@ public class Option : MonoBehaviour
     }
 
     // =============================================================================
-    // ESCヒントの文言を更新 // ★追加
+    // ESCヒントの文言を更新
     // =============================================================================
     private void RefreshEscHint()
     {
         if (!EscHintText) return;
 
-        // オプション閉じてるとき → 「ESCでオプション開く」
-        // オプション開いてるとき → 「ESCでオプション閉じる」
         if (MenuOn)
         {
             EscHintText.text = "ESCでオプション閉じる";
