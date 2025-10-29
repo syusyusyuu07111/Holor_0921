@@ -70,9 +70,9 @@ public class GameOver : MonoBehaviour
     public float HoldAfterAnimSeconds = 3.0f;   // アニメ終わってから遷移前に見せる時間（秒）
 
     [Header("カメラ揺れ（掴まれた瞬間＆余韻）")]
+    public bool EnableCameraShake = true;       // ★ 揺れを使うかどうか（チェックでON/OFF）
     public float ShakeDuration = 0.3f;          // 掴まれた直後の揺れ時間（秒）
     public float ShakeAmplitude = 0.02f;        // 掴まれた直後の揺れの大きさ（m）
-
     public float HoldShakeAmplitude = 0.02f;    // 余韻時間の揺れの大きさ（m）
     // Hold中は HoldAfterAnimSeconds 丸ごと揺らす
 
@@ -401,7 +401,7 @@ public class GameOver : MonoBehaviour
     // 1) GameOverタグ付きステートに入るまで待つ
     // 2) 入ったらそのステートの1周完了まで待つ（normalizedTime>=1.0f）
     // 3) アニメが終わったあと HoldAfterAnimSeconds 秒ホールド
-    //    - ホールド中はカメラを揺らし続ける（弱い揺れ）
+    //    - ホールド中はカメラを揺らし続ける（弱い揺れ, EnableCameraShake が true のときだけ）
     //    - ホールドの開始時にテキストを1文字ずつ出していく
     //    タグに入らない/終わらない時は FallbackDelay であきらめる
     private IEnumerator WaitForGameOverAnim()
@@ -424,7 +424,10 @@ public class GameOver : MonoBehaviour
                     enteredTaggedState = true;
 
                     // 掴まれた瞬間の揺れ開始（短い強い揺れ）
-                    StartShake(ShakeDuration, ShakeAmplitude);
+                    if (EnableCameraShake)
+                    {
+                        StartShake(ShakeDuration, ShakeAmplitude);
+                    }
 
                     break;
                 }
@@ -474,7 +477,10 @@ public class GameOver : MonoBehaviour
         // (3) アニメ終了後の見せつけホールド
         //     ここから先は「待ってる間ずっと揺れる」ようにする
         //     → ホールド時間分の揺れをスタート（少し弱い揺れ）
-        StartShake(HoldAfterAnimSeconds, HoldShakeAmplitude);
+        if (EnableCameraShake)
+        {
+            StartShake(HoldAfterAnimSeconds, HoldShakeAmplitude);
+        }
 
         //     → ホールド開始時にテキストを出し始める（1文字ずつ）
         StartTypewriterText();
@@ -548,6 +554,15 @@ public class GameOver : MonoBehaviour
     // 揺れ開始用関数
     private void StartShake(float duration, float amplitude)
     {
+        // カメラ揺れOFFの場合は何もしない
+        if (!EnableCameraShake)
+        {
+            _shakeTimeLeft = 0f;
+            _shakeTotalDuration = 0f;
+            _currentShakeAmplitude = 0f;
+            return;
+        }
+
         _shakeTimeLeft = duration;
         _shakeTotalDuration = duration;
         _currentShakeAmplitude = amplitude;
@@ -610,7 +625,7 @@ public class GameOver : MonoBehaviour
     // ・カメラ位置をゴースト基準で決める
     // ・LookAtで幽霊方向を向く
     // ・X軸(上下)だけ手動で少し傾ける
-    // ・揺れ中ならランダムに微振動を足す（_shakeTimeLeft > 0 の間ずっと）
+    // ・揺れ中ならランダムに微振動を足す（_shakeTimeLeft > 0 の間ずっと、かつ EnableCameraShake==true のとき）
     private void UpdateKillCameraFollow()
     {
         if (!KillCamera) return;
@@ -628,9 +643,8 @@ public class GameOver : MonoBehaviour
         camPos += tgtGhost.right * CamSideOffset;
         camPos.y = tgtGhost.position.y + CamHeightOffset;
 
-        // 揺れ演出
-        // _shakeTimeLeft が残っている間、だんだん弱くなるノイズを足す
-        if (_shakeTimeLeft > 0f && _shakeTotalDuration > 0f)
+        // 揺れ演出（揺れONのときだけ）
+        if (EnableCameraShake && _shakeTimeLeft > 0f && _shakeTotalDuration > 0f)
         {
             float shakeT = _shakeTimeLeft / _shakeTotalDuration; // 1→0
             float amp = _currentShakeAmplitude * shakeT;         // 時間と共に弱める
