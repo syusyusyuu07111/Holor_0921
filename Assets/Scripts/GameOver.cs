@@ -9,109 +9,108 @@ using TMPro;                                // TMPテキスト表示用
 public class GameOver : MonoBehaviour
 {
     public Transform Player;                    // プレイヤー
-    public Transform Ghost;                     // 幽霊（追跡側 / デフォルト参照用）
+    public Transform Ghost;                     // 幽霊（初期参照用 / フォールバック）
 
     [Header("隠れ判定")]
     public HideCroset HideRef;                  // クローゼット隠れ制御
-    public SearchChase GhostChase;              // 幽霊の状態取得用
+    public SearchChase GhostChase;              // 幽霊の状態を見る用
 
     [Header("判定設定")]
-    public float TriggerDistance = 0.735f;      // 距離がこの値以下でゲームオーバー
+    public float TriggerDistance = 0.735f;      // これ以下なら捕まる
     public float CheckInterval = 0.05f;         // 距離チェック間隔（秒）
 
     [Header("シーン遷移")]
     public string GameoverScene = "";           // 空なら現シーンをリロード
-    public bool StopAgentsOnGameOver = true;    // 遷移直前にNavMeshAgentを止める
+    public bool StopAgentsOnGameOver = true;    // 遷移前にNavMeshAgentを止める
 
-    // ===== ポストプロセス（URP Volume） =====
+    // ===== 画面の「やばいよ」ビネット =====
     [Header("ポストプロセス（警告ビネット）")]
-    public Volume PostVolume;                   // グローバルVolume（Vignette入り）
-    public Color EdgeColor = Color.red;         // エッジ色（赤）
-    public float WarnDistance = 2.0f;           // この距離から演出を開始
-    [Range(0f, 1f)] public float MaxVignette = 0.45f; // 最大濃さ
-    [Range(0.1f, 20f)] public float FadeSpeed = 6f;   // 追従速度（補間）
-    public bool AlsoShakeChromatic = false;     // お好みで色収差も少し
+    public Volume PostVolume;                   // URP Volume（Vignetteとか入ってるやつ）
+    public Color EdgeColor = Color.red;         // 周辺の色
+    public float WarnDistance = 2.0f;           // この距離以内でビネットが濃くなる
+    [Range(0f, 1f)] public float MaxVignette = 0.45f;
+    [Range(0.1f, 20f)] public float FadeSpeed = 6f;
+    public bool AlsoShakeChromatic = false;     // 色収差も揺らしたいならON
 
     private bool _gameOverFired = false;        // 多重発火防止
 
-    // 内部：Vignette/Chromatic 参照
+    // Volume内のエフェクト
     private Vignette _vig;
     private ChromaticAberration _ca;
     private bool _hasVig = false;
     private bool _hasCA = false;
 
-    // 内部：現在の強度（スムージング用）
+    // 徐々に追従させるための現在値
     private float _currIntensity = 0f;
 
-    // ===== サウンド再生用 =====
+    // ===== サウンド =====
     [Header("SE再生用")]
-    public AudioManager AudioMgr;               // 捕まった時のSEを鳴らすための参照（インスペクタで割り当て）
+    public AudioManager AudioMgr;               // 捕まった時のSEを鳴らすための参照
 
-    // ===== ゲームオーバー演出用 =====
-    [Header("ゲームオーバー演出")]
-    public Camera MainCamera;                   // 普段のプレイ用カメラ（演出開始時にOFFにする）
-    public Camera KillCamera;                   // ゲームオーバー用の見せカメラ（幽霊を映す）
+    // ===== カメラ演出 =====
+    [Header("ゲームオーバー演出カメラ")]
+    public Camera MainCamera;                   // 普段のプレイ用
+    public Camera KillCamera;                   // 演出用（幽霊を映す）
 
     [Header("キルカメラ設定")]
-    public float KillCamNearClip = 0.01f;       // キルカメラ用NearClip（近距離でも透けないように）
+    public float KillCamNearClip = 0.01f;       // 近距離でも透けないようNearClip低め
 
     [Header("カメラ自動配置（幽霊基準）")]
-    public float CamDistFromGhost = 0.4f;       // 幽霊の正面方向(=forward)にどれくらい前にカメラを置くか
-    public float CamSideOffset = 0.0f;          // 幽霊の右方向(=right)にどれくらい横ずらすか
-    public float CamHeightOffset = 0.0f;        // カメラの高さ = 幽霊の高さ + これ
+    public float CamDistFromGhost = 0.4f;       // 幽霊.forward 方向にどれだけ前
+    public float CamSideOffset = 0.0f;          // 幽霊.right 方向にどれだけ横
+    public float CamHeightOffset = 0.0f;        // 幽霊.position.y からの足し高さ
 
     [Header("キルカメラ向きオフセット")]
-    public float CamLookPitchOffsetDeg = 0f;    // カメラの上下向きオフセット（度数）。+で下向きなど
+    public float CamLookPitchOffsetDeg = 0f;    // カメラの上下向き(回転Xだけ足す角度)
 
-    public float CameraCutDelay = 0.05f;        // 捕まった直後にカメラを切り替えるまでのワンテンポ
-    public float FallbackDelay = 2.0f;          // タグ付きステートに入らない/終わらない時の保険（秒）
+    public float CameraCutDelay = 0.05f;        // 捕まった直後、カメラ切替までのタメ
+    public float FallbackDelay = 2.0f;          // アニメ遷移が入らない時の保険タイム
 
     [Header("ゲームオーバー演出の余韻")]
-    public float HoldAfterAnimSeconds = 3.0f;   // アニメ終わってから遷移前に見せる時間（秒）
+    public float HoldAfterAnimSeconds = 3.0f;   // アニメ終わってから見せる時間
 
-    [Header("カメラ揺れ（掴まれた瞬間＆余韻）")]
-    public bool EnableCameraShake = true;       // ★ 揺れを使うかどうか（チェックでON/OFF）
-    public float ShakeDuration = 0.3f;          // 掴まれた直後の揺れ時間（秒）
-    public float ShakeAmplitude = 0.02f;        // 掴まれた直後の揺れの大きさ（m）
-    public float HoldShakeAmplitude = 0.02f;    // 余韻時間の揺れの大きさ（m）
-    // Hold中は HoldAfterAnimSeconds 丸ごと揺らす
+    [Header("カメラ揺れ")]
+    public bool EnableCameraShake = true;
+    public float ShakeDuration = 0.3f;          // 掴まれた瞬間の強い揺れの長さ
+    public float ShakeAmplitude = 0.02f;        // 掴まれた瞬間の揺れの大きさ
+    public float HoldShakeAmplitude = 0.02f;    // 余韻中の揺れの大きさ
 
     [Header("フェードアウト")]
-    public CanvasGroup FadeCanvasGroup;         // 画面全体を覆う黒いCanvasGroup（Alpha 0で開始）
-    public float FadeDuration = 1.0f;           // 暗転にかける時間（秒）
+    public CanvasGroup FadeCanvasGroup;         // 暗転用CanvasGroup(Alpha0開始)
+    public float FadeDuration = 1.0f;
 
     [Header("幽霊アニメーション")]
-    public Animator GhostAnimator;              // 幽霊のAnimator（プレイヤーを掴むアニメ）
-    public string GameOverBoolName = "GameOver";// Animator側のboolパラメータ名
-    public int GhostAnimLayer = 0;              // そのアニメが流れるレイヤー番号（Base Layer=0など）
-    public string GameOverAnimTag = "GameOver"; // ゲームオーバー用ステートのTag名
+    public Animator GhostAnimator;              // 捕まえモーションを再生するAnimator
+    public string GameOverBoolName = "GameOver";// これをtrueにすると捕まえアニメに入る想定
+    public int GhostAnimLayer = 0;              // そのアニメがあるレイヤー(index)
+    public string GameOverAnimTag = "GameOver"; // そのステートに付いてるTag名
 
     [Header("プレイヤー表示制御")]
-    public bool HidePlayerOnGameOver = true;    // 捕まった瞬間にプレイヤーの見た目を消すかどうか
+    public bool HidePlayerOnGameOver = true;    // 捕まった瞬間にプレイヤーを非表示にするか
 
     [Header("ゲームオーバーテキスト表示(TMP)")]
-    public TextMeshProUGUI GameOverText;        // 画面に出すテキスト（Canvas上のTMP）
-    public string GameOverMessage = "捕まえた―"; // 出したいメッセージ
-    public float TextCharInterval = 0.05f;      // 1文字ずつ表示する間隔（秒）
+    public TextMeshProUGUI GameOverText;        // 「捕まえた―」を出すUI
+    public string GameOverMessage = "捕まえた―";
+    public float TextCharInterval = 0.05f;      // 1文字ごとに出す間隔
 
-    // 内部：揺れ管理
-    private float _shakeTimeLeft = 0f;          // 残り揺れ時間
-    private float _shakeTotalDuration = 0f;     // この揺れセットの合計時間
-    private float _currentShakeAmplitude = 0f;  // 今回の揺れの最大振幅
+    // === 内部: カメラ揺れ管理 ===
+    private float _shakeTimeLeft = 0f;
+    private float _shakeTotalDuration = 0f;
+    private float _currentShakeAmplitude = 0f;
 
-    // 内部：プレイヤー非表示用キャッシュ
-    private Renderer[] _cachedPlayerRenderers;  // プレイヤーのRendererまとめ（SkinnedMesh含む）
-    private bool _playerHidden = false;         // 一度オフにしたかどうか
+    // === 内部: プレイヤー非表示キャッシュ ===
+    private Renderer[] _cachedPlayerRenderers;
+    private bool _playerHidden = false;
 
-    // 内部：テキスト演出
-    private static bool _textStarted = false;   // ★ static: シーン全体で1回だけタイプ開始する
-    private Coroutine _typingCo = null;         // ★ 実行中のタイプコルーチンを保持
+    // === 内部: テキスト演出 ===
+    private static bool _textStarted = false;   // 同じシーン中で二重再生しないように
+    private Coroutine _typingCo = null;
 
     void Awake()
     {
-        // ----- 参照の自動補完 -----
+        // ----- 参照の保険と初期化 -----
 
-        // Player
+        // Player自動取得
         if (!Player)
         {
             GameObject p = GameObject.FindGameObjectWithTag("Player");
@@ -129,7 +128,7 @@ public class GameOver : MonoBehaviour
             }
         }
 
-        // Ghost（とりあえず1体）
+        // Ghost自動取得（とりあえず1体）
         if (!Ghost)
         {
             GameObject g = GameObject.FindGameObjectWithTag("Ghost");
@@ -163,13 +162,11 @@ public class GameOver : MonoBehaviour
             }
         }
 
-        // Volume
+        // Volume系
         if (!PostVolume)
         {
             PostVolume = UnityEngine.Object.FindFirstObjectByType<Volume>();
         }
-
-        // Vignette/Chromatic をプロファイルから取得
         if (PostVolume && PostVolume.profile)
         {
             _hasVig = PostVolume.profile.TryGet(out _vig);
@@ -179,8 +176,8 @@ public class GameOver : MonoBehaviour
             {
                 _vig.active = true;
                 _vig.color.Override(EdgeColor);
-                _vig.smoothness.Override(0.9f); // 周辺に寄せる
-                _vig.intensity.Override(0f);    // 初期は無効相当
+                _vig.smoothness.Override(0.9f);
+                _vig.intensity.Override(0f); // 初期は0
             }
 
             if (_hasCA && AlsoShakeChromatic)
@@ -190,31 +187,31 @@ public class GameOver : MonoBehaviour
             }
         }
 
-        // KillCamera は開始時OFF
+        // キルカメラOFFスタート
         if (KillCamera && KillCamera.enabled)
         {
             KillCamera.enabled = false;
         }
 
-        // Animator の GameOver フラグを初期化
+        // Animator の GameOverフラグ 初期化
         if (GhostAnimator && !string.IsNullOrEmpty(GameOverBoolName))
         {
             GhostAnimator.SetBool(GameOverBoolName, false);
         }
 
-        // 画面フェードは最初は透明にしておく
+        // フェードの初期化
         if (FadeCanvasGroup)
         {
             FadeCanvasGroup.alpha = 0f;
         }
 
-        // プレイヤーのRendererをキャッシュ
+        // プレイヤーRendererまとめてキャッシュ
         if (Player)
         {
             _cachedPlayerRenderers = Player.GetComponentsInChildren<Renderer>(true);
         }
 
-        // テキストは最初は非表示（空文字＋オブジェクトOFF）
+        // テキスト初期状態は非表示で中身空
         if (GameOverText)
         {
             GameOverText.text = "";
@@ -229,31 +226,30 @@ public class GameOver : MonoBehaviour
 
     void Update()
     {
-        // 毎フレーム：距離に応じてビネット強度をスムーズに更新
+        // 毎フレーム：幽霊との距離からビネット濃度をじわっと更新
         UpdateDangerVignette();
     }
 
+    // 一定間隔で「つかまった？」を監視
     IEnumerator DistanceWatchLoop()
     {
         WaitForSeconds wait = new WaitForSeconds(CheckInterval);
 
-        // 一番近い幽霊を見て距離を測って、近すぎたらゲームオーバー
         while (enabled && !_gameOverFired)
         {
-            Transform nearGhost = GetNearestGhostToPlayer(); // プレイヤーに一番近い幽霊（クローン含む）
+            Transform nearGhost = GetNearestGhostToPlayer();
 
             if (Player && nearGhost != null)
             {
                 float dist = Vector3.Distance(Player.position, nearGhost.position);
 
-                // 隠れていて、幽霊がまだ探索状態ならスキップ
+                // 「隠れてるし、幽霊がState1（通常探索）ならセーフ」な状況ならスキップ
                 if (ShouldSkipCatch())
                 {
                     yield return wait;
                     continue;
                 }
 
-                // 判定：距離がトリガー値以下
                 if (dist <= TriggerDistance)
                 {
                     FireGameOver();
@@ -265,6 +261,7 @@ public class GameOver : MonoBehaviour
         }
     }
 
+    // 距離に応じた警告ビネット更新
     private void UpdateDangerVignette()
     {
         if (!_hasVig || !Player) return;
@@ -272,7 +269,7 @@ public class GameOver : MonoBehaviour
         Transform nearGhost = GetNearestGhostToPlayer();
         if (!nearGhost) return;
 
-        // 隠れていて安全なら徐々に戻す
+        // 隠れてて安全ならフェードアウト方向
         if (ShouldSkipCatch())
         {
             _currIntensity = Mathf.MoveTowards(_currIntensity, 0f, FadeSpeed * Time.deltaTime);
@@ -285,58 +282,65 @@ public class GameOver : MonoBehaviour
             return;
         }
 
-        // プレイヤーと幽霊の距離から、ビネットの濃さを決める
+        // プレイヤーと幽霊の距離が近いほど濃い
         float dist = Vector3.Distance(Player.position, nearGhost.position);
 
-        // WarnDistance…TriggerDistance の間で 0→1 に線形マップ
         float t = 0f;
         if (dist <= WarnDistance)
         {
             float span = Mathf.Max(WarnDistance - TriggerDistance, 0.0001f);
-            t = Mathf.Clamp01((WarnDistance - dist) / span);
+            t = Mathf.Clamp01((WarnDistance - dist) / span); // 0→1
         }
 
         float target = t * MaxVignette;
 
-        // スムーズ追従
         _currIntensity = Mathf.MoveTowards(_currIntensity, target, FadeSpeed * Time.deltaTime);
 
-        // 反映
         _vig.color.Override(EdgeColor);
         _vig.intensity.Override(_currIntensity);
 
-        // お好みで色収差を少し
         if (_hasCA && AlsoShakeChromatic)
         {
             _ca.intensity.Override(_currIntensity * 0.55f);
         }
     }
 
+    // ★ここで実際に「捕まった！」の処理
     private void FireGameOver()
     {
         if (_gameOverFired) return;
         _gameOverFired = true;
 
-        // 捕まったSEを鳴らす（AudioManager経由）
+        // いちばん近い幽霊を取り直して、そのAnimatorを優先して使う
+        Animator nearestAnim = GetNearestGhostAnimator();
+        if (nearestAnim != null)
+        {
+            GhostAnimator = nearestAnim;
+        }
+
+        // SE
         if (AudioMgr != null)
         {
             AudioMgr.CatchSource();
         }
         else
         {
-            Debug.LogWarning("[GameOver] AudioMgr が割り当てられていないので、捕まったSEは鳴りません。");
+            Debug.LogWarning("[GameOver] AudioMgr がありません（捕まったSEなし）");
         }
 
-        // プレイヤーの見た目を消す（プレイヤー本人視点に寄せる）
+        // プレイヤーの見た目を消す（手とか体とか）
         HidePlayerVisualsIfNeeded();
 
-        // 幽霊AnimatorのGameOverフラグをONにする（GameOverステートへ遷移）
+        // 幽霊のアニメーターに「GameOverフラグON」
         if (GhostAnimator && !string.IsNullOrEmpty(GameOverBoolName))
         {
+            // まずタイムスケール0でも動くように UnscaledTime 更新に変えておく
+            GhostAnimator.updateMode = AnimatorUpdateMode.UnscaledTime;
+
             GhostAnimator.SetBool(GameOverBoolName, true);
 
             bool val = GhostAnimator.GetBool(GameOverBoolName);
-            Debug.Log("[GameOver] " + GameOverBoolName + " を true にセットしました。現在値=" + val);
+            Debug.Log("[GameOver] " + GameOverBoolName + " を true にセット。現在値=" + val);
 
             LogAnimatorState("[GameOver] After SetBool");
         }
@@ -345,13 +349,14 @@ public class GameOver : MonoBehaviour
             Debug.LogWarning("[GameOver] GhostAnimator か GameOverBoolName が未設定です。");
         }
 
-        // ゲームオーバー演出フロー開始
+        // イベント本編
         StartCoroutine(GameOverSequence());
     }
 
+    // ゲームオーバー演出のフロー本体
     private IEnumerator GameOverSequence()
     {
-        // NavMeshAgent を止めて暴走防止
+        // NavMeshAgentを止める（暴れ防止）
         if (StopAgentsOnGameOver)
         {
             NavMeshAgent a1 = Player ? Player.GetComponent<NavMeshAgent>() : null;
@@ -360,7 +365,7 @@ public class GameOver : MonoBehaviour
             if (a2 && a2.isOnNavMesh) a2.isStopped = true;
         }
 
-        // 捕まったSEを少し聞かせるためワンテンポ
+        // ちょいタメ
         if (CameraCutDelay > 0f)
         {
             yield return new WaitForSeconds(CameraCutDelay);
@@ -373,16 +378,14 @@ public class GameOver : MonoBehaviour
         }
         if (KillCamera)
         {
-            // 近距離で顔ドアップするのでNearClipを下げる（近すぎても透けないように）
             KillCamera.nearClipPlane = KillCamNearClip;
-
             KillCamera.enabled = true;
         }
 
-        // キルカメラ追従＋アニメ終了待ち（＋余韻ホールド＋テキスト出し）
+        // アニメ再生待ち + 余韻ホールド + テキスト出し
         yield return StartCoroutine(WaitForGameOverAnim());
 
-        // 画面を暗転させる
+        // 暗転フェード
         yield return StartCoroutine(FadeOutScreen());
 
         // シーン遷移
@@ -397,19 +400,13 @@ public class GameOver : MonoBehaviour
         }
     }
 
-    // アニメの待ち処理
-    // 1) GameOverタグ付きステートに入るまで待つ
-    // 2) 入ったらそのステートの1周完了まで待つ（normalizedTime>=1.0f）
-    // 3) アニメが終わったあと HoldAfterAnimSeconds 秒ホールド
-    //    - ホールド中はカメラを揺らし続ける（弱い揺れ, EnableCameraShake が true のときだけ）
-    //    - ホールドの開始時にテキストを1文字ずつ出していく
-    //    タグに入らない/終わらない時は FallbackDelay であきらめる
+    // アニメの待ち
     private IEnumerator WaitForGameOverAnim()
     {
         float timer = 0f;
         bool enteredTaggedState = false;
 
-        // (1) GameOverタグ付きステートに入るまで待つ
+        // 1) GameOverタグ付きステートに入るまで待つ
         while (true)
         {
             UpdateKillCameraFollow();
@@ -423,7 +420,7 @@ public class GameOver : MonoBehaviour
                 {
                     enteredTaggedState = true;
 
-                    // 掴まれた瞬間の揺れ開始（短い強い揺れ）
+                    // 掴まれた瞬間の短い強い揺れ
                     if (EnableCameraShake)
                     {
                         StartShake(ShakeDuration, ShakeAmplitude);
@@ -436,14 +433,14 @@ public class GameOver : MonoBehaviour
             timer += Time.deltaTime;
             if (timer >= FallbackDelay)
             {
-                Debug.LogWarning("[GameOverAnimCheck] タグ付きステートに入らずFallback");
+                Debug.LogWarning("[GameOverAnimCheck] タグステートに入らずFallback");
                 break;
             }
 
             yield return null;
         }
 
-        // (2) タグ付きステートの再生が終わるまで待つ
+        // 2) タグ付きステートが1周終わるか / 抜けるまで待つ
         if (enteredTaggedState)
         {
             while (true)
@@ -455,14 +452,14 @@ public class GameOver : MonoBehaviour
                 {
                     AnimatorStateInfo st = GhostAnimator.GetCurrentAnimatorStateInfo(GhostAnimLayer);
 
-                    // タグが外れた = 遷移した → 終了扱い
+                    // もうタグじゃなくなった = 遷移した → 終了扱い
                     if (!st.IsTag(GameOverAnimTag))
                     {
-                        Debug.Log("[GameOverAnimCheck] タグ状態から離脱 -> FINISH扱い");
+                        Debug.Log("[GameOverAnimCheck] タグ外れたのでFINISH扱い");
                         break;
                     }
 
-                    // normalizedTime>=1.0f で1周分再生完了（ループしない前提）
+                    // normalizedTime>=1.0 → 1周再生完了（ループしない前提）
                     if (st.normalizedTime >= 1.0f)
                     {
                         Debug.Log("[GameOverAnimCheck] normalizedTime>=1.0 -> FINISH");
@@ -474,15 +471,13 @@ public class GameOver : MonoBehaviour
             }
         }
 
-        // (3) アニメ終了後の見せつけホールド
-        //     ここから先は「待ってる間ずっと揺れる」ようにする
-        //     → ホールド時間分の揺れをスタート（少し弱い揺れ）
+        // 3) 余韻ホールド
         if (EnableCameraShake)
         {
             StartShake(HoldAfterAnimSeconds, HoldShakeAmplitude);
         }
 
-        //     → ホールド開始時にテキストを出し始める（1文字ずつ）
+        // ホールド開始時にテキスト開始（1文字ずつ）
         StartTypewriterText();
 
         float hold = 0f;
@@ -494,13 +489,12 @@ public class GameOver : MonoBehaviour
         }
     }
 
-    // テキスト1文字ずつ出す処理を開始（シーン中で1回だけ）
+    // テキストのタイプ出しを開始（シーン中で一度きり）
     private void StartTypewriterText()
     {
-        // すでに他のGameOverから始まっていたら何もしない
         if (_textStarted)
         {
-            Debug.Log("[GameOverText] すでにタイプ中なのでスキップしました");
+            Debug.Log("[GameOverText] すでにタイプ開始済みなのでスキップ");
             return;
         }
 
@@ -509,15 +503,13 @@ public class GameOver : MonoBehaviour
 
         if (GameOverText == null)
         {
-            Debug.LogWarning("[GameOverText] GameOverText が設定されていません");
+            Debug.LogWarning("[GameOverText] GameOverText が未設定");
             return;
         }
 
-        // テキストオブジェクトを出す（Canvas上で非表示だったら表示）
         GameOverText.gameObject.SetActive(true);
         GameOverText.text = "";
 
-        // 念のため、もし前のコルーチンが残っていたら止める
         if (_typingCo != null)
         {
             StopCoroutine(_typingCo);
@@ -526,7 +518,7 @@ public class GameOver : MonoBehaviour
         _typingCo = StartCoroutine(TypewriterCo());
     }
 
-    // 実際に1文字ずつ出していくコルーチン
+    // 実際に1文字ずつ増やしていく
     private IEnumerator TypewriterCo()
     {
         if (GameOverText == null) yield break;
@@ -534,27 +526,20 @@ public class GameOver : MonoBehaviour
         string msg = GameOverMessage;
         GameOverText.text = "";
 
-        // 1文字ごとに足していく
         for (int i = 0; i < msg.Length; i++)
         {
             GameOverText.text += msg[i];
 
-            // 文字間ディレイ
             if (TextCharInterval > 0f)
-            {
                 yield return new WaitForSeconds(TextCharInterval);
-            }
             else
-            {
                 yield return null;
-            }
         }
     }
 
-    // 揺れ開始用関数
+    // カメラ揺れ開始
     private void StartShake(float duration, float amplitude)
     {
-        // カメラ揺れOFFの場合は何もしない
         if (!EnableCameraShake)
         {
             _shakeTimeLeft = 0f;
@@ -568,12 +553,11 @@ public class GameOver : MonoBehaviour
         _currentShakeAmplitude = amplitude;
     }
 
-    // 画面をゆっくり暗くする
+    // 黒フェード
     private IEnumerator FadeOutScreen()
     {
         if (!FadeCanvasGroup)
         {
-            // フェード用Canvasが未設定ならスキップ
             yield break;
         }
 
@@ -589,7 +573,7 @@ public class GameOver : MonoBehaviour
         FadeCanvasGroup.alpha = 1f;
     }
 
-    // Animatorの現在ステート情報をログにまとめて出す（デバッグ用）
+    // Animatorの現在ステート/タグをログ
     private void LogAnimatorState(string header)
     {
         if (!GhostAnimator)
@@ -621,11 +605,7 @@ public class GameOver : MonoBehaviour
         );
     }
 
-    // 捕まってる間、KillCameraを「一番近い幽霊」に合わせ続ける
-    // ・カメラ位置をゴースト基準で決める
-    // ・LookAtで幽霊方向を向く
-    // ・X軸(上下)だけ手動で少し傾ける
-    // ・揺れ中ならランダムに微振動を足す（_shakeTimeLeft > 0 の間ずっと、かつ EnableCameraShake==true のとき）
+    // キルカメラを「今いちばん近い幽霊」に追従させる＆揺らす
     private void UpdateKillCameraFollow()
     {
         if (!KillCamera) return;
@@ -637,22 +617,22 @@ public class GameOver : MonoBehaviour
             return;
         }
 
-        // カメラのベース位置（幽霊の正面ちょい前／横オフセット／高さ）
+        // ベース位置
         Vector3 camPos = tgtGhost.position;
         camPos += tgtGhost.forward * CamDistFromGhost;
         camPos += tgtGhost.right * CamSideOffset;
         camPos.y = tgtGhost.position.y + CamHeightOffset;
 
-        // 揺れ演出（揺れONのときだけ）
+        // 揺れ：_shakeTimeLeft > 0 の間は徐々に小さくしながらランダムオフセット
         if (EnableCameraShake && _shakeTimeLeft > 0f && _shakeTotalDuration > 0f)
         {
             float shakeT = _shakeTimeLeft / _shakeTotalDuration; // 1→0
-            float amp = _currentShakeAmplitude * shakeT;         // 時間と共に弱める
+            float amp = _currentShakeAmplitude * shakeT;         // 時間とともに小さく
 
             Vector3 randomOffset = new Vector3(
                 (Random.value * 2f - 1f) * amp,
                 (Random.value * 2f - 1f) * amp,
-                (Random.value * 2f - 1f) * amp * 0.5f // Z方向は少し弱め
+                (Random.value * 2f - 1f) * amp * 0.5f
             );
 
             camPos += randomOffset;
@@ -660,20 +640,19 @@ public class GameOver : MonoBehaviour
             _shakeTimeLeft -= Time.deltaTime;
         }
 
-        // カメラ位置を更新
         KillCamera.transform.position = camPos;
 
-        // 常に幽霊本人を見る
+        // 幽霊を見る
         KillCamera.transform.LookAt(tgtGhost.position);
 
-        // X回転（上下）だけオフセットする
+        // ピッチだけオフセット
         if (CamLookPitchOffsetDeg != 0f)
         {
             KillCamera.transform.rotation =
                 KillCamera.transform.rotation * Quaternion.Euler(CamLookPitchOffsetDeg, 0f, 0f);
         }
 
-        // ログ（デバッグ用）
+        // デバッグ用にだしてる
         float realDist = Vector3.Distance(KillCamera.transform.position, tgtGhost.position);
         Vector3 vp = KillCamera.WorldToViewportPoint(tgtGhost.position);
         bool isVisible =
@@ -697,7 +676,7 @@ public class GameOver : MonoBehaviour
         );
     }
 
-    // プレイヤーの近い幽霊（=今掴んでるクローン含む）を探す
+    // プレイヤーに一番近い幽霊(複数湧いたもの含む)を探す
     private Transform GetNearestGhostToPlayer()
     {
         if (Player == null) return null;
@@ -705,7 +684,7 @@ public class GameOver : MonoBehaviour
         Transform nearest = null;
         float bestDist = float.PositiveInfinity;
 
-        // タグ "Ghost" の候補
+        // タグ "Ghost" を持つ候補
         GameObject[] tagged = GameObject.FindGameObjectsWithTag("Ghost");
         for (int i = 0; i < tagged.Length; i++)
         {
@@ -720,7 +699,7 @@ public class GameOver : MonoBehaviour
             }
         }
 
-        // SearchChase持ち（タグついてないクローンの保険）
+        // SearchChase持ち（タグがない生成ゴーストも拾う）
         SearchChase[] chasers = UnityEngine.Object.FindObjectsByType<SearchChase>(FindObjectsSortMode.None);
         for (int i = 0; i < chasers.Length; i++)
         {
@@ -736,7 +715,7 @@ public class GameOver : MonoBehaviour
             }
         }
 
-        // それでもnullなら最初に持ってるGhostを返す
+        // それでもnullならFallbackで最初のGhost参照
         if (nearest == null)
         {
             nearest = Ghost;
@@ -745,9 +724,21 @@ public class GameOver : MonoBehaviour
         return nearest;
     }
 
+    // いちばん近い幽霊のAnimatorを取る（FireGameOverで使う）
+    private Animator GetNearestGhostAnimator()
+    {
+        Transform t = GetNearestGhostToPlayer();
+        if (!t) return null;
+
+        // ド真ん中のオブジェクト側にAnimatorが無い場合もあるので
+        // 子から探す
+        Animator a = t.GetComponentInChildren<Animator>();
+        return a;
+    }
+
+    // クローゼットに隠れてる＋幽霊がState1なら、キャッチ無効
     private bool ShouldSkipCatch()
     {
-        // クローゼットに隠れていて幽霊が「探索状態(=1)」ならスキップ
         if (!HideRef || !HideRef.hide) return false;
 
         int ghostState = (GhostChase ? GhostChase.GetState() : 1);
@@ -759,15 +750,15 @@ public class GameOver : MonoBehaviour
         Transform g = GetNearestGhostToPlayer();
         if (Player && g)
         {
-            // トリガー距離の目安
+            // 判定距離の目安
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(g.position, Mathf.Max(TriggerDistance, 0.01f));
 
-            // いまの距離ライン
+            // Player-ghost のライン
             Gizmos.color = Color.cyan;
             Gizmos.DrawLine(Player.position, g.position);
 
-            // シーンビュー用に予定カメラ位置も描画
+            // シーンビューでキルカメラ予定位置も見えるように
             Vector3 debugCamPos = g.position
                                 + g.forward * CamDistFromGhost
                                 + g.right * CamSideOffset;
@@ -778,9 +769,7 @@ public class GameOver : MonoBehaviour
         }
     }
 
-    // プレイヤーの見た目を消す処理
-    // ・Renderer.enabled = false にするだけ
-    // ・NavMeshAgentや当たり判定は残すのでゲームオーバー処理は続く
+    // プレイヤーを消す（Renderer.enabled=false）
     private void HidePlayerVisualsIfNeeded()
     {
         if (!HidePlayerOnGameOver) return;
@@ -797,14 +786,12 @@ public class GameOver : MonoBehaviour
             for (int i = 0; i < _cachedPlayerRenderers.Length; i++)
             {
                 Renderer r = _cachedPlayerRenderers[i];
-                if (r == null) continue;
-
-                // プレイヤーの体・手・装備などをまとめて非表示
+                if (!r) continue;
                 r.enabled = false;
             }
         }
 
         _playerHidden = true;
-        Debug.Log("[GameOver] プレイヤーのRendererを非表示にしました。");
+        Debug.Log("[GameOver] プレイヤー見た目を非表示にしました。");
     }
 }
