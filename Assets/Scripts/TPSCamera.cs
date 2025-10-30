@@ -29,8 +29,8 @@ public class TPSCamera : MonoBehaviour
     [Range(0.1f, 1.0f)] public float VerticalAmount = 0.5f;
 
     // 反転フラグ（Optionからいじる）
-    public bool InvertX = false;          // 左右反転 ← 新しく追加
-    public bool InvertY = false;          // 上下反転（元からあったものそのまま）
+    public bool InvertX = false;          // 左右反転
+    public bool InvertY = false;          // 上下反転
 
     private float _pitchVel;              // SmoothDamp用
     private float _pitchTarget;           // 目標ピッチ
@@ -70,7 +70,7 @@ public class TPSCamera : MonoBehaviour
     public float FOVLerp = 10f;
     public bool IsAiming = false;
 
-    // ===== UI: 感度（Slider）※今はOptionから制御してるので任意 =====
+    // ===== UI: 感度（Slider） 任意 =====
     [Header("UI: 感度（Slider 任意）")]
     public Slider RotateSpeedSlider;            // 使わないなら未割り当てでOK
     public float MinRotateSpeed = 0.1f;         // 感度の下限
@@ -79,6 +79,9 @@ public class TPSCamera : MonoBehaviour
 
     public bool SaveSensitivity = true;
     public string SensitivityPrefsKey = "Camera.RotateSpeed";
+
+    // ===== ログ用に“そのフレームで採用した距離”を公開 =====
+    public float CurrentDistance { get; private set; } = 0f;
 
     public void Awake()
     {
@@ -164,7 +167,7 @@ public class TPSCamera : MonoBehaviour
         // Look入力
         Vector2 look = input.Player.Look.ReadValue<Vector2>();
 
-        // どのデバイスっぽいかで係数
+        // デバイス判定で係数
         bool usingGamepad =
             (Gamepad.current != null && Gamepad.current.wasUpdatedThisFrame);
         float deviceSense = usingGamepad ? GamepadSense : MouseSense;
@@ -181,10 +184,10 @@ public class TPSCamera : MonoBehaviour
 
         // ===== 回転更新 =====
         float dx = look.x;
-        if (InvertX) dx = -dx; // ← 左右反転ここで反映
+        if (InvertX) dx = -dx;
 
         float ly = look.y;
-        if (InvertY) ly = -ly; // ← 上下反転ここで反映
+        if (InvertY) ly = -ly;
 
         if (Mathf.Abs(ly) < MouseYDeadZone) ly = 0f;
 
@@ -222,6 +225,9 @@ public class TPSCamera : MonoBehaviour
             }
         }
 
+        // ★ログ用：このフレームで実際に使った距離を公開
+        CurrentDistance = d;
+
         // 目標位置
         Vector3 desiredPos =
             Pivot.position + rot * new Vector3(ShoulderOffset.x, ShoulderOffset.y, -d);
@@ -258,7 +264,7 @@ public class TPSCamera : MonoBehaviour
         }
     }
 
-    // ====== Option 側から感度をセットするための関数 ======
+    // ====== Option 側から感度をセット ======
     public void SetRotateSpeedFromOption(float v)
     {
         RotateSpeed = Mathf.Clamp(v, MinRotateSpeed, MaxRotateSpeed);
