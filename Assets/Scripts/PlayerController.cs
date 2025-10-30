@@ -5,7 +5,7 @@ public class PlayerController : MonoBehaviour
 {
     InputSystem_Actions Input;
 
-    [SerializeField] Transform Camera;
+    [SerializeField] Transform Camera;        // カメラの Transform
     [SerializeField] float MoveSpeed = 5.0f;
     [SerializeField] float DashSpeed = 7.0f;
     [SerializeField] float SlowSpeed = 2.0f;
@@ -36,7 +36,13 @@ public class PlayerController : MonoBehaviour
     // ===== 足音用 =====
     [Header("サウンド")]
     [SerializeField] private AudioManager audioManager; // 足音などを鳴らす
-    bool _footstepActiveNow = false;                    // 直前フレームで足音が鳴いてたかどうか
+    bool _footstepActiveNow = false;                    // 直前フレームで足音が鳴いてたか
+
+    // ===== デバッグ（Sキー後退の健全性チェック）=====
+    [Header("Debug")]
+    [SerializeField] TPSCamera tpsCamera;   // ← シーン上の TPSCamera をアサイン
+    [SerializeField] bool EnableBackLog = true;
+    [SerializeField] int LogEveryNFrames = 1;  // 1=毎フレーム出す
 
     void Awake()
     {
@@ -81,13 +87,14 @@ public class PlayerController : MonoBehaviour
             // 足音停止（完全に止まってる扱い）
             HandleFootstepAudio(false);
 
+            // S押下チェック用ログ（入力なし時は出さない）
             return;
         }
 
         // 入力あり
         noInputTimer = 0f;
 
-        // カメラ基準の平面向き
+        // カメラ基準の平面向き（ピッチ成分は水平投影で除去）
         Vector3 forward = Camera ? Vector3.ProjectOnPlane(Camera.forward, Vector3.up) : Vector3.forward;
         if (forward.sqrMagnitude < 0.0001f)
         {
@@ -159,19 +166,22 @@ public class PlayerController : MonoBehaviour
         IsSlowWalkingNow = nowSlow;
 
         // 足音ループの制御
-        // hasInput == true の時点で「移動中」判定にしていい
         HandleFootstepAudio(true);
+
+        // ====== ここで S 押下時の健全性ログを出す ======
+        if (EnableBackLog && Keyboard.current != null && Keyboard.current.sKey.isPressed)
+        {
+            LogBackCheck(move, moveDir, hasInput);
+        }
     }
 
     // 足音をオンオフする処理をまとめておく
     void HandleFootstepAudio(bool shouldPlay)
     {
-        // AudioManagerが無ければ何もしない
         if (audioManager == null) return;
 
         if (shouldPlay)
         {
-            // すでに鳴いてるなら何もしない
             if (!_footstepActiveNow)
             {
                 audioManager.StartFootstepLoop();
@@ -180,7 +190,6 @@ public class PlayerController : MonoBehaviour
         }
         else
         {
-            // 止めたいときだけ止める
             if (_footstepActiveNow)
             {
                 audioManager.StopFootstepLoop();
@@ -188,4 +197,53 @@ public class PlayerController : MonoBehaviour
             }
         }
     }
+
+    // ===== Sキー後退の健全性ログ =====
+    void LogBackCheck(Vector2 move, Vector3 moveDir, bool hasInput)
+    {
+        if (Time.frameCount % Mathf.Max(1, LogEveryNFrames) != 0) return;
+
+        // カメラの水平 forward/right を再計算（ピッチの影響は水平投影で除去）
+        Vector3 camFh = Camera ? Vector3.ProjectOnPlane(Camera.forward, Vector3.up) : Vector3.forward;
+        if (camFh.sqrMagnitude < 0.0001f) camFh = Vector3.forward;
+        camFh.Normalize();
+
+        Vector3 camRh = Camera ? Vector3.ProjectOnPlane(Camera.right, Vector3.up) : Vector3.right;
+        if (camRh.sqrMagnitude < 0.0001f) camRh = new Vector3(camFh.z, 0f, -camFh.x);
+        camRh.Normalize();
+
+        // S（後退）で期待する方向は「-camFh」
+        Vector3 expected = -camFh;
+
+        float ang = moveDir.sqrMagnitude > 0f ? Vector3.Angle(moveDir, expected) : 999f;
+        float dot = moveDir.sqrMagnitude > 0f ? Vector3.Dot(moveDir, expected) : -1f;
+        bool okMove = hasInput && move.y < 0f && ang <= 12f && dot > 0.98f; // だいたい真逆向き
+
+        // カメラ距離の健全性（衝突補正後の“実使用距離”と実測が近いか）
+        string camStat = "Unknown";
+        float distNow = -1f, distUsed = -1f, yaw = -999f, pitch = -999f;
+        if (tpsCamera != null && tpsCamera.Pivot != null && Camera != null)
+        {
+            distNow = Vector3.Distance(Camera.position, tpsCamera.Pivot.position);
+            distUsed = tpsCamera.CurrentDistance;
+            yaw = tpsCamera.yaw;
+            pitch = tpsCamera.pitch;
+
+            bool okCam = Mathf.Abs(distNow - distUsed) <= 0.15f; // 誤差15cm以内をOK
+            camStat = okCam ? "OK" : "NG";
+        }
+
+        Debug.Log(
+            $"[BackCheck] S-press " +
+            $"| hasInput={hasInput} move=({move.x:0.00},{move.y:0.00}) " +
+            $"| camYaw={yaw:0.0} camPitch={pitch:0.0} " +
+            $"| camFh={Vxz(camFh)} camRh={Vxz(camRh)} " +
+            $"| moveDir={Vxz(moveDir)} " +
+            $"| angle(moveDir,-camF)={ang:0.0} dot={dot:0.000} => MoveOK={(okMove ? "OK" : "NG")} " +
+            $"| camDistNow={distNow:0.00} used~{distUsed:0.00} => CamOK={camStat}"
+        );
+    }
+
+    // 見やすいように XZ 成分だけを短く表記
+    static string Vxz(Vector3 v) => $"({v.x:0.000},{v.z:0.000})";
 }
