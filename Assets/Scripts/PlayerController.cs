@@ -94,19 +94,31 @@ public class PlayerController : MonoBehaviour
         // 入力あり
         noInputTimer = 0f;
 
-        // カメラ基準の平面向き（ピッチ成分は水平投影で除去）
-        Vector3 forward = Camera ? Vector3.ProjectOnPlane(Camera.forward, Vector3.up) : Vector3.forward;
+        // =========== カメラの水平前方・右方向を求める（ピッチ影響を完全に排除する）===========
+        Vector3 forward;
+        Vector3 right;
+        if (Camera)
+        {
+            float yaw = Camera.eulerAngles.y;
+            Quaternion yawOnly = Quaternion.Euler(0f, yaw, 0f);
+            forward = yawOnly * Vector3.forward;
+            right = yawOnly * Vector3.right;
+        }
+        else
+        {
+            forward = Vector3.forward;
+            right = Vector3.right;
+        }
+
         if (forward.sqrMagnitude < 0.0001f)
         {
-            // カメラが真上・真下を向いている場合は、自身の forward を基準にする
             forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
         }
         forward = forward.sqrMagnitude < 0.0001f ? Vector3.forward : forward.normalized;
 
-        Vector3 right = Camera ? Vector3.ProjectOnPlane(Camera.right, Vector3.up) : Vector3.right;
         if (right.sqrMagnitude < 0.0001f)
         {
-            right = new Vector3(forward.z, 0f, -forward.x); // forward と直交する水平ベクトル
+            right = new Vector3(forward.z, 0f, -forward.x);
         }
         if (right.sqrMagnitude < 0.0001f)
         {
@@ -203,12 +215,25 @@ public class PlayerController : MonoBehaviour
     {
         if (Time.frameCount % Mathf.Max(1, LogEveryNFrames) != 0) return;
 
-        // カメラの水平 forward/right を再計算（ピッチの影響は水平投影で除去）
-        Vector3 camFh = Camera ? Vector3.ProjectOnPlane(Camera.forward, Vector3.up) : Vector3.forward;
+        // =========== ログ用のカメラ水平ベクトル再計算（プレイヤー移動と同じ処理）===========
+        Vector3 camFh;
+        Vector3 camRh;
+        if (Camera)
+        {
+            float yaw = Camera.eulerAngles.y;
+            Quaternion yawOnly = Quaternion.Euler(0f, yaw, 0f);
+            camFh = yawOnly * Vector3.forward;
+            camRh = yawOnly * Vector3.right;
+        }
+        else
+        {
+            camFh = Vector3.forward;
+            camRh = Vector3.right;
+        }
+
         if (camFh.sqrMagnitude < 0.0001f) camFh = Vector3.forward;
         camFh.Normalize();
 
-        Vector3 camRh = Camera ? Vector3.ProjectOnPlane(Camera.right, Vector3.up) : Vector3.right;
         if (camRh.sqrMagnitude < 0.0001f) camRh = new Vector3(camFh.z, 0f, -camFh.x);
         camRh.Normalize();
 
