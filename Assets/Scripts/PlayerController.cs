@@ -9,10 +9,10 @@ public class PlayerController : MonoBehaviour
 
     // ===== Refs =====
     [Header("Refs")]
-    [SerializeField] Transform Cam;               // 未設定なら Camera.main
+    [SerializeField] Transform Cam;
     [SerializeField] Animator animator;
-    [SerializeField] TPSCamera tpsCamera;         // 任意
-    [SerializeField] AudioManager audioManager;   // 任意
+    [SerializeField] TPSCamera tpsCamera;
+    [SerializeField] AudioManager audioManager;
 
     // ===== Move =====
     [Header("Speed")]
@@ -31,7 +31,7 @@ public class PlayerController : MonoBehaviour
 
     // ===== Collision (Overlap) =====
     [Header("Overlap Block (Furnitureのみ)")]
-    [SerializeField] LayerMask furnitureMask;     // ドア/壁/家具のレイヤーだけ
+    [SerializeField] LayerMask furnitureMask;     // ドア/壁/家具のレイヤーだけ触れるように
     [SerializeField] bool lockY = true;
 
     [Header("Capsule (fallback)")]
@@ -47,7 +47,7 @@ public class PlayerController : MonoBehaviour
 
     // ===== Block Logging =====
     [Header("Block Logging")]
-    [SerializeField] bool logBlockObjects = false;    // ← これでオン/オフ
+    [SerializeField] bool logBlockObjects = false;
     [SerializeField, Min(1)] int blockLogEveryNFrames = 10;
 
     // ===== State =====
