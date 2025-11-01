@@ -25,8 +25,8 @@ public class HideCroset : MonoBehaviour
 
     [Header("位置調整（Inspectorで変更可・実行中も可）")]
     public float OffsetForward = 0.30f;                         // 奥方向（+で内側）
-    public float OffsetRight = 0.00f;                         // 右
-    public float OffsetUp = 0.00f;                         // 上（ベース）
+    public float OffsetRight = 0.00f;                           // 右
+    public float OffsetUp = 0.00f;                              // 上（ベース）
     public float InteractRadius = 1.6f;                         // 隠れられる半径
     public MonoBehaviour[] MovementScriptsToDisable;            // 隠れ中だけ無効化する移動系
 
@@ -48,6 +48,19 @@ public class HideCroset : MonoBehaviour
     public float HiddenYOffset = 0.20f;                         // 隠れ時のY持ち上げ（台座ぶん）
     public bool DisableGravityWhileHidden = true;               // 隠れ中は重力を切る
     public bool MakeKinematicWhileHidden = true;                // 隠れ中はkinematic化（任意）
+
+    [Header("カメラ参照（隠れ中だけ距離を寄せる＆少し前へ）")]
+    public TPSCamera TPS;                                       // 任意：未割り当てなら何もしない
+
+    [Header("隠れ中のカメラ距離（設定はここで）")]
+    public bool EnableHiddenDistance = true;                    // 隠れ中に距離寄せを使う
+    [Min(0f)] public float HiddenDistanceDelta = 1.4f;          // どれだけ寄せるか（Pivot距離からの減算）
+    public float HiddenDistanceLerp = 12f;                      // 補間速度
+
+    [Header("覗き前進（隠れ中だけ、マイクロ一人称）")]
+    public bool EnableFrontWhenHidden = true;                   // 覗き中は前へ出す
+    [Min(0f)] public float PeekForward = 0.20f;                 // 何m前へ出すか（推奨 0.10〜0.25）
+    public float PeekForwardLerp = 12f;                         // 前進補間
 
     // ───────── 内部状態 ─────────
     private Transform _currentCloset;
@@ -107,6 +120,13 @@ public class HideCroset : MonoBehaviour
 
         // 隠れたまま無効化された場合でも必ず全ドアをリセット（shift=0）
         ResetAllDoorsImmediate();
+
+        // ★ 保険：カメラ距離寄せ / 覗き前進を必ずOFF
+        if (TPS)
+        {
+            TPS.UseHiddenDistance = false;
+            TPS.AllowFrontWhenHidden = false;
+        }
     }
 
     private void OnDestroy()
@@ -261,6 +281,18 @@ public class HideCroset : MonoBehaviour
             OnPromptRewritten?.Invoke(next);
             if (!PromptText.gameObject.activeSelf) PromptText.gameObject.SetActive(true);
         }
+
+        // ★ 隠れ演出：カメラ距離寄せ / 覗き前進 ON（寄せ量はこのスクリプトの Inspector で設定）
+        if (TPS)
+        {
+            TPS.HiddenDistanceDelta = HiddenDistanceDelta;   // 距離寄せ量（減算）
+            TPS.HiddenDistanceLerp = HiddenDistanceLerp;    // 補間
+            TPS.UseHiddenDistance = EnableHiddenDistance;  // 有効/無効
+
+            TPS.AllowFrontWhenHidden = EnableFrontWhenHidden; // 覗き前進の有効/無効
+            TPS.PeekForward = PeekForward;           // 前進量
+            TPS.PeekForwardLerp = PeekForwardLerp;       // 前進補間
+        }
     }
 
     // 出る（元の位置へ）
@@ -289,6 +321,13 @@ public class HideCroset : MonoBehaviour
             string next = string.IsNullOrEmpty(PromptMessage) ? "【E】隠れる" : PromptMessage;
             PromptText.text = next;
             OnPromptRestored?.Invoke(next);
+        }
+
+        // ★ 隠れ演出：カメラ距離寄せ / 覗き前進 OFF
+        if (TPS)
+        {
+            TPS.UseHiddenDistance = false;
+            TPS.AllowFrontWhenHidden = false;
         }
     }
 
