@@ -83,6 +83,23 @@ public class TPSCamera : MonoBehaviour
     // ===== ログ用に“そのフレームで採用した距離”を公開 =====
     public float CurrentDistance { get; private set; } = 0f;
 
+    // ===== 隠れ演出（距離寄せ：差分方式） =====
+    [Header("隠れ演出（距離寄せ）")]
+    public bool UseHiddenDistance = false;           // 隠れ中だけ true
+    [Min(0f)] public float HiddenDistanceDelta = 1.4f; // どれだけ寄せるか（Distance から減算）
+    public float HiddenDistanceLerp = 12f;           // 補間速度
+    private float _distanceRuntime = 0f;             // 補間用ランタイム距離
+    // ※ 実行時は HideCroset から上書きされます（Inspectorの値は参考程度）
+
+    // ===== 覗き前進（マイクロ一人称） =====
+    [Header("覗き前進（マイクロ一人称）")]
+    public bool AllowFrontWhenHidden = true;         // 隠れ中だけ前へ出すか
+    [Min(0f)] public float PeekForward = 0.20f;      // 何m前へ出すか（推奨 0.10〜0.25）
+    public float PeekForwardLerp = 12f;              // 前進補間の速さ
+    public float NearClipWhilePeek = 0.02f;          // 覗き中のNearClip
+    public float NearClipRestore = 0.03f;            // 通常NearClip
+    private float _peekZRuntime = 0f;                // 覗き前進のランタイム量
+
     public void Awake()
     {
         input = new InputSystem_Actions();
@@ -150,6 +167,10 @@ public class TPSCamera : MonoBehaviour
         if (RotateSpeedSlider)
             RotateSpeedSlider.SetValueWithoutNotify(RotateSpeed);
         RefreshSensitivityLabel();
+
+        // ★ 隠れ演出：距離/前進のランタイム初期値
+        _distanceRuntime = Distance;
+        _peekZRuntime = 0f;
     }
 
     void LateUpdate()
@@ -207,8 +228,20 @@ public class TPSCamera : MonoBehaviour
 
         Quaternion rot = Quaternion.Euler(pitch, yaw, 0f);
 
-        // ===== カメラの距離補正（衝突）=====
-        float d = Distance;
+        // ★ 隠れ演出：目標距離（差分方式）を更新
+        float baseDist = Distance;
+        if (UseHiddenDistance)
+        {
+            float maxDelta = Mathf.Max(0f, Distance - MinCameraDistance);
+            float clampedDelta = Mathf.Clamp(HiddenDistanceDelta, 0f, maxDelta);
+            baseDist = Mathf.Max(MinCameraDistance, Distance - clampedDelta);
+        }
+        float targetDist = baseDist;
+        _distanceRuntime = Mathf.Lerp(_distanceRuntime, targetDist, HiddenDistanceLerp * Time.deltaTime);
+
+        // ===== カメラの距離補正（後方衝突）=====
+        // float d = Distance;                               // ← 元行
+        float d = _distanceRuntime;                          // ← 置換後
         if (!KeepFixedDistance)
         {
             Vector3 backDir = rot * Vector3.back;
@@ -217,7 +250,8 @@ public class TPSCamera : MonoBehaviour
                     CameraCollisionRadius,
                     backDir,
                     out RaycastHit hit,
-                    Distance,
+                    // Distance,                             // ← 元行
+                    _distanceRuntime,                          // ← 置換後（目標距離までレイ）
                     CollisionMask,
                     QueryTriggerInteraction.Ignore))
             {
@@ -225,12 +259,35 @@ public class TPSCamera : MonoBehaviour
             }
         }
 
+        // ★ 覗き前進：前方にも当たりを取って、鼻先がぶつかる手前で止める
+        float targetPeek = 0f;
+        if (UseHiddenDistance && AllowFrontWhenHidden)
+        {
+            // 後方距離 d を超えない上限にクランプ
+            targetPeek = Mathf.Min(PeekForward, Mathf.Max(0f, d - MinCameraDistance));
+
+            // 前方SphereCastで更にクランプ（ドア等に近づきすぎない）
+            if (targetPeek > 0f && Physics.SphereCast(
+                    Pivot.position,
+                    CameraCollisionRadius,
+                    rot * Vector3.forward,
+                    out RaycastHit fhit,
+                    targetPeek,
+                    CollisionMask,
+                    QueryTriggerInteraction.Ignore))
+            {
+                targetPeek = Mathf.Max(0f, fhit.distance - CollisionBuffer);
+            }
+        }
+        _peekZRuntime = Mathf.Lerp(_peekZRuntime, targetPeek, PeekForwardLerp * Time.deltaTime);
+
         // ★ログ用：このフレームで実際に使った距離を公開
         CurrentDistance = d;
 
-        // 目標位置
+        // 目標位置（前進ぶんだけZを浅くする）
+        // Vector3 desiredPos = Pivot.position + rot * new Vector3(ShoulderOffset.x, ShoulderOffset.y, -d); // ← 元
         Vector3 desiredPos =
-            Pivot.position + rot * new Vector3(ShoulderOffset.x, ShoulderOffset.y, -d);
+            Pivot.position + rot * new Vector3(ShoulderOffset.x, ShoulderOffset.y, -(d - _peekZRuntime));   // ← 置換
 
         // 位置スムーズ
         cam.position = Vector3.SmoothDamp(
@@ -256,11 +313,16 @@ public class TPSCamera : MonoBehaviour
             }
         }
 
-        // FOV補間
+        // FOV補間（既存）＋ NearClip 調整（覗き中だけ小さく）
         if (UCam != null)
         {
             float targetFov = IsAiming ? FOVAim : FOVNormal;
             UCam.fieldOfView = Mathf.Lerp(UCam.fieldOfView, targetFov, FOVLerp * Time.deltaTime);
+
+            float targetNear = (UseHiddenDistance && AllowFrontWhenHidden && _peekZRuntime > 0.0001f)
+                ? NearClipWhilePeek
+                : NearClipRestore;
+            UCam.nearClipPlane = Mathf.Lerp(UCam.nearClipPlane, targetNear, 12f * Time.deltaTime);
         }
     }
 
