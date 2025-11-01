@@ -310,7 +310,6 @@ public class TPSCamera : MonoBehaviour
         Vector3 desiredPos;
         if (UseHiddenAnchor && HiddenAnchor != null)
         {
-            // Vector3 desiredPos = Pivot.position + rot * new Vector3(ShoulderOffset.x, ShoulderOffset.y, -d); // 元
             desiredPos = HiddenAnchor.TransformPoint(HiddenAnchorLocalOffset);
         }
         else
