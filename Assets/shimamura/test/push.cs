@@ -56,7 +56,6 @@ public class push : MonoBehaviour
 
         if (_itemDetailUIManager != null && _itemDetailUIManager.IsOpen && Input.GetKeyDown(KeyCode.R))
         {
-            Debug.Log("Rキーでウィンドウ閉じる");
             _itemDetailUIManager.HideWindow();
             return; // 閉じたら他の処理スキップ
         }
@@ -100,7 +99,6 @@ public class push : MonoBehaviour
                 if (_pushingRb != null)
                 {
                     _pushDirection = -hit.normal; // 押す方向をレイの逆方向に設定
-                    Debug.Log("押し対象: " + hit.transform.name);
                 }
             }
         }
@@ -130,7 +128,6 @@ public class push : MonoBehaviour
         {
             _isJumping = false;
             _isOnFurniture = true;
-            Debug.Log("家具の上に着地完了！");
         }
     }
 
@@ -152,7 +149,6 @@ public class push : MonoBehaviour
             _jumpElapsed = 0f;
             _isJumping = true;
 
-            Debug.Log("放物線ジャンプ開始 → " + hit.transform.name);
         }
     }
 
@@ -194,11 +190,9 @@ public class push : MonoBehaviour
         if (nearestItem != null && Input.GetKeyDown(KeyCode.R))
         {
             _inventory.Add(nearestItem.gameObject);//インベントリ追加
-            Debug.Log($"アイテム取得: {nearestItem.name}");
 
             if (_itemDetailUIManager != null)
             {
-                Debug.Log("itemとじれた");
                 _itemDetailUIManager.ToggleItem(nearestItem.gameObject);
             }
 
@@ -230,7 +224,6 @@ public class push : MonoBehaviour
         if (_pushingRb != null)
         {
             _pushingRb.AddForce(_pushDirection * _pushForce, ForceMode.Force);//継続的に力を加える
-            Debug.Log("力加わってる？");
         }
     }
 
