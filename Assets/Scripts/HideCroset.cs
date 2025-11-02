@@ -25,8 +25,8 @@ public class HideCroset : MonoBehaviour
 
     [Header("位置調整（Inspectorで変更可・実行中も可）")]
     public float OffsetForward = 0.30f;                         // 奥方向（+で内側）
-    public float OffsetRight = 0.00f;                         // 右
-    public float OffsetUp = 0.00f;                         // 上（ベース）
+    public float OffsetRight = 0.00f;                           // 右
+    public float OffsetUp = 0.00f;                              // 上（ベース）
     public float InteractRadius = 1.6f;                         // 隠れられる半径
     public MonoBehaviour[] MovementScriptsToDisable;            // 隠れ中だけ無効化する移動系
 
@@ -49,6 +49,52 @@ public class HideCroset : MonoBehaviour
     public bool DisableGravityWhileHidden = true;               // 隠れ中は重力を切る
     public bool MakeKinematicWhileHidden = true;                // 隠れ中はkinematic化（任意）
 
+    // ── カメラ連携 ──
+    [Header("カメラ参照（隠れ中演出）")]
+    public TPSCamera TPS;                                       // 任意：未割り当てなら何もしない
+
+    [Header("隠れ中のカメラ距離（差分方式：任意）")]
+    public bool EnableHiddenDistance = true;
+    [Min(0f)] public float HiddenDistanceDelta = 1.4f;          // Distance からの減算量
+    public float HiddenDistanceLerp = 12f;
+
+    [Header("覗き前進（任意）")]
+    public bool EnableFrontWhenHidden = true;
+    [Min(0f)] public float PeekForward = 0.20f;
+    public float PeekForwardLerp = 12f;
+
+    [Header("カメラ衝突（隠れ中は無効化）")]
+    public bool DisableCameraCollisionWhileHidden = true;
+
+    // ★ Door を“隙間アンカー”に使う
+    [Header("★ 隙間アンカー：Door を使う")]
+    public bool UseDoorAsGap = true;                             // true: Door をアンカーに
+    public Vector3 DoorGapLocalOffset = new Vector3(0f, 0f, 0.02f); // ドアローカル位置補正（前に少し）
+    public Vector3 DoorGapForwardAxis = Vector3.forward;         // 「穴の向き」に使うローカル軸
+    public bool InvertDoorGapFacing = false;                     // 反転（奥/手前の切替）
+    [Tooltip("穴の方向をさらに調整する角度（度数）。+で右へ、-で左へ。")]
+    public float DoorGapYawOffsetDeg = 0f;                       // 向きの微調整
+
+    // 旧：プレイヤー基準アンカー（残すだけ）
+    [Header("（旧）プレイヤー基準アンカー")]
+    public bool UseGapAnchorWhileHidden = false;
+    public float GapOffsetX = 0.00f;
+    public float GapOffsetZ = 0.20f;
+    public float GapOffsetY = 0.00f;
+
+    [Header("★ 視界制限（隠れ中だけ前方180°）")]
+    public float HiddenYawHalfAngle = 90f;                      // 左右の半角（90=180°）
+
+    [Header("隠れ中の見回し")]
+    public bool AllowLookAroundWhileHidden = true;              // 穴方向を中心に±90°
+
+    [Header("隠れ中のプレイヤー可視性")]
+    public bool HidePlayerWhileHidden = true;                   // 隠れている間はプレイヤー非表示
+
+    // ───── 内部退避 ─────
+    private bool _prevKeepFixed = false;
+    private bool _keepFixedSaved = false;
+
     // ───────── 内部状態 ─────────
     private Transform _currentCloset;
     private int _currentClosetIndex = -1;
@@ -70,6 +116,10 @@ public class HideCroset : MonoBehaviour
     private readonly Dictionary<Transform, Quaternion> _doorRotDefault = new();
     private Coroutine _doorTween;
 
+    // プレイヤー見た目の退避
+    private Renderer[] _playerRenderers;                        // 子含む全Renderer
+    private readonly List<bool> _rendererPrevEnabled = new List<bool>(); // enabledの退避
+
     private void Awake()
     {
         Input = new InputSystem_Actions();
@@ -77,6 +127,7 @@ public class HideCroset : MonoBehaviour
 
         _playerCols = Player.GetComponentsInChildren<Collider>(true);
         _playerRBs = Player.GetComponentsInChildren<Rigidbody>(true);
+        _playerRenderers = Player.GetComponentsInChildren<Renderer>(true); // ★ 追加
 
         // DoorList の初期ローカル姿勢をキャッシュ
         for (int i = 0; i < DoorList.Count; i++)
@@ -107,6 +158,26 @@ public class HideCroset : MonoBehaviour
 
         // 隠れたまま無効化された場合でも必ず全ドアをリセット（shift=0）
         ResetAllDoorsImmediate();
+
+        // ★ 無効化時でも見た目は戻す
+        if (HidePlayerWhileHidden) SetPlayerVisible(true);
+
+        // カメラ設定の復帰
+        if (TPS)
+        {
+            TPS.UseHiddenDistance = false;
+            TPS.AllowFrontWhenHidden = false;
+            TPS.UseHiddenAnchor = false;
+            TPS.EnableHiddenYawClamp = false;
+            TPS.UseHiddenLookAt = false;
+            TPS.HiddenLookAt = null;
+
+            if (_keepFixedSaved)
+            {
+                TPS.KeepFixedDistance = _prevKeepFixed;
+                _keepFixedSaved = false;
+            }
+        }
     }
 
     private void OnDestroy()
@@ -239,7 +310,10 @@ public class HideCroset : MonoBehaviour
         SetMovementEnabled(false);
         hide = true;
 
-        // 対応ドアを見つけ、隠れ開始時だけ“少し開く/ずらす”
+        // ★ 隠れ中はプレイヤー非表示
+        if (HidePlayerWhileHidden) SetPlayerVisible(false);
+
+        // 対応ドア（＝隙間アンカー）
         _currentDoor = null;
         if (closetIndex >= 0 && closetIndex < DoorList.Count)
             _currentDoor = DoorList[closetIndex];
@@ -261,6 +335,71 @@ public class HideCroset : MonoBehaviour
             OnPromptRewritten?.Invoke(next);
             if (!PromptText.gameObject.activeSelf) PromptText.gameObject.SetActive(true);
         }
+
+        // ★ カメラ設定（Door を“隙間アンカー”に）
+        if (TPS)
+        {
+            // 距離寄せ / 覗き前進
+            TPS.HiddenDistanceDelta = HiddenDistanceDelta;
+            TPS.HiddenDistanceLerp = HiddenDistanceLerp;
+            TPS.UseHiddenDistance = EnableHiddenDistance;
+            TPS.AllowFrontWhenHidden = EnableFrontWhenHidden;
+            TPS.PeekForward = PeekForward;
+            TPS.PeekForwardLerp = PeekForwardLerp;
+
+            // 衝突OFF（隠れ中）
+            if (DisableCameraCollisionWhileHidden)
+            {
+                if (!_keepFixedSaved) { _prevKeepFixed = TPS.KeepFixedDistance; _keepFixedSaved = true; }
+                TPS.KeepFixedDistance = true;
+            }
+
+            // 1) アンカー＝Door
+            if (UseDoorAsGap && _currentDoor != null)
+            {
+                TPS.UseHiddenAnchor = true;
+                TPS.HiddenAnchor = _currentDoor;
+                TPS.HiddenAnchorLocalOffset = DoorGapLocalOffset;
+
+                // 2) 視界中心＝Door の向き（ローカル任意軸）
+                Vector3 axis = DoorGapForwardAxis.sqrMagnitude < 0.0001f ? Vector3.forward : DoorGapForwardAxis;
+                Vector3 dirW = _currentDoor.TransformDirection(axis);
+                if (InvertDoorGapFacing) dirW = -dirW;
+
+                float yawCenter = Mathf.Atan2(dirW.x, dirW.z) * Mathf.Rad2Deg;
+                yawCenter += DoorGapYawOffsetDeg; // ★ Yaw微調整
+
+                TPS.HiddenYawCenter = yawCenter;
+                TPS.HiddenYawHalfAngle = Mathf.Abs(HiddenYawHalfAngle); // 例：90=前方180°
+                TPS.EnableHiddenYawClamp = true;
+
+                // 初期向きも穴方向へ
+                TPS.yaw = yawCenter;
+
+                // LookAt 固定は使わず見回し（±半角）に任せる
+                TPS.UseHiddenLookAt = false;
+                TPS.HiddenLookAt = null;
+            }
+            else
+            {
+                // フォールバック：旧プレイヤー基準アンカー
+                if (UseGapAnchorWhileHidden)
+                {
+                    TPS.UseHiddenAnchor = true;
+                    TPS.HiddenAnchor = Player;
+                    TPS.HiddenAnchorLocalOffset = new Vector3(GapOffsetX, GapOffsetY, GapOffsetZ);
+                }
+                TPS.UseHiddenLookAt = false;
+                TPS.HiddenLookAt = null;
+
+                Vector3 dir = Player.forward;
+                float yawCenter = Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg;
+                TPS.HiddenYawCenter = yawCenter;
+                TPS.HiddenYawHalfAngle = Mathf.Abs(HiddenYawHalfAngle);
+                TPS.EnableHiddenYawClamp = true;
+                TPS.yaw = yawCenter;
+            }
+        }
     }
 
     // 出る（元の位置へ）
@@ -276,6 +415,9 @@ public class HideCroset : MonoBehaviour
         SetMovementEnabled(true);
         hide = false;
 
+        // ★ 退出時に表示を元へ
+        if (HidePlayerWhileHidden) SetPlayerVisible(true);
+
         // ★ 出たらすべてのshiftを0に（全ドアを即リセット）
         ResetAllDoorsImmediate();
 
@@ -289,6 +431,23 @@ public class HideCroset : MonoBehaviour
             string next = string.IsNullOrEmpty(PromptMessage) ? "【E】隠れる" : PromptMessage;
             PromptText.text = next;
             OnPromptRestored?.Invoke(next);
+        }
+
+        // カメラ設定を復帰
+        if (TPS)
+        {
+            TPS.UseHiddenDistance = false;
+            TPS.AllowFrontWhenHidden = false;
+            TPS.UseHiddenAnchor = false;
+            TPS.EnableHiddenYawClamp = false;
+            TPS.UseHiddenLookAt = false;
+            TPS.HiddenLookAt = null;
+
+            if (_keepFixedSaved)
+            {
+                TPS.KeepFixedDistance = _prevKeepFixed;
+                _keepFixedSaved = false;
+            }
         }
     }
 
@@ -324,6 +483,38 @@ public class HideCroset : MonoBehaviour
         {
             var m = MovementScriptsToDisable[i];
             if (m) m.enabled = enabled;
+        }
+    }
+
+    // プレイヤー表示/非表示の切り替え
+    private void SetPlayerVisible(bool visible)
+    {
+        if (_playerRenderers == null || _playerRenderers.Length == 0) return;
+
+        if (visible)
+        {
+            // 退避した enabled を復元
+            for (int i = 0; i < _playerRenderers.Length; i++)
+            {
+                var r = _playerRenderers[i];
+                if (!r) continue;
+                bool prev = (i < _rendererPrevEnabled.Count) ? _rendererPrevEnabled[i] : true;
+                r.enabled = prev;
+            }
+            _rendererPrevEnabled.Clear();
+        }
+        else
+        {
+            // 現在の enabled を退避して全てOFF
+            _rendererPrevEnabled.Clear();
+            _rendererPrevEnabled.Capacity = _playerRenderers.Length;
+            for (int i = 0; i < _playerRenderers.Length; i++)
+            {
+                var r = _playerRenderers[i];
+                if (!r) { _rendererPrevEnabled.Add(true); continue; }
+                _rendererPrevEnabled.Add(r.enabled);
+                r.enabled = false;
+            }
         }
     }
 
