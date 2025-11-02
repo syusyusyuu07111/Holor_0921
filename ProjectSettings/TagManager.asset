@@ -8,7 +8,6 @@ TagManager:
   - Furniture
   - stairsTag
   - Stairs
-  - paintings_sea
   layers:
   - Default
   - TransparentFX
@@ -23,9 +22,9 @@ TagManager:
   - Climb
   - Chair
   - Item
-  - Candle
-  - 
-  - 
+  - Player
+  - Furniture
+  - PlayerHidden
   - 
   - 
   - 

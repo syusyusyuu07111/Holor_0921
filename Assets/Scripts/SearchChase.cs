@@ -1,6 +1,6 @@
 // 巡回しながら探して、見つけたら追いかけるスクリプト（LoS 必須＋クローゼット例外）
 // 仕様：
-//  state1 … 隠れていれば必ず未発見。隠れていなければ「視線が通れば」発見。
+//  state1 … ★隠れている間（HideCroset.hide==true）は絶対に未発見＆非捕獲。隠れていなければ「視線が通れば」発見。
 //  state2 … クローゼット内なら LoS を無視して即発見。それ以外は「視線が通れば」発見。
 //  ※「家具など通常の遮蔽物」がプレイヤーと幽霊の間にある場合は、LoS が遮られて未発見。
 //  ※「クローゼット（HideCroset.hide==true）」の中は state2 のときだけ例外的に必ず発見。
@@ -55,7 +55,7 @@ public class SearchChase : MonoBehaviour
     [Header("デバッグ表示（任意）")]
     public TextMeshProUGUI StateLabelTMP;
     public Text StateLabelLegacy;
-    [TextArea] public string State1Text = "STATE: 1  隠れている間は見つからない（LoS必須）";
+    [TextArea] public string State1Text = "STATE: 1  隠れてる間は絶対バレない/捕まらない（非隠れ時はLoSで発見）";
     [TextArea] public string State2Text = "STATE: 2  クローゼット内でも見つかる（LoSほぼ無視）";
 
     // ===== 見渡し（サーチ） =====
@@ -81,6 +81,10 @@ public class SearchChase : MonoBehaviour
     // ===== 追跡エフェクト位置オフセット（任意）=====
     [Tooltip("エフェクトを頭の少し上などに浮かせたいならここで調整(ローカル座標)")]
     public Vector3 angryEffectLocalOffset = Vector3.zero;
+
+    // ===== 捕獲ガード（このスクリプトに Trigger が来る場合だけ有効）=====
+    [Header("捕獲ガード（任意）")]
+    public bool GuardCatchByState = true; // true の間、state1 かつ隠れ中は OnTrigger で絶対捕獲させない
 
     void Start()
     {
@@ -238,13 +242,13 @@ public class SearchChase : MonoBehaviour
         }
 
         // state1：
-        //   隠れてたら未発見
-        //   隠れてなければ LoS が通れば発見
+        //   隠れてたら絶対に未発見（早期return）
+        //   隠れていなければ LoS が通れば発見
         if (fixedState == 1)
         {
             if (HideRef && HideRef.hide)
             {
-                isDiscovery = false;
+                isDiscovery = false;    // ←絶対にバレない
                 return;
             }
 
@@ -299,7 +303,7 @@ public class SearchChase : MonoBehaviour
 
         dir /= dist; // 正規化
 
-        if (Physics.Raycast(origin, dir, out RaycastHit hit, dist))
+        if (Physics.Raycast(origin, dir, out RaycastHit hit, dist, ~0, QueryTriggerInteraction.Ignore))
         {
             // まっさきにPlayerに当たれば見えてる扱い
             return hit.collider.CompareTag("Player");
@@ -374,21 +378,10 @@ public class SearchChase : MonoBehaviour
 
         Transform follow = angryEffectFollowPoint ? angryEffectFollowPoint : this.transform;
 
-        // 親(=follow)を指定してInstantiateする。
-        // これでエフェクトはプレハブのローカル向きのまま生成され、
-        // followの子になるので、勝手に追従する。
         _angryEffectInstance = Instantiate(angryEffectPrefab, follow);
-
-        // 位置だけ微調整したいときはここでローカルオフセットを適用
         _angryEffectInstance.transform.localPosition = angryEffectLocalOffset;
 
-        // 回転は触らない。
-        // → プレハブで作った「正しい向き」をそのまま使う。
-        //    （ここで localRotation をいじらないのが “横向きにならない” コツ）
-        //
-        // もし今後「ちょいだけ回したい」ってなったらここで
-        // _angryEffectInstance.transform.localRotation *= Quaternion.Euler(...);
-        // とか足してOK。
+        // 回転はプレハブ依存のまま（横向き対策として弄らない）
     }
 
     // ====== 怒りエフェクトを消す（見失ったとき） ======
@@ -399,6 +392,34 @@ public class SearchChase : MonoBehaviour
             Destroy(_angryEffectInstance);
             _angryEffectInstance = null;
         }
+    }
+
+    // ====== 捕獲イベントのガード（このスクリプトにCollider/Triggerが来る場合のみ） ======
+    private void OnTriggerEnter(Collider other)
+    {
+        if (!GuardCatchByState) return;
+
+        // ★state1 かつ 隠れ中は絶対に捕獲処理を発火させない
+        if (fixedState == 1 && HideRef && HideRef.hide)
+        {
+            return;
+        }
+
+        // 以降：元々ここで捕獲処理しているならそのまま…
+        // if (other.CompareTag("Player")) { …捕獲処理… }
+    }
+
+    private void OnTriggerStay(Collider other)
+    {
+        if (!GuardCatchByState) return;
+
+        // ★state1 かつ 隠れ中は絶対に捕獲処理を発火させない
+        if (fixedState == 1 && HideRef && HideRef.hide)
+        {
+            return;
+        }
+
+        // if (other.CompareTag("Player")) { …捕獲処理… }
     }
 
     // ====== デバッグ可視化 ======

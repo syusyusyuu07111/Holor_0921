@@ -1,191 +1,296 @@
 ﻿using UnityEngine;
 using UnityEngine.InputSystem;
 
+[RequireComponent(typeof(Animator))]
 public class PlayerController : MonoBehaviour
 {
-    InputSystem_Actions Input;
+    // ===== Input =====
+    private InputSystem_Actions Input;
 
-    [SerializeField] Transform Camera;
-    [SerializeField] float MoveSpeed = 5.0f;
-    [SerializeField] float DashSpeed = 7.0f;
-    [SerializeField] float SlowSpeed = 2.0f;
+    // ===== Refs =====
+    [Header("Refs")]
+    [SerializeField] Transform Cam;
     [SerializeField] Animator animator;
+    [SerializeField] TPSCamera tpsCamera;
+    [SerializeField] AudioManager audioManager;
 
-    [Header("アナログ入力しきい値")]
-    [SerializeField, Range(0f, 1f)] float analogPressPoint = 0.5f; // トリガー誤動作防止
+    // ===== Move =====
+    [Header("Speed")]
+    [SerializeField] float MoveSpeed = 5f;
+    [SerializeField] float DashSpeed = 7f;
+    [SerializeField] float SlowSpeed = 2f;
 
-    [Header("入力しきい値")]
-    [SerializeField] float deadZone = 0.12f;   // 入力マグニチュードしきい値
-    [SerializeField] float stopGrace = 0.08f;  // 離してからIdleに落とす遅延
+    [Header("Input thresholds")]
+    [SerializeField, Range(0f, 1f)] float analogPressPoint = 0.5f;
+    [SerializeField, Range(0f, 1f)] float deadZone = 0.12f;
+    [SerializeField, Range(0f, 0.3f)] float tieEpsilon = 0.08f;
+    [SerializeField] float stopGrace = 0.08f;
 
-    float noInputTimer = 0f;
+    [Header("Motion Split")]
+    [SerializeField, Min(0.01f)] float maxStep = 0.2f; // 1サブステップ最大距離
 
-    // 公開状態 & イベント
+    // ===== Collision (Overlap) =====
+    [Header("Overlap Block (Furnitureのみ)")]
+    [SerializeField] LayerMask furnitureMask;     // ドア/壁/家具のレイヤーだけ触れるように
+    [SerializeField] bool lockY = true;
+
+    [Header("Capsule (fallback)")]
+    [SerializeField] float capsuleHeight = 1.7f;
+    [SerializeField] float capsuleRadius = 0.3f;
+    [SerializeField] Vector3 capsuleCenter = new Vector3(0f, 0.9f, 0f);
+
+    [Header("Overlap Tweaks")]
+    [Tooltip("Overlap判定用に半径をわずかに細く。0〜0.005 推奨")]
+    [SerializeField] float overlapShrink = 0.002f;
+    [Tooltip("頭/足の誤反応を減らすため上下を少し削る")]
+    [SerializeField] float topTrim = 0.02f, bottomTrim = 0.08f;
+
+    // ===== Block Logging =====
+    [Header("Block Logging")]
+    [SerializeField] bool logBlockObjects = false;
+    [SerializeField, Min(1)] int blockLogEveryNFrames = 10;
+
+    // ===== State =====
+    private int _dominantAxis = 0; // 0=未, 1=X, 2=Y
+    private float _noInputTimer = 0f;
+    private bool _prevDash = false;
+    private bool _footLoopOn = false;
+    private Vector3 _lockedPos;
+    private Quaternion _lockedRot;
+    private float _fixedY;
+    private CapsuleCollider _cap;
+
+    // 他スクリプト互換
     [System.Serializable] public class DashEvent : UnityEngine.Events.UnityEvent { }
     public bool IsMovingNow { get; private set; }
     public bool IsDashingNow { get; private set; }
     public bool IsSlowWalkingNow { get; private set; }
     public DashEvent OnDashStart = new DashEvent();
     public DashEvent OnDashEnd = new DashEvent();
-    bool _prevDash = false;
 
-    // 入力なし時のロック
-    Vector3 _lockedPos;
-    Quaternion _lockedRot;
-
-    // ===== 足音用 =====
-    [Header("サウンド")]
-    [SerializeField] private AudioManager audioManager; // 足音などを鳴らす
-    bool _footstepActiveNow = false;                    // 直前フレームで足音が鳴いてたかどうか
+    // debug buf
+    private static readonly Collider[] _overlapBuf = new Collider[16];
 
     void Awake()
     {
         Input = new InputSystem_Actions();
+        _cap = GetComponent<CapsuleCollider>();
     }
-
     void OnEnable()
     {
         Input.Player.Enable();
         _lockedPos = transform.position;
         _lockedRot = transform.rotation;
+        _fixedY = transform.position.y;
     }
+    void OnDisable() => Input.Player.Disable();
 
     void Update()
     {
-        // 入力読み取り
-        Vector2 move = Input.Player.Move.ReadValue<Vector2>();
-        bool isSlowWalking = Input.Player.SlowWalk.ReadValue<float>() >= analogPressPoint;
+        // 入力
+        Vector2 moveRaw = Input.Player.Move.ReadValue<Vector2>();
+        bool slowHeld = Input.Player.SlowWalk.ReadValue<float>() >= analogPressPoint;
+        bool dashHeld = Input.Player.Dash.ReadValue<float>() >= analogPressPoint;
 
-        // deadZone 判定
-        bool hasInput = (move.sqrMagnitude >= deadZone * deadZone);
+        Vector2 moveSnap = SnapOneAxis(moveRaw);
+        bool hasInput = (moveSnap.x != 0f) || (moveSnap.y != 0f);
 
-        // 入力なし：ロック
         if (!hasInput)
         {
             transform.SetPositionAndRotation(_lockedPos, _lockedRot);
+            if (lockY) transform.position = new Vector3(transform.position.x, _fixedY, transform.position.z);
 
-            noInputTimer += Time.deltaTime;
-            if (noInputTimer >= stopGrace && animator && animator.GetBool("IsMoving"))
+            _noInputTimer += Time.deltaTime;
+            if (_noInputTimer >= stopGrace && animator && animator.GetBool("IsMoving"))
                 animator.SetBool("IsMoving", false);
-            if (animator)
-            {
-                animator.SetBool("IsDashing", false);
-                animator.SetBool("IsSlowWalking", false);
-            }
+            if (animator) { animator.SetBool("IsDashing", false); animator.SetBool("IsSlowWalking", false); }
 
-            IsMovingNow = false;
-            IsDashingNow = false;
-            IsSlowWalkingNow = false;
+            IsMovingNow = IsDashingNow = IsSlowWalkingNow = false;
             if (_prevDash) { OnDashEnd.Invoke(); _prevDash = false; }
-
-            // 足音停止（完全に止まってる扱い）
-            HandleFootstepAudio(false);
-
+            ToggleFootLoop(false);
+            _dominantAxis = 0;
             return;
         }
+        _noInputTimer = 0f;
 
-        // 入力あり
-        noInputTimer = 0f;
+        // 方向
+        float yaw = GetYaw();
+        Quaternion yawRot = Quaternion.Euler(0f, yaw, 0f);
+        Vector3 moveDir = (yawRot * new Vector3(moveSnap.x, 0f, moveSnap.y)).normalized;
 
-        // カメラ基準の平面向き
-        Vector3 forward = Camera ? Vector3.ProjectOnPlane(Camera.forward, Vector3.up) : Vector3.forward;
-        if (forward.sqrMagnitude < 0.0001f)
+        // 速度
+        bool isBackward = moveSnap.y < 0f;
+        float speed = slowHeld ? SlowSpeed : (dashHeld && !isBackward ? DashSpeed : MoveSpeed);
+        bool isDashing = (!slowHeld && dashHeld && !isBackward);
+
+        // サブステップ前進（次位置で重なったら止める）
+        Vector3 desired = moveDir * speed * Time.deltaTime;
+        float remain = desired.magnitude;
+        bool movedThisFrame = false;
+
+        if (remain > 0f)
         {
-            // カメラが真上・真下を向いている場合は、自身の forward を基準にする
-            forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
-        }
-        forward = forward.sqrMagnitude < 0.0001f ? Vector3.forward : forward.normalized;
+            Vector3 dir = desired / remain;
+            int steps = Mathf.Max(1, Mathf.CeilToInt(remain / maxStep));
+            float stepLen = remain / steps;
 
-        Vector3 right = Camera ? Vector3.ProjectOnPlane(Camera.right, Vector3.up) : Vector3.right;
-        if (right.sqrMagnitude < 0.0001f)
-        {
-            right = new Vector3(forward.z, 0f, -forward.x); // forward と直交する水平ベクトル
-        }
-        if (right.sqrMagnitude < 0.0001f)
-        {
-            right = Vector3.Cross(Vector3.up, forward);
-        }
-        right = right.sqrMagnitude < 0.0001f ? Vector3.right : right.normalized;
-
-        // 速度決定（ダッシュは前進時のみ）
-        float currentSpeed = MoveSpeed;
-        bool isDashing = Input.Player.Dash.ReadValue<float>() >= analogPressPoint && move.y >= 0f;
-        if (isSlowWalking) { currentSpeed = SlowSpeed; isDashing = false; }
-        else if (isDashing) { currentSpeed = DashSpeed; }
-
-        // 進行方向
-        Vector3 moveDir = (forward * move.y + right * move.x);
-        if (moveDir.sqrMagnitude > 0.0001f) moveDir.Normalize();
-
-        // --- 後退判定---
-        bool isBackward = move.y < -deadZone;
-
-        if (moveDir.sqrMagnitude > 0f)
-        {
-            // 移動は常に入力通り
-            transform.position += moveDir * currentSpeed * Time.deltaTime;
-
-            // 回転は「後退中はしない」。前進/横移動のときだけ向きを合わせる
-            if (!isBackward)
+            for (int i = 0; i < steps; i++)
             {
-                transform.rotation = Quaternion.LookRotation(moveDir, Vector3.up);
+                Vector3 nextPos = transform.position + dir * stepLen;
+                if (lockY) nextPos.y = _fixedY;
+
+                if (WouldOverlapFurnitureAt(nextPos, out int count, out Collider firstHit))
+                {
+                    // ログ出力（任意）
+                    if (logBlockObjects && Time.frameCount % blockLogEveryNFrames == 0)
+                        LogBlock(nextPos, count, firstHit, dir);
+
+                    break; // これ以上は進まない
+                }
+
+                transform.position = nextPos;
+                movedThisFrame = true;
             }
-            // isBackward のときは rotation を触らない＝向き維持で後退
         }
 
-        // このフレームの結果をロック
+        if (movedThisFrame && !isBackward)
+            transform.rotation = Quaternion.LookRotation(moveDir, Vector3.up);
+
+        // lock & anim
         _lockedPos = transform.position;
         _lockedRot = transform.rotation;
 
-        // アニメ更新
         if (animator)
         {
-            if (!animator.GetBool("IsMoving")) animator.SetBool("IsMoving", true);
-            animator.SetBool("IsDashing", isDashing);
-            animator.SetBool("IsSlowWalking", isSlowWalking);
+            animator.SetBool("IsMoving", movedThisFrame);
+            animator.SetBool("IsDashing", movedThisFrame && isDashing);
+            animator.SetBool("IsSlowWalking", slowHeld);
         }
 
-        // 公開状態＆イベント
-        bool nowMoving = true;          // hasInput が true なので移動中扱い
-        bool nowDashing = isDashing;
-        bool nowSlow = isSlowWalking;
+        // 公開状態
+        IsMovingNow = movedThisFrame;
+        IsDashingNow = movedThisFrame && isDashing;
+        IsSlowWalkingNow = slowHeld;
+        if (IsDashingNow && !_prevDash) OnDashStart.Invoke();
+        if (!IsDashingNow && _prevDash) OnDashEnd.Invoke();
+        _prevDash = IsDashingNow;
 
-        if (nowDashing && !_prevDash) OnDashStart.Invoke();
-        if (!nowDashing && _prevDash) OnDashEnd.Invoke();
-        _prevDash = nowDashing;
-
-        IsMovingNow = nowMoving;
-        IsDashingNow = nowDashing;
-        IsSlowWalkingNow = nowSlow;
-
-        // 足音ループの制御
-        // hasInput == true の時点で「移動中」判定にしていい
-        HandleFootstepAudio(true);
+        ToggleFootLoop(movedThisFrame);
     }
 
-    // 足音をオンオフする処理をまとめておく
-    void HandleFootstepAudio(bool shouldPlay)
+    // --- 1方向限定
+    Vector2 SnapOneAxis(Vector2 raw)
     {
-        // AudioManagerが無ければ何もしない
-        if (audioManager == null) return;
+        float ax = Mathf.Abs(raw.x), ay = Mathf.Abs(raw.y);
+        float x = (ax >= deadZone) ? Mathf.Sign(raw.x) : 0f;
+        float y = (ay >= deadZone) ? Mathf.Sign(raw.y) : 0f;
 
-        if (shouldPlay)
+        if (x == 0f && y == 0f) { _dominantAxis = 0; return Vector2.zero; }
+        if (ax > ay + tieEpsilon) _dominantAxis = 1;
+        else if (ay > ax + tieEpsilon) _dominantAxis = 2;
+        else if (_dominantAxis == 0) _dominantAxis = (ay >= ax) ? 2 : 1;
+        return (_dominantAxis == 1) ? new Vector2(x, 0f) : new Vector2(0f, y);
+    }
+
+    float GetYaw()
+    {
+        Transform src = Cam ? Cam : (Camera.main ? Camera.main.transform : transform);
+        return src.eulerAngles.y;
+    }
+
+    void ToggleFootLoop(bool on)
+    {
+        if (audioManager == null) return;
+        if (on && !_footLoopOn) { audioManager.StartFootstepLoop(); _footLoopOn = true; }
+        else if (!on && _footLoopOn) { audioManager.StopFootstepLoop(); _footLoopOn = false; }
+    }
+
+    // --- 次位置で家具レイヤーと重なるか？（最初のヒットも返す）
+    bool WouldOverlapFurnitureAt(Vector3 nextPos, out int count, out Collider firstHit)
+    {
+        firstHit = null;
+        // 現在のワールド・カプセルを取得 → nextPos に平行移動
+        GetCapsuleWorld(out Vector3 p1, out Vector3 p2, out float r);
+        Vector3 offset = nextPos - transform.position;
+        p1 += offset; p2 += offset;
+
+        float rAdj = Mathf.Max(0.001f, r - Mathf.Max(0f, overlapShrink));
+
+        count = Physics.OverlapCapsuleNonAlloc(
+            p1, p2, rAdj, _overlapBuf, furnitureMask, QueryTriggerInteraction.Ignore
+        );
+
+        for (int i = 0; i < count; i++)
         {
-            // すでに鳴いてるなら何もしない
-            if (!_footstepActiveNow)
+            var c = _overlapBuf[i];
+            if (!c) continue;
+            if (c.transform == transform || c.transform.IsChildOf(transform)) continue;
+            firstHit = c;         // 何か1つでもあればブロック
+            return true;
+        }
+        return false;
+    }
+
+    // --- ログ
+    void LogBlock(Vector3 nextPos, int hitCount, Collider first, Vector3 moveDir)
+    {
+        if (!first) return;
+
+        string layer = LayerMask.LayerToName(first.gameObject.layer);
+        float approxDist = ApproxPenetration(nextPos, first);
+        Debug.Log(
+            $"[Block] 停止: \"{first.name}\" (Layer={layer}) " +
+            $"hits={hitCount} approxPenetration={approxDist:0.000}m dir=({moveDir.x:0.00},{moveDir.z:0.00})",
+            first
+        );
+    }
+
+    // Overlap結果からの「だいたいのめり込み量」
+    float ApproxPenetration(Vector3 nextPos, Collider other)
+    {
+        // CapsuleCollider があるなら ComputePenetration で正確に
+        if (_cap != null)
+        {
+            Vector3 posA = nextPos;                      // 次位置のルート
+            Quaternion rotA = transform.rotation;
+            Vector3 direction; float distance;
+            if (Physics.ComputePenetration(
+                    _cap, posA, rotA,
+                    other, other.transform.position, other.transform.rotation,
+                    out direction, out distance))
             {
-                audioManager.StartFootstepLoop();
-                _footstepActiveNow = true;
+                return distance; // 離すのに必要な距離
             }
+        }
+        // 相手の ClosestPoint との距離で近さを見る
+        Vector3 p = other.ClosestPoint(nextPos);
+        return Mathf.Max(0f, (nextPos - p).magnitude);
+    }
+
+    // --- 実寸カプセル
+    void GetCapsuleWorld(out Vector3 p1, out Vector3 p2, out float r)
+    {
+        var s = transform.lossyScale;
+        float scaleY = Mathf.Abs(s.y);
+        float scaleXZ = Mathf.Max(Mathf.Abs(s.x), Mathf.Abs(s.z));
+
+        if (_cap != null)
+        {
+            Vector3 c = transform.TransformPoint(_cap.center);
+            float height = Mathf.Max(_cap.height * scaleY, _cap.radius * 2f * scaleXZ);
+            r = _cap.radius * scaleXZ;
+            float half = Mathf.Max(0f, height * 0.5f - r);
+            p1 = c + Vector3.up * (half - topTrim);
+            p2 = c - Vector3.up * (half - bottomTrim);
         }
         else
         {
-            // 止めたいときだけ止める
-            if (_footstepActiveNow)
-            {
-                audioManager.StopFootstepLoop();
-                _footstepActiveNow = false;
-            }
+            Vector3 c = transform.TransformPoint(capsuleCenter);
+            float height = Mathf.Max(capsuleHeight * scaleY, capsuleRadius * 2f * scaleXZ);
+            r = capsuleRadius * scaleXZ;
+            float half = Mathf.Max(0f, height * 0.5f - r);
+            p1 = c + Vector3.up * (half - topTrim);
+            p2 = c - Vector3.up * (half - bottomTrim);
         }
     }
 }
