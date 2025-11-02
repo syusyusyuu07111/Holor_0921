@@ -82,18 +82,39 @@ public class SearchChase : MonoBehaviour
     [Tooltip("エフェクトを頭の少し上などに浮かせたいならここで調整(ローカル座標)")]
     public Vector3 angryEffectLocalOffset = Vector3.zero;
 
-    // ===== 捕獲ガード（このスクリプトに Trigger が来る場合だけ有効）=====
+    // ===== 捕獲ガード（このスクリプトに Trigger が来る場合のみ）=====
     [Header("捕獲ガード（任意）")]
     public bool GuardCatchByState = true; // true の間、state1 かつ隠れ中は OnTrigger で絶対捕獲させない
+
+    // ===== ランタイムNavMesh更新の制御 =====
+    [Header("ランタイムNavMesh更新（任意）")]
+    [Tooltip("ランタイムでNavMeshを頻繁に再構築する必要がある場合のみON。通常はOFF推奨。")]
+    public bool enableRuntimeNavmeshUpdate = false; // デフォルトOFF
 
     void Start()
     {
         // NavMesh 準備
         if (surface)
         {
-            surface.navMeshData = new NavMeshData(surface.agentTypeID);
-            surface.AddData();
+            // RenderMeshではなくColliderから集計（ただしMeshColliderのメッシュは依然として読み取り対象）
+            surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
             surface.collectObjects = CollectObjects.All;
+
+            if (enableRuntimeNavmeshUpdate)
+            {
+                // ランタイムでビルドする場合のみ新規データを作って登録
+                surface.navMeshData = new NavMeshData(surface.agentTypeID);
+                surface.AddData();
+
+                // 初回だけ非同期で一度ビルド（※警告が出る場合は該当メッシュのRead/WriteをONに）
+                StartCoroutine(RebuildNavMeshOnce());
+            }
+            else
+            {
+                // 事前ベイクのNavMeshData（インスペクタに既に入っているもの）を使う
+                // AddData() は登録だけ（再ビルドはしない）
+                surface.AddData();
+            }
         }
 
         // state 未固定ならランダム 1 or 2
@@ -163,7 +184,12 @@ public class SearchChase : MonoBehaviour
         if (repathtimer > repathInterval)
         {
             repathtimer = 0f;
-            if (surface) surface.UpdateNavMesh(surface.navMeshData);
+
+            // 必要なときだけランタイム再構築（デフォルトでは呼ばない）
+            if (surface && enableRuntimeNavmeshUpdate)
+            {
+                surface.UpdateNavMesh(surface.navMeshData); // AsyncOperation 返すが無視でOK
+            }
 
             if (!isLooking) // 見渡し中は足止め
                 ChaseMove();
@@ -363,6 +389,14 @@ public class SearchChase : MonoBehaviour
         ChaseMove();
     }
 
+    // ====== 初回NavMesh再構築（任意） ======
+    IEnumerator RebuildNavMeshOnce()
+    {
+        if (surface == null) yield break;
+        var op = surface.UpdateNavMesh(surface.navMeshData); // AsyncOperation
+        yield return op; // 完了まで待つ
+    }
+
     // ====== AnimatorのChaseフラグ制御 ======
     private void SetChaseAnim(bool chasing)
     {
@@ -399,7 +433,7 @@ public class SearchChase : MonoBehaviour
     {
         if (!GuardCatchByState) return;
 
-        // ★state1 かつ 隠れ中は絶対に捕獲処理を発火させない
+        // state1 かつ 隠れ中は絶対に捕獲処理を発火させない
         if (fixedState == 1 && HideRef && HideRef.hide)
         {
             return;
@@ -413,7 +447,7 @@ public class SearchChase : MonoBehaviour
     {
         if (!GuardCatchByState) return;
 
-        // ★state1 かつ 隠れ中は絶対に捕獲処理を発火させない
+        // state1 かつ 隠れ中は絶対に捕獲処理を発火させない
         if (fixedState == 1 && HideRef && HideRef.hide)
         {
             return;
