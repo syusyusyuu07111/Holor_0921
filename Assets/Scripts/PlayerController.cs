@@ -231,7 +231,7 @@ public class PlayerController : MonoBehaviour
         return false;
     }
 
-    // --- ログ本文
+    // --- ログ
     void LogBlock(Vector3 nextPos, int hitCount, Collider first, Vector3 moveDir)
     {
         if (!first) return;
@@ -262,7 +262,7 @@ public class PlayerController : MonoBehaviour
                 return distance; // 離すのに必要な距離
             }
         }
-        // 代替：相手の ClosestPoint との距離で近さを見る（目安）
+        // 相手の ClosestPoint との距離で近さを見る
         Vector3 p = other.ClosestPoint(nextPos);
         return Mathf.Max(0f, (nextPos - p).magnitude);
     }
