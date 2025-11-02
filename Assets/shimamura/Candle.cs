@@ -10,7 +10,7 @@ public class Candle : MonoBehaviour
     /// </summary>
     public void CandlePutOut()//‚±‚ê‚ğƒvƒŒƒCƒ„[‚ÅŒÄ‚×‚Î‚æ‚«
     {
-        if (!_isPutOut) return;
+        if (_isPutOut) return;
 
         _isPutOut = true;
 
