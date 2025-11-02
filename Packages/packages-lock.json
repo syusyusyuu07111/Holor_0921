@@ -239,6 +239,13 @@
       },
       "url": "https://registry.npmjs.org"
     },
+    "jp.amagamina.overwriter": {
+      "version": "https://github.com/ina-amagami/unity-overwriter.git",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "24c16816637242c4aad552ffed8d4fafd283fbec"
+    },
     "com.unity.modules.accessibility": {
       "version": "1.0.0",
       "depth": 0,
