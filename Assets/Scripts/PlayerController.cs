@@ -73,7 +73,7 @@ public class PlayerController : MonoBehaviour
     public DashEvent OnDashStart = new DashEvent();
     public DashEvent OnDashEnd = new DashEvent();
 
-    // debug buf
+    // debug
     private static readonly Collider[] _overlapBuf = new Collider[16];
 
     void Awake()
@@ -196,7 +196,7 @@ public class PlayerController : MonoBehaviour
 
         if (animator)
         {
-            // ★壁に押し当てて進めなくても、入力が出ている限りIdleに戻さない
+            // 壁に押し当てて進めなくても、入力が出ている限りIdleに戻さない
             animator.SetBool("IsMoving", hasInput);
             animator.SetBool("IsDashing", hasInput && isDashing);
             animator.SetBool("IsSlowWalking", slowHeld);
