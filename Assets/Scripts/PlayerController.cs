@@ -48,7 +48,7 @@ public class PlayerController : MonoBehaviour
     // ===== Sweep/Slide =====
     [Header("Sweep/Slide")]
     [SerializeField] float skin = 0.01f;                       // 壁手前で止める余白
-    [SerializeField, Range(0f, 1f)] float slideFactor = 0.7f;  // 接線スライド係数（ホラー基準は弱め）
+    [SerializeField, Range(0f, 1f)] float slideFactor = 1.0f;  // 残り距離に対するスライド反映率
 
     // ===== Block Logging =====
     [Header("Block Logging")]
@@ -73,7 +73,7 @@ public class PlayerController : MonoBehaviour
     public DashEvent OnDashStart = new DashEvent();
     public DashEvent OnDashEnd = new DashEvent();
 
-    // debug
+    // debug buf
     private static readonly Collider[] _overlapBuf = new Collider[16];
 
     void Awake()
@@ -128,7 +128,7 @@ public class PlayerController : MonoBehaviour
         float speed = slowHeld ? SlowSpeed : (dashHeld && !isBackward ? DashSpeed : MoveSpeed);
         bool isDashing = (!slowHeld && dashHeld && !isBackward);
 
-        // サブステップ前進（経路で当たったら止める＋接線へ滑る）
+        // サブステップ前進（スイープ→衝突→壁面投影で残り距離を滑らせる）
         Vector3 desired = moveDir * speed * Time.deltaTime;
         float remain = desired.magnitude;
         bool movedThisFrame = false;
@@ -145,45 +145,50 @@ public class PlayerController : MonoBehaviour
                 Vector3 targetPos = startPos + dir * stepLen;
                 if (lockY) targetPos.y = _fixedY;
 
+                // 1回目：目標へスイープ
                 if (!TrySweepTo(startPos, targetPos, out Vector3 stopPos, out RaycastHit hit))
                 {
                     // ログ出力（任意）
                     if (logBlockObjects && Time.frameCount % blockLogEveryNFrames == 0)
                     {
                         Vector3 moveDirLog = (targetPos - startPos).normalized;
-                        // Overlap由来のログ関数を流用
                         LogBlock(stopPos, 1, hit.collider, moveDirLog);
                     }
 
-                    // 接線方向に1回だけ押し出し（弱めのスライド）
-                    Vector3 v = targetPos - startPos;
-                    Vector3 n = hit.normal;
-                    Vector3 tangent = v - Vector3.Project(v, n);
-                    float tangMag = Mathf.Max(0f, v.magnitude - hit.distance + skin);
-                    Vector3 slide = (tangent.sqrMagnitude > 1e-6f)
-                        ? tangent.normalized * tangMag * slideFactor
-                        : Vector3.zero;
+                    // 当たった → 止め位置まで進める
+                    transform.position = stopPos;
 
-                    transform.position = stopPos; // まず停止位置へ
-                    if (slide.sqrMagnitude > 1e-6f)
+                    // 残り距離を計算（skin分だけ余裕を持って見積もり）
+                    float traveled = (stopPos - startPos).magnitude;
+                    float leftover = Mathf.Max(0f, stepLen - traveled + skin);
+
+                    // 残りを壁面へ投影して二度目のスイープ（前＋横が自然に出る）
+                    if (leftover > 1e-5f)
                     {
-                        Vector3 slideTarget = stopPos + slide;
-                        if (lockY) slideTarget.y = _fixedY;
-                        // 二度目もスイープで安全に
-                        TrySweepTo(stopPos, slideTarget, out Vector3 slid, out _);
-                        if ((slid - startPos).sqrMagnitude > 1e-6f)
+                        Vector3 n = hit.normal;
+                        Vector3 slideDir = Vector3.ProjectOnPlane(dir, n).normalized; // 入力進行の法線成分を殺して接線成分のみ
+                        if (slideDir.sqrMagnitude > 1e-6f)
                         {
-                            transform.position = slid;
-                            movedThisFrame = true;
+                            Vector3 slideTarget = stopPos + slideDir * (leftover * slideFactor);
+                            if (lockY) slideTarget.y = _fixedY;
+
+                            // 2回目：壁沿いに滑る
+                            TrySweepTo(stopPos, slideTarget, out Vector3 slidPos, out _);
+                            if ((slidPos - stopPos).sqrMagnitude > 1e-8f)
+                            {
+                                transform.position = slidPos;
+                                movedThisFrame = true;
+                            }
                         }
                     }
-                    // これ以上は進まない
-                    break;
+                    // 1サブステップはここで終了
                 }
-
-                // ぶつからず到達
-                transform.position = stopPos;
-                movedThisFrame = true;
+                else
+                {
+                    // 当たらず到達
+                    transform.position = stopPos;
+                    movedThisFrame = true;
+                }
             }
         }
 
@@ -196,7 +201,7 @@ public class PlayerController : MonoBehaviour
 
         if (animator)
         {
-            // 壁に押し当てて進めなくても、入力が出ている限りIdleに戻さない
+            // 衝突で実際は動けなくても、入力がある限りIdleに戻さない
             animator.SetBool("IsMoving", hasInput);
             animator.SetBool("IsDashing", hasInput && isDashing);
             animator.SetBool("IsSlowWalking", slowHeld);
@@ -210,7 +215,7 @@ public class PlayerController : MonoBehaviour
         if (!IsDashingNow && _prevDash) OnDashEnd.Invoke();
         _prevDash = IsDashingNow;
 
-        ToggleFootLoop(movedThisFrame); // 壁押し中は足音を止めたいので据え置き
+        ToggleFootLoop(movedThisFrame); // 壁押し中は足音オフ
     }
 
     // --- 1方向限定
@@ -298,11 +303,11 @@ public class PlayerController : MonoBehaviour
             }
         }
         // 相手の ClosestPoint との距離で近さを見る
-        Vector3 p = other.ClosestPoint(nextPos);
+        Vector3 p = other.ClosestPoint(nextPos); // NOTE: 大文字でも可（ClosestPoint）
         return Mathf.Max(0f, (nextPos - p).magnitude);
     }
 
-    // --- 実寸カプセル
+    // --- 当たり判定
     void GetCapsuleWorld(out Vector3 p1, out Vector3 p2, out float r)
     {
         var s = transform.lossyScale;
