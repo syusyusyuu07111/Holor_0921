@@ -45,6 +45,11 @@ public class PlayerController : MonoBehaviour
     [Tooltip("頭/足の誤反応を減らすため上下を少し削る")]
     [SerializeField] float topTrim = 0.02f, bottomTrim = 0.08f;
 
+    // ===== Sweep/Slide =====
+    [Header("Sweep/Slide")]
+    [SerializeField] float skin = 0.01f;                       // 壁手前で止める余白
+    [SerializeField, Range(0f, 1f)] float slideFactor = 0.7f;  // 接線スライド係数（ホラー基準は弱め）
+
     // ===== Block Logging =====
     [Header("Block Logging")]
     [SerializeField] bool logBlockObjects = false;
@@ -123,7 +128,7 @@ public class PlayerController : MonoBehaviour
         float speed = slowHeld ? SlowSpeed : (dashHeld && !isBackward ? DashSpeed : MoveSpeed);
         bool isDashing = (!slowHeld && dashHeld && !isBackward);
 
-        // サブステップ前進（次位置で重なったら止める）
+        // サブステップ前進（経路で当たったら止める＋接線へ滑る）
         Vector3 desired = moveDir * speed * Time.deltaTime;
         float remain = desired.magnitude;
         bool movedThisFrame = false;
@@ -136,19 +141,48 @@ public class PlayerController : MonoBehaviour
 
             for (int i = 0; i < steps; i++)
             {
-                Vector3 nextPos = transform.position + dir * stepLen;
-                if (lockY) nextPos.y = _fixedY;
+                Vector3 startPos = transform.position;
+                Vector3 targetPos = startPos + dir * stepLen;
+                if (lockY) targetPos.y = _fixedY;
 
-                if (WouldOverlapFurnitureAt(nextPos, out int count, out Collider firstHit))
+                if (!TrySweepTo(startPos, targetPos, out Vector3 stopPos, out RaycastHit hit))
                 {
                     // ログ出力（任意）
                     if (logBlockObjects && Time.frameCount % blockLogEveryNFrames == 0)
-                        LogBlock(nextPos, count, firstHit, dir);
+                    {
+                        Vector3 moveDirLog = (targetPos - startPos).normalized;
+                        // Overlap由来のログ関数を流用
+                        LogBlock(stopPos, 1, hit.collider, moveDirLog);
+                    }
 
-                    break; // これ以上は進まない
+                    // 接線方向に1回だけ押し出し（弱めのスライド）
+                    Vector3 v = targetPos - startPos;
+                    Vector3 n = hit.normal;
+                    Vector3 tangent = v - Vector3.Project(v, n);
+                    float tangMag = Mathf.Max(0f, v.magnitude - hit.distance + skin);
+                    Vector3 slide = (tangent.sqrMagnitude > 1e-6f)
+                        ? tangent.normalized * tangMag * slideFactor
+                        : Vector3.zero;
+
+                    transform.position = stopPos; // まず停止位置へ
+                    if (slide.sqrMagnitude > 1e-6f)
+                    {
+                        Vector3 slideTarget = stopPos + slide;
+                        if (lockY) slideTarget.y = _fixedY;
+                        // 二度目もスイープで安全に
+                        TrySweepTo(stopPos, slideTarget, out Vector3 slid, out _);
+                        if ((slid - startPos).sqrMagnitude > 1e-6f)
+                        {
+                            transform.position = slid;
+                            movedThisFrame = true;
+                        }
+                    }
+                    // これ以上は進まない
+                    break;
                 }
 
-                transform.position = nextPos;
+                // ぶつからず到達
+                transform.position = stopPos;
                 movedThisFrame = true;
             }
         }
@@ -162,8 +196,9 @@ public class PlayerController : MonoBehaviour
 
         if (animator)
         {
-            animator.SetBool("IsMoving", movedThisFrame);
-            animator.SetBool("IsDashing", movedThisFrame && isDashing);
+            // ★壁に押し当てて進めなくても、入力が出ている限りIdleに戻さない
+            animator.SetBool("IsMoving", hasInput);
+            animator.SetBool("IsDashing", hasInput && isDashing);
             animator.SetBool("IsSlowWalking", slowHeld);
         }
 
@@ -175,7 +210,7 @@ public class PlayerController : MonoBehaviour
         if (!IsDashingNow && _prevDash) OnDashEnd.Invoke();
         _prevDash = IsDashingNow;
 
-        ToggleFootLoop(movedThisFrame);
+        ToggleFootLoop(movedThisFrame); // 壁押し中は足音を止めたいので据え置き
     }
 
     // --- 1方向限定
@@ -292,5 +327,33 @@ public class PlayerController : MonoBehaviour
             p1 = c + Vector3.up * (half - topTrim);
             p2 = c - Vector3.up * (half - bottomTrim);
         }
+    }
+
+    // --- 経路スイープ（CapsuleCast）: toPosまで到達できるか。止め位置とヒット情報を返す
+    bool TrySweepTo(Vector3 fromPos, Vector3 toPos, out Vector3 hitStopPos, out RaycastHit hitInfo)
+    {
+        hitInfo = default;
+        hitStopPos = toPos;
+
+        // 現在のワールド・カプセル（中心線p1-p2, 半径r）を取得
+        GetCapsuleWorld(out Vector3 p1, out Vector3 p2, out float r);
+
+        Vector3 dir = toPos - fromPos;
+        float dist = dir.magnitude;
+        if (dist <= 0f) return true;
+
+        dir /= dist;
+
+        float rAdj = Mathf.Max(0.001f, r - Mathf.Max(0f, overlapShrink));
+
+        if (Physics.CapsuleCast(p1, p2, rAdj, dir, out RaycastHit hit, dist, furnitureMask, QueryTriggerInteraction.Ignore))
+        {
+            float stopDist = Mathf.Max(0f, hit.distance - skin);
+            hitStopPos = fromPos + dir * stopDist;
+            hitInfo = hit;
+            return false; // 途中で止まった
+        }
+
+        return true; // ぶつからず到達
     }
 }

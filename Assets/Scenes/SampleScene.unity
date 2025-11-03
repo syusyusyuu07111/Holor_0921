@@ -20117,6 +20117,8 @@ MonoBehaviour:
   overlapShrink: 0.002
   topTrim: 0.05
   bottomTrim: 0.15
+  skin: 0.01
+  slideFactor: 0.7
   logBlockObjects: 1
   blockLogEveryNFrames: 10
   OnDashStart:
@@ -39878,8 +39880,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 72.3218, y: 182.81596, z: 31.818077}
-  m_Center: {x: 0.023448942, y: 91.407974, z: 0.5370073}
+  m_Size: {x: 60.65849, y: 182.81595, z: 31.818077}
+  m_Center: {x: 3.0189047, y: 91.407974, z: 0.53700763}
 --- !u!1 &1723572978 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -7762670610500005159, guid: 9ccb15c75ac03544f9afb6cdbe628d46, type: 3}
