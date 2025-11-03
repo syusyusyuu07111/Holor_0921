@@ -596,7 +596,7 @@ public class GameOver : MonoBehaviour
 
         Debug.Log(
             header +
-            " layer=" + GhostAnimLayer +
+            " layer=" + GhostAnimLayer +   // ★修正: GameOverAnimLayer -> GhostAnimLayer
             " bool(" + GameOverBoolName + ")=" + currentBool +
             " stateHash=" + shortHash +
             " tagMatch=" + inTagged +
@@ -793,5 +793,12 @@ public class GameOver : MonoBehaviour
 
         _playerHidden = true;
         Debug.Log("[GameOver] プレイヤー見た目を非表示にしました。");
+    }
+
+    // === 追加: 現在の「近接警告ビネット」ブレンド量(0..1)を外部へ渡す ===
+    public float GetDangerBlend01()
+    {
+        if (!_hasVig || MaxVignette <= 0f) return 0f;
+        return Mathf.Clamp01(_currIntensity / MaxVignette);
     }
 }

@@ -1,6 +1,8 @@
 ﻿using System.Collections;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.Rendering;                 // ★追加
+using UnityEngine.Rendering.Universal;       // ★追加
 
 public class EnemyAI : MonoBehaviour
 {
@@ -71,6 +73,29 @@ public class EnemyAI : MonoBehaviour
     [Tooltip("Start時に AudioListener.pause を解除する")]
     public bool ForceUnpauseAudioListener = true;
 
+    // ====== 画面演出（青化） ======
+    [Header("画面演出（青化）")]
+    [Tooltip("ColorAdjustments入りのVolume（URP）")]
+    public Volume PostVolume;                     // ★追加
+
+    [Range(0f, 1f)]
+    public float BlueTintStrength = 0.6f;         // ★追加: どれだけ青くするか
+    [Tooltip("青化の目標色（白→この色へ補間）")]
+    public Color BlueTintColor = new Color(0.70f, 0.85f, 1.0f, 1.0f); // ★追加
+
+    [Tooltip("フェード時間（出現→青化）")]
+    public float BlueFadeIn = 0.20f;              // ★追加
+    [Tooltip("フェード時間（消滅→元に戻す）")]
+    public float BlueFadeOut = 0.25f;             // ★追加
+
+    [Tooltip("近接警告（GameOver）の危険度を参照して青演出を抑制する")]
+    public GameOver DangerRef;                    // ★追加
+
+    private ColorAdjustments _ca;                 // ★追加（内部参照）
+    private Color _baseFilter = Color.white;      // ★追加（開始時のColorFilterを記録）
+    private float _blueLerp = 0f;                 // ★追加（0..1）
+    private float _baseVolumeWeight = 1f;         // ★追加
+
     // ================= ライフサイクル =================
 
     void Start()
@@ -88,6 +113,14 @@ public class EnemyAI : MonoBehaviour
                   $"Listener.pause={AudioListener.pause}, " +
                   $"AudioMgr={(AudioMgr ? "OK" : "null")}");
 
+        // ★追加: ColorAdjustmentsの参照を取る＆元の色を記録
+        if (PostVolume && PostVolume.profile)
+        {
+            PostVolume.profile.TryGet(out _ca);
+            if (_ca != null) _baseFilter = _ca.colorFilter.value;
+            _baseVolumeWeight = PostVolume.weight;  // ★追加: 元のWeightを記録
+        }
+
         if (AutoStart) _spawnLoop = StartCoroutine(SpawnLoop());
     }
 
@@ -99,6 +132,30 @@ public class EnemyAI : MonoBehaviour
     void Update()
     {
         GhostPosition = PickSpawnPointInRect();
+
+        // ★追加: 出現している間だけ青化（フェードでON/OFF）
+        if (_ca != null)
+        {
+            bool present = (CurrentGhost != null);                   // いま出現中？
+            float target = present ? 1f : 0f;
+            float speed = present ? (1f / Mathf.Max(0.01f, BlueFadeIn))
+                                   : (1f / Mathf.Max(0.01f, BlueFadeOut));
+            _blueLerp = Mathf.MoveTowards(_blueLerp, target, Time.deltaTime * speed);
+
+            // ★追加: 近接警告が強いほど青を抑える（優先度：警告ビネット）
+            float danger = (DangerRef != null) ? DangerRef.GetDangerBlend01() : 0f;   // 0..1
+            float blueWeight = _blueLerp * (1f - danger); // 危険時ほど小さく
+
+            // ベース→青色へ。BlueTintStrengthで上限、blueWeightで在位＋優先度を適用
+            Color goal = Color.Lerp(_baseFilter, BlueTintColor, Mathf.Clamp01(BlueTintStrength));
+            _ca.colorFilter.value = Color.Lerp(_baseFilter, goal, blueWeight);
+
+            // ★Volume自体のWeightも在位係数でブレンド（効きを保証）
+            if (PostVolume)
+            {
+                PostVolume.weight = Mathf.Lerp(_baseVolumeWeight, 1f, blueWeight);
+            }
+        }
     }
 
     // ================= 外部公開：開始/停止 =================
@@ -387,4 +444,3 @@ public class EnemyAI : MonoBehaviour
         return new Vector3(bestPt.x, 0f, bestPt.y);
     }
 }
-
