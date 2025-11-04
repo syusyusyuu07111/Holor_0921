@@ -143,7 +143,6 @@ public class Tutorial : MonoBehaviour
     // ===== 共通ゲート =====
     private bool IsEventAllowed() => !EnableBasicTutorial || _basicDone;
 
-    // ===== ユーティリティ =====
     private void SkipCurrentTyping()
     {
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }

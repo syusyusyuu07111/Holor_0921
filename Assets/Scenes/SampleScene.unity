@@ -20,7 +20,7 @@ RenderSettings:
   m_FogDensity: 0.033
   m_LinearFogStart: 0
   m_LinearFogEnd: 300
-  m_AmbientSkyColor: {r: 0.5773585, g: 0.4346529, b: 0.4346529, a: 1}
+  m_AmbientSkyColor: {r: 0, g: 0, b: 0, a: 1}
   m_AmbientEquatorColor: {r: 0.114, g: 0.125, b: 0.133, a: 1}
   m_AmbientGroundColor: {r: 0.047, g: 0.043, b: 0.035, a: 1}
   m_AmbientIntensity: 0.94
@@ -13659,7 +13659,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -601, y: -514}
+  m_AnchoredPosition: {x: -601, y: -520}
   m_SizeDelta: {x: 668.2, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &636548185
@@ -45401,11 +45401,11 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 2139817263}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -274, y: 430.4}
-  m_SizeDelta: {x: 1920, y: 50}
-  m_Pivot: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 14, y: 508}
+  m_SizeDelta: {x: 40, y: 590}
+  m_Pivot: {x: 0, y: 1}
 --- !u!114 &1966298018
 MonoBehaviour:
   m_ObjectHideFlags: 0
