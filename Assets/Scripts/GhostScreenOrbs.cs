@@ -10,7 +10,7 @@ public class GhostScreenOrbs : MonoBehaviour
     public Camera Cam;                 // 未設定なら自動でCamera.main
     public GameObject OrbPrefab;       // 省略可（未設定なら自動生成）
 
-    // ★追加: 接近度を読むため（任意）
+    // 接近度を読むため（任意）
     [Tooltip("接近度(GetDangerBlend01)を読む参照。未設定でもOK")]
     public GameOver DangerRef;         // ★追加
 
@@ -49,7 +49,7 @@ public class GhostScreenOrbs : MonoBehaviour
     [Range(0, 1)] public float MinPresence = 0.25f; // 出現中は最低これだけ出す
     public float DistanceBoostRadius = 10f;        // 近いほど増える半径
 
-    // ★追加: 接近時の見え方ブースト
+    //接近時の見え方ブースト
     [Header("接近ブースト")]
     [Tooltip("接近時にスポーンレートへ足す倍率（例 0.75 → +75%）")]
     public float DangerSpawnBoost = 0.75f;         // ★追加
@@ -65,20 +65,59 @@ public class GhostScreenOrbs : MonoBehaviour
     [Header("プール")]
     public int PoolSize = 32;
 
+    //れイヤ制御（プールは常に非表示レイヤ）
+    [Header("レイヤ")]
+    [Tooltip("プール中に使う隠しレイヤ名（このレイヤはカメラのCulling Maskから除外しておく）")]
+    public string HiddenLayerName = "PooledHidden";    // ★追加
+    [Tooltip("表示時に戻すレイヤ名")]
+    public string VisibleLayerName = "Default";        // ★追加
+
+    //見た目
+    [Header("見た目")]
+    [Tooltip("trueなら“本体メッシュ（球体）”は常に非表示。トレイルのみ表示")]
+    public bool HideCoreMesh = true;                   // ★追加：本体を消す
+
     // ---- 内部 ----
     private float _accum;
     private readonly List<Orb> _pool = new List<Orb>();
     private Transform _ghostT;         // 直近のゴースト
     private Transform _poolRoot;       // プール親（ヒエラ非表示）
-    private bool _initialized = false; // 幽霊が出るまで生成しない
+    private bool _initialized = false; // 幽霊が出るまで生成しない → ★Startで生成に変更
+    private int _hiddenLayer = -1;
+    private int _visibleLayer = -1;
 
-    // ★内部: 接近度キャッシュ（0..1）
-    private float _danger01 = 0f;      // ★追加
+    // 内部: 接近度キャッシュ（0..1）
+    private float _danger01 = 0f;
 
     void Awake()
     {
         if (!Cam) Cam = Camera.main;
         // ※Awakeでは何も生成しない（遅延初期化）
+    }
+
+    // 起動時に必ずプールだけは作る（描画はOFF&隠しレイヤ）
+    void Start()
+    {
+        _hiddenLayer = LayerMask.NameToLayer(HiddenLayerName);
+        _visibleLayer = LayerMask.NameToLayer(VisibleLayerName);
+
+        if (!_initialized)
+        {
+            EnsurePrefab();
+            BuildPool();
+            _initialized = true;
+        }
+    }
+
+    //再有効化時も保険でプールを見えなくする
+    void OnEnable()
+    {
+        if (_pool != null)
+        {
+            for (int i = 0; i < _pool.Count; i++)
+                if (_pool[i] != null && _pool[i].host)
+                    SetRenderable(_pool[i].host, false);
+        }
     }
 
     void Update()
@@ -89,14 +128,7 @@ public class GhostScreenOrbs : MonoBehaviour
         bool present = (Enemy.CurrentGhost != null);
         _ghostT = present ? Enemy.CurrentGhost.transform : null;
 
-        // 初出現でだけ初期化
-        if (present && !_initialized)
-        {
-            EnsurePrefab();
-            BuildPool();
-            _initialized = true;
-        }
-
+        // Startで初期化するのでここでは不要だが、保険
         if (!_initialized) return; // まだ一度も出てない
 
         // 出現中の目標発生レート（距離で強弱）
@@ -108,7 +140,7 @@ public class GhostScreenOrbs : MonoBehaviour
             presence = Mathf.Max(MinPresence, w);
         }
 
-        // ★接近度（0..1）：未設定なら0
+        // 接近度（0..1）
         _danger01 = (DangerRef ? Mathf.Clamp01(DangerRef.GetDangerBlend01()) : 0f); // ★追加
 
         // スポーンレート：存在×（1 + 接近ブースト）
@@ -140,21 +172,33 @@ public class GhostScreenOrbs : MonoBehaviour
         go.name = "AutoScreenOrbPrefab";
         Object.Destroy(go.GetComponent<Collider>());
 
-        var mr = go.GetComponent<MeshRenderer>();
-        var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
-        mat.SetColor("_BaseColor", Color.white);
-        mat.SetFloat("_Surface", 1); // Transparent
-        mat.SetFloat("_Blend", 1);
-        mat.EnableKeyword("_ALPHAPREMULTIPLY_ON");
-        mr.sharedMaterial = mat;
-
+        // トレイルは“消えない”Sprites/Defaultにする（URP Unlitはビルドでピンク化しやすい）
         var trail = go.AddComponent<TrailRenderer>();
         trail.time = 0.25f;
         trail.widthCurve = AnimationCurve.EaseInOut(0, 0.06f, 1, 0f);
-        trail.sharedMaterial = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
-        trail.sharedMaterial.SetColor("_BaseColor", new Color(1, 1, 1, 0.5f));
+        var trailMat = new Material(Shader.Find("Sprites/Default"));
+        trailMat.SetColor("_Color", new Color(1, 1, 1, 0.5f));
+        trail.sharedMaterial = trailMat;
         trail.emitting = true;
         trail.minVertexDistance = 0.02f;
+
+        // 本体メッシュ（使うならSprites/Default。HideCoreMeshなら後で撤去）
+        var mr = go.GetComponent<MeshRenderer>();
+        if (mr)
+        {
+            var coreMat = new Material(Shader.Find("Sprites/Default"));
+            coreMat.SetColor("_Color", Color.white);
+            mr.sharedMaterial = coreMat;
+        }
+
+        // 本体メッシュを物理的に外す
+        if (HideCoreMesh)
+        {
+            var mf = go.GetComponent<MeshFilter>();
+            var mrComp = go.GetComponent<MeshRenderer>();
+            if (mf) Destroy(mf);
+            if (mrComp) Destroy(mrComp);
+        }
 
         // テンプレは非表示・非保存・このコンポーネントの子に置く
         go.SetActive(false);
@@ -181,6 +225,11 @@ public class GhostScreenOrbs : MonoBehaviour
             var o = new Orb();
             o.host = Instantiate(OrbPrefab, _poolRoot);
             o.host.SetActive(false);
+            SetRenderable(o.host, false); // 生成直後は確実に非表示
+
+            // 隠しレイヤに入れて絶対映さない
+            if (_hiddenLayer >= 0) SetLayerRecursively(o.host, _hiddenLayer);
+
             _pool.Add(o);
         }
     }
@@ -249,7 +298,7 @@ public class GhostScreenOrbs : MonoBehaviour
         float life = Random.Range(Lifetime.x, Lifetime.y);
         float size = Random.Range(StartSize.x, StartSize.y);
 
-        o.Spawn(wp, dir * spd, life, size);
+        o.Spawn(wp, dir * spd, life, size, this);
     }
 
     void OnDestroy()
@@ -264,6 +313,54 @@ public class GhostScreenOrbs : MonoBehaviour
         }
     }
 
+    // 描画On/Offをまとめて切る（プール時の完全OFF用）
+    static void SetRenderable(GameObject go, bool enable)
+    {
+        if (!go) return;
+
+        var renderers = go.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            renderers[i].enabled = enable;
+        }
+
+        // TrailRenderer の発生も止めたい場合（Renderer 継承だが念のため）
+        var trails = go.GetComponentsInChildren<TrailRenderer>(true);
+        for (int i = 0; i < trails.Length; i++)
+        {
+            trails[i].emitting = enable;
+        }
+    }
+
+    // Spawn時専用（本体メッシュは常に非表示、トレイルだけ有効化）
+    void SetRenderableForSpawn(GameObject go, bool enable)
+    {
+        if (!go) return;
+
+        // MeshRenderer（残っている場合のみ）。HideCoreMeshなら無効 or そもそも存在しない
+        var meshRenderers = go.GetComponentsInChildren<MeshRenderer>(true);
+        for (int i = 0; i < meshRenderers.Length; i++)
+            meshRenderers[i].enabled = enable && !HideCoreMesh;
+
+        // Trail は表示・非表示を制御
+        var trails = go.GetComponentsInChildren<TrailRenderer>(true);
+        for (int i = 0; i < trails.Length; i++)
+        {
+            trails[i].enabled = enable;  // 念のため
+            trails[i].emitting = enable;
+        }
+    }
+
+    //レイヤ再帰設定
+    static void SetLayerRecursively(GameObject go, int layer)
+    {
+        if (!go) return;
+        go.layer = layer;
+        var t = go.transform;
+        for (int i = 0; i < t.childCount; i++)
+            SetLayerRecursively(t.GetChild(i).gameObject, layer);
+    }
+
     // ====== 内部オーブ ======
     class Orb
     {
@@ -275,7 +372,7 @@ public class GhostScreenOrbs : MonoBehaviour
 
         MeshRenderer mr;
 
-        public void Spawn(Vector3 pos, Vector3 velocity, float lifetime, float size)
+        public void Spawn(Vector3 pos, Vector3 velocity, float lifetime, float size, GhostScreenOrbs cfg)
         {
             alive = true;
             if (!mr) mr = host.GetComponent<MeshRenderer>();
@@ -285,7 +382,11 @@ public class GhostScreenOrbs : MonoBehaviour
             host.transform.localScale = startScale;
             vel = velocity;
             life = maxLife = Mathf.Max(0.05f, lifetime);
+
+            // 表示開始：トレイルのみ有効化（本体メッシュは非表示のまま）
+            cfg.SetRenderableForSpawn(host, true);
             host.SetActive(true);
+            if (cfg._visibleLayer >= 0) GhostScreenOrbs.SetLayerRecursively(host, cfg._visibleLayer);
         }
 
         public void Tick(float dt, Camera cam, Transform ghost, GhostScreenOrbs cfg)
@@ -295,7 +396,7 @@ public class GhostScreenOrbs : MonoBehaviour
             // 進む
             host.transform.position += vel * dt;
 
-            // ★常にカメラ前PlaneDistanceの平面へロック（奥行き一定）
+            // 常にカメラ前PlaneDistanceの平面へロック（奥行き一定）
             if (cfg.KeepDepthLocked && cam)
             {
                 host.transform.position = LockToCameraPlane(cam, host.transform.position, cfg.PlaneDistance);
@@ -308,18 +409,17 @@ public class GhostScreenOrbs : MonoBehaviour
             life -= dt;
             float t = 1f - Mathf.Clamp01(life / Mathf.Max(0.0001f, maxLife));
 
-            // スケール/アルファ
+            // スケール/アルファ（本体メッシュは非表示なので主にトレイル見え方）
             float sMul = cfg.ScaleOverLife.Evaluate(t);
-            // ★接近で少し大きく（控えめ）
             sMul *= Mathf.Lerp(1f, cfg.ScaleByDanger, cfg._danger01); // ★追加
             host.transform.localScale = startScale * sMul;
 
+            // 本体メッシュ用に色を触る処理は残す（存在すれば反映される）
             float a = Mathf.Clamp01(cfg.AlphaOverLife.Evaluate(t));
-            // ★接近でほんの少しだけ目立たせる（上げすぎない）
             a = Mathf.Clamp01(a * (0.95f + 0.05f * cfg._danger01));   // ★追加
 
             if (!mr) mr = host.GetComponent<MeshRenderer>();
-            if (mr && mr.material.HasProperty("_BaseColor"))
+            if (mr && mr.material && mr.material.HasProperty("_Color"))
             {
                 var c = mr.material.color;
                 c.a = a;
@@ -328,12 +428,15 @@ public class GhostScreenOrbs : MonoBehaviour
 
             if (life <= 0f)
             {
+                // 非表示に戻す：完全OFF + 隠しレイヤへ
+                GhostScreenOrbs.SetRenderable(host, false);
                 host.SetActive(false);
+                if (cfg._hiddenLayer >= 0) GhostScreenOrbs.SetLayerRecursively(host, cfg._hiddenLayer);
                 alive = false;
             }
         }
 
-        // ★カメラ前の一定距離の“平面”へ再投影
+        // カメラ前の一定距離の“平面”へ再投影
         static Vector3 LockToCameraPlane(Camera cam, Vector3 worldPos, float planeDist)
         {
             // 平面の基準点（カメラ位置 + forward * planeDist）
