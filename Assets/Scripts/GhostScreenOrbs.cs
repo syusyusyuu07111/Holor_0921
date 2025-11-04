@@ -10,9 +10,9 @@ public class GhostScreenOrbs : MonoBehaviour
     public Camera Cam;                 // 未設定なら自動でCamera.main
     public GameObject OrbPrefab;       // 省略可（未設定なら自動生成）
 
-    // 接近度を読むため（任意）
+    // 接近度を読む
     [Tooltip("接近度(GetDangerBlend01)を読む参照。未設定でもOK")]
-    public GameOver DangerRef;         // ★追加
+    public GameOver DangerRef;
 
     // ===== スポーン設定 =====
     [Header("スポーン")]
@@ -65,24 +65,24 @@ public class GhostScreenOrbs : MonoBehaviour
     [Header("プール")]
     public int PoolSize = 32;
 
-    //れイヤ制御（プールは常に非表示レイヤ）
+    //レイヤ制御（プールは常に非表示レイヤ）
     [Header("レイヤ")]
     [Tooltip("プール中に使う隠しレイヤ名（このレイヤはカメラのCulling Maskから除外しておく）")]
-    public string HiddenLayerName = "PooledHidden";    // ★追加
+    public string HiddenLayerName = "PooledHidden";
     [Tooltip("表示時に戻すレイヤ名")]
-    public string VisibleLayerName = "Default";        // ★追加
+    public string VisibleLayerName = "Default";
 
     //見た目
     [Header("見た目")]
     [Tooltip("trueなら“本体メッシュ（球体）”は常に非表示。トレイルのみ表示")]
-    public bool HideCoreMesh = true;                   // ★追加：本体を消す
+    public bool HideCoreMesh = true;                   //本体を消す
 
     // ---- 内部 ----
     private float _accum;
     private readonly List<Orb> _pool = new List<Orb>();
     private Transform _ghostT;         // 直近のゴースト
     private Transform _poolRoot;       // プール親（ヒエラ非表示）
-    private bool _initialized = false; // 幽霊が出るまで生成しない → ★Startで生成に変更
+    private bool _initialized = false; // 幽霊が出るまで生成しない＞Startで生成に変更
     private int _hiddenLayer = -1;
     private int _visibleLayer = -1;
 
@@ -144,7 +144,7 @@ public class GhostScreenOrbs : MonoBehaviour
         _danger01 = (DangerRef ? Mathf.Clamp01(DangerRef.GetDangerBlend01()) : 0f); // ★追加
 
         // スポーンレート：存在×（1 + 接近ブースト）
-        float rate = SpawnPerSecond * presence * Mathf.Lerp(1f, 1f + DangerSpawnBoost, _danger01); // ★修正
+        float rate = SpawnPerSecond * presence * Mathf.Lerp(1f, 1f + DangerSpawnBoost, _danger01);
 
         // 間引きタイマー（present=0なら自然停止）
         _accum += rate * Time.deltaTime;
@@ -172,7 +172,7 @@ public class GhostScreenOrbs : MonoBehaviour
         go.name = "AutoScreenOrbPrefab";
         Object.Destroy(go.GetComponent<Collider>());
 
-        // トレイルは“消えない”Sprites/Defaultにする（URP Unlitはビルドでピンク化しやすい）
+        // トレイルは“消えない”Sprites/Defaultにする
         var trail = go.AddComponent<TrailRenderer>();
         trail.time = 0.25f;
         trail.widthCurve = AnimationCurve.EaseInOut(0, 0.06f, 1, 0f);
@@ -182,7 +182,7 @@ public class GhostScreenOrbs : MonoBehaviour
         trail.emitting = true;
         trail.minVertexDistance = 0.02f;
 
-        // 本体メッシュ（使うならSprites/Default。HideCoreMeshなら後で撤去）
+        // 本体メッシュ
         var mr = go.GetComponent<MeshRenderer>();
         if (mr)
         {
