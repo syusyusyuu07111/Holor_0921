@@ -7000,6 +7000,9 @@ MonoBehaviour:
   ScaleByDanger: 1.15
   KeepDepthLocked: 1
   PoolSize: 32
+  HiddenLayerName: PooledHidden
+  VisibleLayerName: Default
+  HideCoreMesh: 1
 --- !u!1 &333306004
 GameObject:
   m_ObjectHideFlags: 0
@@ -12255,6 +12258,18 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: 1114031278366013538, guid: 640565dfa65e9094ea048326c2cbcf89, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1114031278366013538, guid: 640565dfa65e9094ea048326c2cbcf89, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1114031278366013538, guid: 640565dfa65e9094ea048326c2cbcf89, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1114031278366013538, guid: 640565dfa65e9094ea048326c2cbcf89, type: 3}
       propertyPath: m_LocalPosition.x
       value: 7.417
       objectReference: {fileID: 0}
@@ -12264,7 +12279,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1114031278366013538, guid: 640565dfa65e9094ea048326c2cbcf89, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -2.803
+      value: -2.503
       objectReference: {fileID: 0}
     - target: {fileID: 1114031278366013538, guid: 640565dfa65e9094ea048326c2cbcf89, type: 3}
       propertyPath: m_LocalRotation.w
@@ -12294,9 +12309,33 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 1114031278366013538, guid: 640565dfa65e9094ea048326c2cbcf89, type: 3}
+      propertyPath: m_ConstrainProportionsScale
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1624865392384439339, guid: 640565dfa65e9094ea048326c2cbcf89, type: 3}
+      propertyPath: InitialModule.startSize.scalar
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4312925415181829602, guid: 640565dfa65e9094ea048326c2cbcf89, type: 3}
+      propertyPath: InitialModule.size3D
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4312925415181829602, guid: 640565dfa65e9094ea048326c2cbcf89, type: 3}
+      propertyPath: InitialModule.startSizeY.scalar
+      value: 0.1
+      objectReference: {fileID: 0}
     - target: {fileID: 7592259488966804481, guid: 640565dfa65e9094ea048326c2cbcf89, type: 3}
       propertyPath: m_Name
       value: eff_candle (1)
+      objectReference: {fileID: 0}
+    - target: {fileID: 7761438698116324595, guid: 640565dfa65e9094ea048326c2cbcf89, type: 3}
+      propertyPath: simulationSpeed
+      value: 0.1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7761438698116324595, guid: 640565dfa65e9094ea048326c2cbcf89, type: 3}
+      propertyPath: InitialModule.startSizeY.scalar
+      value: 0.1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
