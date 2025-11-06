@@ -22,6 +22,7 @@ public class Painting : MonoBehaviour
     /// </summary>
     public void Drop()
     {
+        Debug.Log("•¿‚ªŒÄ‚Î‚ê‚½");
         if(_rb == null)
         {
             Debug.Log($"{name}‚ÉRigidbody‚ª‚È‚¢");

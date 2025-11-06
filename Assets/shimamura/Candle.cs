@@ -11,7 +11,7 @@ public class Candle : MonoBehaviour
     public void CandlePutOut()//これをプレイヤーで呼べばよき
     {
         if (_isPutOut) return;
-
+        Debug.Log("キャンドルはよばれた");
         _isPutOut = true;
 
         foreach(var paintings in Painting.PaintingAll)
