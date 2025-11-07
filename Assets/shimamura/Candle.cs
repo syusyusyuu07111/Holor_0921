@@ -3,6 +3,7 @@ using UnityEngine;
 public class Candle : MonoBehaviour
 {
     [SerializeField] private string _candleID;
+    [SerializeField] private GameObject _candleEfect;
 
     private bool _isPutOut = false;
     /// <summary>
@@ -10,6 +11,7 @@ public class Candle : MonoBehaviour
     /// </summary>
     public void CandlePutOut()//これをプレイヤーで呼べばよき
     {
+        _candleEfect.SetActive(false);//火のエフェクト削除
         if (_isPutOut) return;
         Debug.Log("キャンドルはよばれた");
         _isPutOut = true;

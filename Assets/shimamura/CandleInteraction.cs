@@ -6,13 +6,20 @@ using UnityEngine.InputSystem;
 /// </summary>
 public class CandleInteraction : MonoBehaviour
 {
+    [Header("Rayİ’è")]
     [SerializeField] private Transform _rayOrigin;
     [SerializeField] private float _interactRange = 2f;    // ˜XC‚ğÁ‚¹‚é‹——£
     [SerializeField] private LayerMask _candleLayer;       // ˜XC‚ÌƒŒƒCƒ„[
 
-    [SerializeField] private InputActionReference _interactActionRef;
+    
 
+    [Header("“ü—Íİ’è")]
+    [SerializeField] private InputActionReference _interactActionRef;
     private InputAction _interactAction;
+
+    [Header("UIİ’è")]
+    [SerializeField] private GameObject _interactionText;
+    private Candle _currentCandle; // ¡ƒŒƒC‚ª“–‚½‚Á‚Ä‚¢‚é˜XC
 
     private void OnEnable()
     {
@@ -37,35 +44,74 @@ public class CandleInteraction : MonoBehaviour
         }
     }
 
-    private void OnInteract(InputAction.CallbackContext context)
+    private void Update()
     {
-     
-        TryPutOutCandle();
+        UpdateRaycast(); // í‚É˜XC‚ğŒŸo‚µ‚ÄUI‚ğ§Œä
     }
 
-    private void TryPutOutCandle()
+    private void OnInteract(InputAction.CallbackContext context)
     {
-        Debug.Log($"LayerMask: {_candleLayer.value}");
+        if (_currentCandle != null)
+        {
+            _currentCandle.CandlePutOut();
+            Debug.Log("˜XC‚ğÁ‚µ‚½I");
+            _interactionText?.SetActive(false); // Á‚µ‚½‚çUI‚àÁ‚·
+        }
+        //TryPutOutCandle();
+    }
 
+    //private void TryPutOutCandle()
+    //{
+    //    Debug.Log($"LayerMask: {_candleLayer.value}");
+
+    //    Ray ray = new Ray(_rayOrigin.position, _rayOrigin.forward);
+    //    if (Physics.Raycast(ray, out RaycastHit hit, _interactRange, _candleLayer, QueryTriggerInteraction.Collide))
+    //    {
+    //        Candle candle = hit.collider.GetComponentInParent<Candle>();
+    //        if (candle != null)
+    //        {
+    //            candle.CandlePutOut();
+    //            Debug.Log("˜XC‚ğÁ‚µ‚½I");
+    //        }
+    //        else
+    //        {
+    //            Debug.Log("CandleƒXƒNƒŠƒvƒg‚Í•t‚¢‚Ä‚¢‚È‚©‚Á‚½");
+    //        }
+    //    }
+    //    else
+    //    {
+    //        Debug.Log("‰½‚É‚à“–‚½‚ç‚È‚©‚Á‚½");
+    //    }
+    //}
+
+    private void UpdateRaycast()
+    {
         Ray ray = new Ray(_rayOrigin.position, _rayOrigin.forward);
-        if (Physics.Raycast(ray, out RaycastHit hit, _interactRange, _candleLayer, QueryTriggerInteraction.Collide))
+
+        // ‘SƒŒƒCƒ„[‚É“–‚Ä‚ÄOKiƒ^ƒO‚Åi‚éj
+        if (Physics.Raycast(ray, out RaycastHit hit, _interactRange, ~0, QueryTriggerInteraction.Collide))
         {
-            Debug.Log($"ƒŒƒC‚ª {hit.collider.name} ‚É“–‚½‚Á‚½ (Layer: {LayerMask.LayerToName(hit.collider.gameObject.layer)})");
-            Candle candle = hit.collider.GetComponentInParent<Candle>();
-            if (candle != null)
+            // ƒ^ƒO‚ª "Candle" ‚È‚ç”½‰
+            if (hit.collider.CompareTag("Candle"))
             {
-                candle.CandlePutOut();
-                Debug.Log("˜XC‚ğÁ‚µ‚½I");
-            }
-            else
-            {
-                Debug.Log("CandleƒXƒNƒŠƒvƒg‚Í•t‚¢‚Ä‚¢‚È‚©‚Á‚½");
+                Candle candle = hit.collider.GetComponentInParent<Candle>();
+                if (candle != null)
+                {
+                    _currentCandle = candle;
+
+                    // UI‚ğ•\¦
+                    if (_interactionText != null && !_interactionText.activeSelf)
+                        _interactionText.SetActive(true);
+
+                    return; // Œ»İ˜XC‚ğŒ©‚Ä‚¢‚é
+                }
             }
         }
-        else
-        {
-            Debug.Log("‰½‚É‚à“–‚½‚ç‚È‚©‚Á‚½");
-        }
+
+        // ‚±‚±‚É—ˆ‚½‚ç˜XC‚É“–‚½‚Á‚Ä‚¢‚È‚¢
+        _currentCandle = null;
+        if (_interactionText != null && _interactionText.activeSelf)
+            _interactionText.SetActive(false);
     }
 
     private void OnDrawGizmosSelected()

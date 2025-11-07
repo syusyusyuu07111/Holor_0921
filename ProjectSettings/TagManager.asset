@@ -11,6 +11,7 @@ TagManager:
   - paintings_sea
   - paintings_sunflower
   - paintings_swing
+  - Candle
   layers:
   - Default
   - TransparentFX
