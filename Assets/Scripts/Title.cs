@@ -1,105 +1,93 @@
+ï»¿// TitleTextReveal.cs
+// ãƒ­ã‚´(ç”»åƒ)ã‚’ã€Œå·¦â†’å³ã€ã«éœ²å‡º â†’ ä¸€æ¯ â†’ ãƒœã‚¿ãƒ³ã‚’ãƒ•ã‚§ãƒ¼ãƒ‰ã‚¤ãƒ³
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class Title : MonoBehaviour
+public class TitleTextReveal : MonoBehaviour
 {
-    public Image TitleLogo;          // ƒƒS‰æ‘œiUI Imagej
-    public GameObject TitleButton;   // Start
-    public GameObject OptionButton;  // Options
+    // ãƒ­ã‚´/ãƒœã‚¿ãƒ³ ----------------------------------------------------------------
+    public Image TitleLogo;            // ãƒ­ã‚´ç”»åƒï¼ˆUI Imageï¼‰
+    public GameObject StartButton;     // ä»»æ„
+    public GameObject OptionButton;    // ä»»æ„
+    public AudioSource FinalSfx;       // ä»»æ„
 
-    public float StartDelay = 0.35f; // ŠJn‘Ò‹@
-    public float RevealTime = 1.6f;  // ˜Io‚É‚©‚¯‚éŠÔ
-    public float HoldBeforeEnd = 0.25f; // 99%‚Åˆêug—­‚ßh
-    public float FlickerAmount = 0.04f; // ˜IŒõ‚Ì—h‚ê•i0‚Å–³Œøj
-    public float FlickerHz = 0.8f;      // —h‚ê‚Ìü”g”
-    public float ButtonsDelay = 0.5f;   // Š®¬¨ƒ{ƒ^ƒ“•\¦‚Ü‚Å
-    public float ButtonsFade = 0.35f;   // ƒ{ƒ^ƒ“‚ÌƒtƒF[ƒhŠÔ
+    // æ™‚é–“èª¿æ•´ ------------------------------------------------------------------
+    public float StartDelay = 0.35f; // é–‹å§‹å¾…æ©Ÿ
+    public float RevealTime = 1.60f; // 0â†’99% ã¾ã§
+    public float HoldTime = 0.25f; // 99%ã§ä¸€å‘¼å¸
+    public float SnapTime = 0.15f; // 99â†’100%
+    public float ButtonsDelay = 0.60f; // å®Œäº†â†’ãƒœã‚¿ãƒ³è¡¨ç¤ºã¾ã§
+    public float ButtonsFade = 0.35f; // ãƒœã‚¿ãƒ³ã®ãƒ•ã‚§ãƒ¼ãƒ‰ç§’
 
-    public AudioSource FinalSfx;        // Š®—¹‚ÌSEi”CˆÓj
-
-    private CanvasGroup btnStartCg;
-    private CanvasGroup btnOptCg;
+    // å†…éƒ¨ ----------------------------------------------------------------------
+    CanvasGroup startCg;
+    CanvasGroup optCg;
 
     void Awake()
     {
         if (TitleLogo == null) return;
 
+        // ãƒ­ã‚´ã‚’æ¨ªæ–¹å‘ã®ãƒ•ã‚£ãƒ«ã«ã—ã¦0ã‹ã‚‰é–‹å§‹
         TitleLogo.type = Image.Type.Filled;
         TitleLogo.fillMethod = Image.FillMethod.Horizontal;
         TitleLogo.fillOrigin = 0;
         TitleLogo.fillAmount = 0f;
 
-        if (TitleButton != null)
+        if (StartButton != null)
         {
-            btnStartCg = EnsureCanvasGroup(TitleButton);
-            btnStartCg.alpha = 0f; btnStartCg.interactable = false; btnStartCg.blocksRaycasts = false;
+            startCg = EnsureCanvasGroup(StartButton);
+            startCg.alpha = 0f; startCg.interactable = false; startCg.blocksRaycasts = false;
         }
         if (OptionButton != null)
         {
-            btnOptCg = EnsureCanvasGroup(OptionButton);
-            btnOptCg.alpha = 0f; btnOptCg.interactable = false; btnOptCg.blocksRaycasts = false;
+            optCg = EnsureCanvasGroup(OptionButton);
+            optCg.alpha = 0f; optCg.interactable = false; optCg.blocksRaycasts = false;
         }
     }
 
     void Start()
     {
-        if (TitleLogo != null) StartCoroutine(RevealRoutine());
+        if (TitleLogo != null) StartCoroutine(Reveal());
     }
 
-    IEnumerator RevealRoutine()
+    // ãƒ­ã‚´ï¼š0â†’99%ï¼ˆæºœã‚ï¼‰â†’100% â†’ ãƒœã‚¿ãƒ³è¡¨ç¤º
+    IEnumerator Reveal()
     {
         yield return new WaitForSeconds(StartDelay);
 
+        // 0â†’99%ï¼ˆâ€œæºœã‚â†’æ€¥â†’æ­¢ã‚â€ã®ã‚«ãƒ¼ãƒ–ï¼‰
         float t = 0f;
-        float baseA = TitleLogo.color.a;
-        float flicker = 1f;
-
-        // 0¨0.99 ‚Ü‚Å˜A‘±‚Åg—­‚ß‚È‚ª‚çh˜Io
         while (t < RevealTime)
         {
             t += Time.deltaTime;
             float p = Mathf.Clamp01(t / RevealTime);
-            // 2’iSmoothStep‚Åg—­‚ß¨‹}¨~‚ßh
             float eased = Mathf.SmoothStep(0f, 1f, Mathf.SmoothStep(0f, 1f, p));
-            float targetFill = Mathf.Min(0.99f, eased); // ÅŒã‚Ì1%‚ğc‚µ‚Ä—­‚ß
-            TitleLogo.fillAmount = targetFill;
-
-            // ’áü”g‚¾‚¯‚ğ‚ä‚Á‚­‚èƒuƒŒƒ“ƒh‚µ‚Äƒ¿‚É”½‰fi‹}‚Èƒ`ƒ‰‚Â‚«–h~j
-            if (FlickerAmount > 0f)
-            {
-                float noise = (Mathf.PerlinNoise(Time.time * FlickerHz, 0f) - 0.5f) * 2f; // -1..1
-                float targetMul = 1f + noise * FlickerAmount;
-                flicker = Mathf.Lerp(flicker, targetMul, 0.2f);
-                Color c = TitleLogo.color; c.a = Mathf.Clamp01(baseA * flicker); TitleLogo.color = c;
-            }
-
+            TitleLogo.fillAmount = Mathf.Min(0.99f, eased);
             yield return null;
         }
 
-        // —­‚ß
-        yield return new WaitForSeconds(HoldBeforeEnd);
+        // ä¸€å‘¼å¸
+        yield return new WaitForSeconds(HoldTime);
 
-        // ÅŒã‚Ì1%‚ğƒXƒb‚Æo‚· ¨ SE
-        float endT = 0f;
-        while (endT < 0.15f)
+        // 99â†’100%ï¼ˆã‚¹ãƒƒã¨ï¼‰
+        float e = 0f;
+        while (e < SnapTime)
         {
-            endT += Time.deltaTime;
-            float k = endT / 0.15f;
-            TitleLogo.fillAmount = Mathf.Lerp(0.99f, 1f, k);
+            e += Time.deltaTime;
+            TitleLogo.fillAmount = Mathf.Lerp(0.99f, 1f, e / SnapTime);
             yield return null;
         }
+
         if (FinalSfx != null) FinalSfx.Play();
 
-        // ƒ¿‚ğ1‚ÉŒÅ’èi—h‚ê’â~j
-        Color c2 = TitleLogo.color; c2.a = 1f; TitleLogo.color = c2;
-
-        // ƒ{ƒ^ƒ“‚ğ’x‰„ƒtƒF[ƒhƒCƒ“
+        // ãƒœã‚¿ãƒ³
         yield return new WaitForSeconds(ButtonsDelay);
-        if (btnStartCg != null) StartCoroutine(FadeIn(btnStartCg, ButtonsFade));
-        if (btnOptCg != null) StartCoroutine(FadeIn(btnOptCg, ButtonsFade));
+        if (startCg != null) StartCoroutine(FadeIn(startCg, ButtonsFade));
+        if (optCg != null) StartCoroutine(FadeIn(optCg, ButtonsFade));
     }
 
+    // å…±é€š ----------------------------------------------------------------------
     CanvasGroup EnsureCanvasGroup(GameObject go)
     {
         CanvasGroup cg = go.GetComponent<CanvasGroup>();
@@ -114,8 +102,7 @@ public class Title : MonoBehaviour
         while (t < time)
         {
             t += Time.deltaTime;
-            float k = t / time;
-            cg.alpha = Mathf.SmoothStep(0f, 1f, k);
+            cg.alpha = Mathf.SmoothStep(0f, 1f, t / time);
             yield return null;
         }
         cg.alpha = 1f; cg.interactable = true; cg.blocksRaycasts = true;
