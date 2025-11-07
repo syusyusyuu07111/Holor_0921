@@ -1,5 +1,6 @@
-using UnityEngine;
 using TMPro;
+using UnityEngine;
+using UnityEngine.InputSystem;
 
 /// <summary>
 /// 椅子を押したり、乗る（放物線ジャンプ）を管理するスクリプト
@@ -22,6 +23,9 @@ public class PushController : MonoBehaviour
     [Header("Text")]
     [SerializeField] private TextMeshProUGUI _pushTextMeshPro;  // 椅子を押す＋乗るテキスト
 
+    [SerializeField] private InputActionReference _interactActionRef;
+    private InputAction _interactAction;
+
     private Rigidbody _pushingRb = null;     // 押しているオブジェクト
     private Vector3 _pushDirection;          // 押す方向
 
@@ -30,6 +34,34 @@ public class PushController : MonoBehaviour
     private Vector3 _jumpStart;              // ジャンプ開始位置
     private Vector3 _jumpEnd;                // ジャンプ目標位置
     private float _jumpElapsed = 0f;         // ジャンプ経過時間
+
+    private void OnEnable()
+    {
+        if (_interactActionRef != null)
+        {
+            _interactAction = _interactActionRef.action; // アセットから取得
+            _interactAction.Enable();
+            _interactAction.performed += OnInteract;
+        }
+        else
+        {
+            Debug.LogError("CandleInteraction に InputActionReference が設定されていません！");
+        }
+    }
+
+    private void OnDisable()
+    {
+        if (_interactAction != null)
+        {
+            _interactAction.performed -= OnInteract;
+            _interactAction.Disable();
+        }
+    }
+
+    private void OnInteract(InputAction.CallbackContext context)
+    {
+        
+    }
 
     private void Update()
     {
@@ -46,7 +78,7 @@ public class PushController : MonoBehaviour
 
         if (Physics.Raycast(ray, out hit, _pushDistance, _LayerPositoin))
         {
-            _pushTextMeshPro.SetText("Rキーで椅子に乗る\nFキーで椅子を押す");
+            _pushTextMeshPro.SetText("Qキーで椅子に乗る\nFキーで椅子を押す");
             ChairPush(hit);       // 椅子を押す処理
             HandleJumpInput(hit); // ジャンプ処理
         }

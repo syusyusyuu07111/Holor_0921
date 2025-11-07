@@ -57,32 +57,7 @@ public class CandleInteraction : MonoBehaviour
             Debug.Log("蝋燭を消した！");
             _interactionText?.SetActive(false); // 消したらUIも消す
         }
-        //TryPutOutCandle();
     }
-
-    //private void TryPutOutCandle()
-    //{
-    //    Debug.Log($"LayerMask: {_candleLayer.value}");
-
-    //    Ray ray = new Ray(_rayOrigin.position, _rayOrigin.forward);
-    //    if (Physics.Raycast(ray, out RaycastHit hit, _interactRange, _candleLayer, QueryTriggerInteraction.Collide))
-    //    {
-    //        Candle candle = hit.collider.GetComponentInParent<Candle>();
-    //        if (candle != null)
-    //        {
-    //            candle.CandlePutOut();
-    //            Debug.Log("蝋燭を消した！");
-    //        }
-    //        else
-    //        {
-    //            Debug.Log("Candleスクリプトは付いていなかった");
-    //        }
-    //    }
-    //    else
-    //    {
-    //        Debug.Log("何にも当たらなかった");
-    //    }
-    //}
 
     private void UpdateRaycast()
     {
