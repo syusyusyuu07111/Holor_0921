@@ -1132,6 +1132,8 @@ PlayableDirector:
     value: {fileID: 1711370130}
   - key: {fileID: -1558716012285589749, guid: 14d0bbab913203f43a7fea64ecd4bd26, type: 2}
     value: {fileID: 2106631881}
+  - key: {fileID: 3050623338620457159, guid: 14d0bbab913203f43a7fea64ecd4bd26, type: 2}
+    value: {fileID: 1526949822}
   m_ExposedReferences:
     m_References:
     - 0a838f42f839b384584fba6f3c5cebb7: {fileID: 1346010641}
@@ -3591,6 +3593,82 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: ff8dcc04673775f47a13b0707cd4fc78, type: 3}
   m_PrefabInstance: {fileID: 179126117}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1526949818
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1526949821}
+  - component: {fileID: 1526949820}
+  - component: {fileID: 1526949822}
+  m_Layer: 0
+  m_Name: SceneJump
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1526949820
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1526949818}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d3227f850cbaeb94db946975803fe9fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  inGameSceneName: SampleScene
+--- !u!4 &1526949821
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1526949818}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 958.42834, y: 508.18936, z: 12.886546}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1526949822
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1526949818}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e52de21a22b6dd44c9cc19f810c65059, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Events:
+    m_Signals:
+    - {fileID: 11400000, guid: 7106214f5111e8b419e7229363068984, type: 2}
+    m_Events:
+    - m_PersistentCalls:
+        m_Calls:
+        - m_Target: {fileID: 1526949820}
+          m_TargetAssemblyTypeName: InGameSceneJump, Assembly-CSharp
+          m_MethodName: Go
+          m_Mode: 1
+          m_Arguments:
+            m_ObjectArgument: {fileID: 0}
+            m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+            m_IntArgument: 0
+            m_FloatArgument: 0
+            m_StringArgument: 
+            m_BoolArgument: 0
+          m_CallState: 2
 --- !u!1001 &1527813380
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -5854,3 +5932,4 @@ SceneRoots:
   - {fileID: 720863635}
   - {fileID: 1527813380}
   - {fileID: 1885069430}
+  - {fileID: 1526949821}
