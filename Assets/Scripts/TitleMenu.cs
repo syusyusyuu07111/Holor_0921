@@ -135,7 +135,7 @@ public class TitleMenu : MonoBehaviour
         }
     }
 
-    // ユーティリティ -------------------------------------------------------------
+    // -------------------------------------------------------------
     void SetColor(GameObject go, Color c)
     {
         if (go == null) return;
