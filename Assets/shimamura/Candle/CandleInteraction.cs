@@ -11,8 +11,6 @@ public class CandleInteraction : MonoBehaviour
     [SerializeField] private float _interactRange = 2f;    // ˜XC‚ğÁ‚¹‚é‹——£
     [SerializeField] private LayerMask _candleLayer;       // ˜XC‚ÌƒŒƒCƒ„[
 
-    
-
     [Header("“ü—Íİ’è")]
     [SerializeField] private InputActionReference _interactActionRef;
     private InputAction _interactAction;
@@ -20,6 +18,8 @@ public class CandleInteraction : MonoBehaviour
     [Header("UIİ’è")]
     [SerializeField] private GameObject _interactionText;
     private Candle _currentCandle; // ¡ƒŒƒC‚ª“–‚½‚Á‚Ä‚¢‚é˜XC
+    [SerializeField] private GameObject _pintsText;
+    
 
     private void OnEnable()
     {
@@ -81,11 +81,24 @@ public class CandleInteraction : MonoBehaviour
                     return; // Œ»İ˜XC‚ğŒ©‚Ä‚¢‚é
                 }
             }
+            if (hit.collider.CompareTag("paintings_sea") || hit.collider.CompareTag("paintings_sunflower") || hit.collider.CompareTag("paintings_swing"))
+            {
+                if (hit.collider.GetComponentInParent<Painting>() != null)
+                {
+                    if (_pintsText != null && !_pintsText.activeSelf)
+                        _pintsText.SetActive(true);
+                    return;
+                }
+            }
+
         }
 
         // ‚±‚±‚É—ˆ‚½‚ç˜XC‚É“–‚½‚Á‚Ä‚¢‚È‚¢
         _currentCandle = null;
         if (_interactionText != null && _interactionText.activeSelf)
+            _interactionText.SetActive(false);
+
+        if (_pintsText != null && _pintsText.activeSelf)
             _interactionText.SetActive(false);
     }
 
