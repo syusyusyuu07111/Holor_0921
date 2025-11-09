@@ -18,18 +18,21 @@ public class TitleMenu : MonoBehaviour
 
     public InputSystem_Actions input;
     public float EnterDistance = 120f; // 入る距離
-    public float ExitDistance = 150f; // 抜ける距離（ヒステリシス）
-    public float SwitchGap = 20f;  // 切替のための差
+    public float ExitDistance = 150f;  // 抜ける距離（ヒステリシス）
+    public float SwitchGap = 20f;      // 切替のための差
 
     public Color HighlightColor = new Color(1f, 1f, 1f, 1f);
     public Color NormalColor = new Color(0.8f, 0.8f, 0.8f, 1f);
+
+    // タイトル用オプションメニュー
+    public TitleOptionMenu OptionMenu;
 
     // 内部 ----------------------------------------------------------------------
     RectTransform sRt;
     RectTransform oRt;
     Camera uiCam;
 
-    Vector2 startPos;   // 毎フレーム再計算（解像度/レイアウト変更に強い）
+    Vector2 startPos;   // 毎フレーム再計算
     Vector2 optionPos;
 
     int active = 0;     // 0=なし 1=Start 2=Option
@@ -38,6 +41,7 @@ public class TitleMenu : MonoBehaviour
     void Awake()
     {
         if (input == null) input = new InputSystem_Actions();
+        GameSettings.Load();
     }
 
     void OnEnable()
@@ -57,9 +61,12 @@ public class TitleMenu : MonoBehaviour
         sRt = StartTarget != null ? StartTarget.GetComponent<RectTransform>() : null;
         oRt = OptionTarget != null ? OptionTarget.GetComponent<RectTransform>() : null;
 
-        if (UiCanvas != null && UiCanvas.renderMode == RenderMode.ScreenSpaceOverlay) uiCam = null;
-        else if (UiCanvas != null && UiCanvas.worldCamera != null) uiCam = UiCanvas.worldCamera;
-        else uiCam = Camera.main;
+        if (UiCanvas != null && UiCanvas.renderMode == RenderMode.ScreenSpaceOverlay)
+            uiCam = null;
+        else if (UiCanvas != null && UiCanvas.worldCamera != null)
+            uiCam = UiCanvas.worldCamera;
+        else
+            uiCam = Camera.main;
 
         // 初期色
         SetColor(StartGlow, NormalColor);
@@ -74,7 +81,8 @@ public class TitleMenu : MonoBehaviour
 
         // マウス：新InputSystem（UIActionでもMouseでも可）
         Vector2 mouse = input.UI.Point.ReadValue<Vector2>();
-        if (mouse == Vector2.zero && Mouse.current != null) mouse = Mouse.current.position.ReadValue();
+        if (mouse == Vector2.zero && Mouse.current != null)
+            mouse = Mouse.current.position.ReadValue();
 
         // ボタンの中心をスクリーン座標で毎フレーム取得（解像度変更対策）
         Vector3 sp1 = RectTransformUtility.WorldToScreenPoint(uiCam, sRt.position);
@@ -101,36 +109,76 @@ public class TitleMenu : MonoBehaviour
             if (dStart <= EnterDistance && dOption <= EnterDistance)
             {
                 if (active == 1 && dOption + SwitchGap < dStart)
-                { SetColor(StartGlow, NormalColor); SetColor(OptionGlow, HighlightColor); active = 2; }
+                {
+                    SetColor(StartGlow, NormalColor);
+                    SetColor(OptionGlow, HighlightColor);
+                    active = 2;
+                }
                 else if (active == 2 && dStart + SwitchGap < dOption)
-                { SetColor(OptionGlow, NormalColor); SetColor(StartGlow, HighlightColor); active = 1; }
+                {
+                    SetColor(OptionGlow, NormalColor);
+                    SetColor(StartGlow, HighlightColor);
+                    active = 1;
+                }
                 else if (active == 0)
                 {
-                    if (dStart <= dOption) { SetColor(StartGlow, HighlightColor); SetColor(OptionGlow, NormalColor); active = 1; }
-                    else { SetColor(OptionGlow, HighlightColor); SetColor(StartGlow, NormalColor); active = 2; }
+                    if (dStart <= dOption)
+                    {
+                        SetColor(StartGlow, HighlightColor);
+                        SetColor(OptionGlow, NormalColor);
+                        active = 1;
+                    }
+                    else
+                    {
+                        SetColor(OptionGlow, HighlightColor);
+                        SetColor(StartGlow, NormalColor);
+                        active = 2;
+                    }
                 }
             }
             // 片方だけ近い
             else if (dStart <= EnterDistance)
             {
                 if (active != 1)
-                { SetColor(StartGlow, HighlightColor); SetColor(OptionGlow, NormalColor); active = 1; }
+                {
+                    SetColor(StartGlow, HighlightColor);
+                    SetColor(OptionGlow, NormalColor);
+                    active = 1;
+                }
             }
             else if (dOption <= EnterDistance)
             {
                 if (active != 2)
-                { SetColor(OptionGlow, HighlightColor); SetColor(StartGlow, NormalColor); active = 2; }
+                {
+                    SetColor(OptionGlow, HighlightColor);
+                    SetColor(StartGlow, NormalColor);
+                    active = 2;
+                }
             }
         }
 
-        // クリックでシーン遷移（スタートが“有効範囲”のときだけ）
+        // クリック処理
         bool leftDown = Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
-        if (leftDown && active == 1 && dStart <= EnterDistance)
+        if (leftDown)
         {
-            if (ClickSfx != null) ClickSfx.Play();
-            if (!string.IsNullOrEmpty(StartSceneName))
+            // Start クリック → シーン遷移
+            if (active == 1 && dStart <= EnterDistance)
             {
-                SceneManager.LoadScene(StartSceneName);
+                if (ClickSfx != null) ClickSfx.Play();
+                if (!string.IsNullOrEmpty(StartSceneName))
+                {
+                    SceneManager.LoadScene(StartSceneName);
+                }
+            }
+            // Option クリック → タイトル用オプションメニューを開く / 閉じる
+            else if (active == 2 && dOption <= EnterDistance)
+            {
+                if (ClickSfx != null) ClickSfx.Play();
+
+                if (OptionMenu != null)
+                {
+                    OptionMenu.ToggleMenu();
+                }
             }
         }
     }

@@ -6715,6 +6715,7 @@ GameObject:
   - component: {fileID: 330585547}
   - component: {fileID: 330585548}
   - component: {fileID: 330585549}
+  - component: {fileID: 330585550}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -7003,6 +7004,20 @@ MonoBehaviour:
   HiddenLayerName: PooledHidden
   VisibleLayerName: Default
   HideCoreMesh: 1
+--- !u!114 &330585550
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 330585543}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce7d42e042e4c9c4db4bde98b863e167, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  regionOnStart: {fileID: 0}
+  activateListenerOnEnable: 0
 --- !u!1 &333306004
 GameObject:
   m_ObjectHideFlags: 0
@@ -10126,6 +10141,7 @@ GameObject:
   - component: {fileID: 446601664}
   - component: {fileID: 446601667}
   - component: {fileID: 446601665}
+  - component: {fileID: 446601668}
   m_Layer: 0
   m_Name: lightoffcamera
   m_TagString: Untagged
@@ -10243,6 +10259,23 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
+--- !u!320 &446601668
+PlayableDirector:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 446601663}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_PlayableAsset: {fileID: 11400000, guid: a1139f5dfde9dbc43ae9b3f107c3d2d9, type: 2}
+  m_InitialState: 1
+  m_WrapMode: 2
+  m_DirectorUpdateMode: 1
+  m_InitialTime: 0
+  m_SceneBindings: []
+  m_ExposedReferences:
+    m_References: []
 --- !u!1001 &448126561
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -22392,6 +22425,8 @@ GameObject:
   - component: {fileID: 1012635563}
   - component: {fileID: 1012635564}
   - component: {fileID: 1012635565}
+  - component: {fileID: 1012635567}
+  - component: {fileID: 1012635568}
   m_Layer: 0
   m_Name: AudioManager
   m_TagString: Untagged
@@ -22450,7 +22485,7 @@ MonoBehaviour:
   _use3dPositioning: 1
   _freezeOrientation: 0
   _loop: 0
-  _volume: 0.3
+  _volume: 0.154
   _pitch: 0
   _androidUseLowLatencyVoicePool: 0
   need_to_player_update_all: 1
@@ -22595,6 +22630,60 @@ MonoBehaviour:
     - 0
     - 0
   _cueName: SE_walk
+  _cueSheet: CueSheet_0
+--- !u!114 &1012635567
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1012635558}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 91f529aa944b914449d62b8c40f188fe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  acfFile: C:/Users/syuji/Holor_0921/Assets/CriiFile/Yasashiihikari-Horror.acf
+  cueSheets:
+  - name: CueSheet_0
+    acbFile: C:/Users/syuji/Holor_0921/Assets/CriiFile/CueSheet_0.acb
+    awbFile: 
+    loaderStatus: 0
+  dspBusSetting: 
+  dontDestroyOnLoad: 0
+  dontRemoveExistsCueSheet: 0
+--- !u!114 &1012635568
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1012635558}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1e631c3b9947b54c823c6853a05529c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _playOnStart: 1
+  _regionOnStart: {fileID: 0}
+  _listenerOnStart: {fileID: 330585550}
+  _use3dPositioning: 1
+  _freezeOrientation: 0
+  _loop: 1
+  _volume: 1
+  _pitch: 0
+  _androidUseLowLatencyVoicePool: 0
+  need_to_player_update_all: 1
+  _use3dRandomization: 0
+  _randomPositionListMaxLength: 0
+  randomize3dConfig:
+    followsOriginalSource: 0
+    calculationType: 0
+    calculationParameters:
+    - 0
+    - 0
+    - 0
+  _cueName: BGM_ingame
   _cueSheet: CueSheet_0
 --- !u!1001 &1018990154
 PrefabInstance:

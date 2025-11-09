@@ -1,7 +1,8 @@
-using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine;
+
+using System.Collections;
 
 public class GameOverSequence : MonoBehaviour
 {
@@ -16,7 +17,8 @@ public class GameOverSequence : MonoBehaviour
         TopToBottom,        // 上→下にニョキッと出る
         BottomToTop,        // 下→上にニョキッと出る
         DiagonalTLBR,       // 左上→右下っぽく同時に広がる
-        ThrownIn            // 画面外からぶん投げられてドンッと当たる
+        ThrownIn,           // 画面外からぶん投げられてドンッと当たる
+        Hide                // ★追加：このステップの番で消す（フェードアウト）
     }
 
     // ------------------------------------------------
@@ -89,7 +91,11 @@ public class GameOverSequence : MonoBehaviour
         {
             for (int i = 0; i < steps.Length; i++)
             {
-                HideInstant(steps[i]);
+                // Hide のステップは「最初から表示されていてほしい」ので隠さない
+                if (steps[i].mode != RevealMode.Hide)
+                {
+                    HideInstant(steps[i]);
+                }
             }
         }
 
@@ -318,7 +324,7 @@ public class GameOverSequence : MonoBehaviour
         if (s.delayBeforeShow > 0f)
             yield return new WaitForSeconds(s.delayBeforeShow);
 
-        // 実際の表示演出
+        // 実際の表示演出（Hide の場合はここで消す）
         yield return StartCoroutine(PlayStepReveal(s));
     }
 
@@ -382,6 +388,11 @@ public class GameOverSequence : MonoBehaviour
                     s.thrownSpinDegrees
                 ));
                 break;
+
+            case RevealMode.Hide:
+                // ★追加：今見えているものをフェードアウトで消す
+                yield return StartCoroutine(FadeOutObject(go, s.duration));
+                break;
         }
     }
 
@@ -418,6 +429,38 @@ public class GameOverSequence : MonoBehaviour
         float startA = 0f;
         float endA = 1f;
         cg.alpha = startA;
+
+        if (duration <= 0f)
+        {
+            cg.alpha = endA;
+            yield break;
+        }
+
+        while (t < duration)
+        {
+            t += Time.deltaTime;
+            float lerp = Mathf.Clamp01(t / duration);
+            cg.alpha = Mathf.Lerp(startA, endA, lerp);
+            yield return null;
+        }
+        cg.alpha = endA;
+    }
+
+    //==================================================
+    // ★単純フェードアウト（Hide 用）
+    //==================================================
+    private IEnumerator FadeOutObject(GameObject go, float duration)
+    {
+        if (!go) yield break;
+
+        var cg = go.GetComponent<CanvasGroup>();
+        if (!cg) cg = go.AddComponent<CanvasGroup>();
+
+        go.SetActive(true);
+
+        float t = 0f;
+        float startA = cg.alpha;   // 今のαから0に落としていく
+        float endA = 0f;
 
         if (duration <= 0f)
         {
