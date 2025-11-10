@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
+using CriWare; // CRI
 
 public class TitleMenu : MonoBehaviour
 {
@@ -15,6 +16,12 @@ public class TitleMenu : MonoBehaviour
 
     public string StartSceneName = "Game"; // クリックで遷移するシーン名
     public AudioSource ClickSfx;           // クリックSE（任意）
+
+    // --- 追加: CRI 再生用（Inspector で割り当て） ---
+    public CriAtomSource ClickCriSource;
+    public string ClickCueName = "ui_start";
+    public bool CriStopIfPlaying = true;
+    // -------------------------------------------------
 
     public InputSystem_Actions input;
     public float EnterDistance = 120f; // 入る距離
@@ -49,6 +56,9 @@ public class TitleMenu : MonoBehaviour
         if (input == null) input = new InputSystem_Actions();
         input.UI.Enable();
         ResolveRefs();
+
+        // タイトル入場フェード（任意）
+        HorrorScreenFader.FadeIn(1.2f);
     }
 
     void OnDisable()
@@ -78,6 +88,9 @@ public class TitleMenu : MonoBehaviour
     void Update()
     {
         if (input == null || sRt == null || oRt == null) return;
+
+        // フェード中は入力無効（任意）
+        if (HorrorScreenFader.IsBusy) return;
 
         // マウス：新InputSystem（UIActionでもMouseでも可）
         Vector2 mouse = input.UI.Point.ReadValue<Vector2>();
@@ -161,19 +174,62 @@ public class TitleMenu : MonoBehaviour
         bool leftDown = Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
         if (leftDown)
         {
-            // Start クリック → シーン遷移
+            // Start クリック → SE → フェード経由でシーン遷移
             if (active == 1 && dStart <= EnterDistance)
             {
                 if (ClickSfx != null) ClickSfx.Play();
+
+                // --- CRI 再生（Start） ---
+                if (ClickCriSource != null)
+                {
+                    try
+                    {
+                        if (CriStopIfPlaying && ClickCriSource.status == CriAtomSource.Status.Playing)
+                            ClickCriSource.Stop();
+
+                        if (!string.IsNullOrEmpty(ClickCueName))
+                            ClickCriSource.Play(ClickCueName);
+                        else
+                            ClickCriSource.Play();
+                    }
+                    catch (System.Exception e)
+                    {
+                        Debug.LogWarning($"[TitleMenu] CRI Start 再生失敗: {e.Message}", this);
+                    }
+                }
+                // --------------------------
+
                 if (!string.IsNullOrEmpty(StartSceneName))
                 {
-                    SceneManager.LoadScene(StartSceneName);
+                    // 直接ロードの代わりにホラーフェードでロード
+                    HorrorScreenFader.FadeAndLoad(StartSceneName, fadeOut: 1.2f, fadeIn: 1.0f, vignettePulse: true, noiseFlicker: true);
+                    // SceneManager.LoadScene(StartSceneName); ← 使わない
                 }
             }
-            // Option クリック → タイトル用オプションメニューを開く / 閉じる
+            // Option クリック → メニュー表示
             else if (active == 2 && dOption <= EnterDistance)
             {
                 if (ClickSfx != null) ClickSfx.Play();
+
+                // --- CRI 再生（Option） ---
+                if (ClickCriSource != null)
+                {
+                    try
+                    {
+                        if (CriStopIfPlaying && ClickCriSource.status == CriAtomSource.Status.Playing)
+                            ClickCriSource.Stop();
+
+                        if (!string.IsNullOrEmpty(ClickCueName))
+                            ClickCriSource.Play(ClickCueName);
+                        else
+                            ClickCriSource.Play();
+                    }
+                    catch (System.Exception e)
+                    {
+                        Debug.LogWarning($"[TitleMenu] CRI Option 再生失敗: {e.Message}", this);
+                    }
+                }
+                // --------------------------
 
                 if (OptionMenu != null)
                 {

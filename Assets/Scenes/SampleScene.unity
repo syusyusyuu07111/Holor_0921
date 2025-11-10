@@ -21272,6 +21272,10 @@ MonoBehaviour:
   bottomTrim: 0.15
   skin: 0.01
   slideFactor: 0.7
+  disableSlideOnFlip: 1
+  microMoveEps: 0.0025
+  rotateEvenIfBlocked: 1
+  turnSpeedDeg: 360
   logBlockObjects: 1
   blockLogEveryNFrames: 10
   OnDashStart:
@@ -54182,6 +54186,10 @@ PrefabInstance:
       propertyPath: StateLabelTMP
       value: 
       objectReference: {fileID: 1742442465}
+    - target: {fileID: 6021703215066986084, guid: 6c37b82c80289b94a82523e1b940c2e4, type: 3}
+      propertyPath: maxSightRange
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 6021703215066986084, guid: 6c37b82c80289b94a82523e1b940c2e4, type: 3}
       propertyPath: GuardCatchByState
       value: 0
