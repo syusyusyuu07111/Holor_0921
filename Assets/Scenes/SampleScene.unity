@@ -18513,7 +18513,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 7.08
+      value: 1.8
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       propertyPath: m_LocalPosition.y
@@ -18521,7 +18521,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -7.686
+      value: -5.56
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       propertyPath: m_LocalRotation.w
@@ -23600,7 +23600,6 @@ GameObject:
   - component: {fileID: 1012635563}
   - component: {fileID: 1012635564}
   - component: {fileID: 1012635565}
-  - component: {fileID: 1012635567}
   - component: {fileID: 1012635568}
   m_Layer: 0
   m_Name: AudioManager
@@ -23806,27 +23805,6 @@ MonoBehaviour:
     - 0
   _cueName: SE_walk
   _cueSheet: CueSheet_0
---- !u!114 &1012635567
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1012635558}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 91f529aa944b914449d62b8c40f188fe, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  acfFile: C:/Users/syuji/Holor_0921/Assets/CriiFile/Yasashiihikari-Horror.acf
-  cueSheets:
-  - name: CueSheet_0
-    acbFile: C:/Users/syuji/Holor_0921/Assets/CriiFile/CueSheet_0.acb
-    awbFile: 
-    loaderStatus: 0
-  dspBusSetting: 
-  dontDestroyOnLoad: 0
-  dontRemoveExistsCueSheet: 0
 --- !u!114 &1012635568
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -47335,7 +47313,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1940768486}
-  - component: {fileID: 1940768485}
   m_Layer: 0
   m_Name: CRIWARE
   m_TagString: Untagged
@@ -47343,27 +47320,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1940768485
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1940768484}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 91f529aa944b914449d62b8c40f188fe, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  acfFile: C:/Users/syuji/Holor_0921/Assets/CriiFile/Yasashiihikari-Horror.acf
-  cueSheets:
-  - name: CueSheet_0
-    acbFile: C:/Users/syuji/Holor_0921/Assets/CriiFile/CueSheet_0.acb
-    awbFile: 
-    loaderStatus: 0
-  dspBusSetting: 
-  dontDestroyOnLoad: 0
-  dontRemoveExistsCueSheet: 0
 --- !u!4 &1940768486
 Transform:
   m_ObjectHideFlags: 0
