@@ -241,17 +241,25 @@ public class GameOver : MonoBehaviour
 
             if (Player && nearGhost != null)
             {
+                // 近い実体の幽霊を毎回採用（生成された個体も含む）
+                Ghost = nearGhost;
+                GhostChase = nearGhost.GetComponent<SearchChase>();
+
                 float dist = Vector3.Distance(Player.position, nearGhost.position);
+                bool hidden = (HideRef && HideRef.hide);
+                int state = (GhostChase ? GhostChase.GetState() : 1);
 
-                // 「隠れてるし、幽霊がState1（通常探索）ならセーフ」な状況ならスキップ
-                if (ShouldSkipCatch())
-                {
-                    yield return wait;
-                    continue;
-                }
+                // 仕様：
+                // - state1 かつ 隠れ中 → スキップ
+                // - それ以外は距離のみで発火
+                bool skip = ShouldSkipCatch();
+                bool willFire = (!skip && dist <= TriggerDistance);
 
-                if (dist <= TriggerDistance)
+                Debug.Log($"[CatchCheck] ghost={nearGhost.name} dist={dist:F3} trigger={TriggerDistance:F3} hidden={hidden} state={state} skip={skip} fire={willFire}");
+
+                if (willFire)
                 {
+                    Debug.Log("[CatchCheck] 発火条件成立 → FireGameOver()");
                     FireGameOver();
                     yield break;
                 }
@@ -269,7 +277,7 @@ public class GameOver : MonoBehaviour
         Transform nearGhost = GetNearestGhostToPlayer();
         if (!nearGhost) return;
 
-        // 隠れてて安全ならフェードアウト方向
+        // 隠れてて安全ならフェードアウト方向（= state1 かつ 隠れ中のみ）
         if (ShouldSkipCatch())
         {
             _currIntensity = Mathf.MoveTowards(_currIntensity, 0f, FadeSpeed * Time.deltaTime);
@@ -311,21 +319,36 @@ public class GameOver : MonoBehaviour
         if (_gameOverFired) return;
         _gameOverFired = true;
 
-        // いちばん近い幽霊を取り直して、そのAnimatorを優先して使う
+        // 発火直前にも最寄り幽霊（とその状態）を再取得して整合
+        Transform nearGhost = GetNearestGhostToPlayer();
+        if (nearGhost != null)
+        {
+            Ghost = nearGhost;
+            GhostChase = nearGhost.GetComponent<SearchChase>();
+        }
+
+        // いちばん近い幽霊のAnimatorを優先して使う
         Animator nearestAnim = GetNearestGhostAnimator();
         if (nearestAnim != null)
         {
             GhostAnimator = nearestAnim;
         }
 
-        // SE
-        if (AudioMgr != null)
+        // SE（CRIWAREの例外で止まらないように保護）
+        try
         {
-            AudioMgr.CatchSource();
+            if (AudioMgr != null)
+            {
+                AudioMgr.CatchSource();
+            }
+            else
+            {
+                Debug.LogWarning("[GameOver] AudioMgr がありません（捕まったSEなし）");
+            }
         }
-        else
+        catch (System.Exception ex)
         {
-            Debug.LogWarning("[GameOver] AudioMgr がありません（捕まったSEなし）");
+            Debug.LogError($"[GameOver] SE再生中に例外：{ex.Message}\n{ex.StackTrace}\n→ SEをスキップして続行します。");
         }
 
         // プレイヤーの見た目を消す（手とか体とか）
@@ -334,9 +357,7 @@ public class GameOver : MonoBehaviour
         // 幽霊のアニメーターに「GameOverフラグON」
         if (GhostAnimator && !string.IsNullOrEmpty(GameOverBoolName))
         {
-            // まずタイムスケール0でも動くように UnscaledTime 更新に変えておく
-            GhostAnimator.updateMode = AnimatorUpdateMode.UnscaledTime;
-
+            GhostAnimator.updateMode = AnimatorUpdateMode.UnscaledTime; // 0でも動く保険
             GhostAnimator.SetBool(GameOverBoolName, true);
 
             bool val = GhostAnimator.GetBool(GameOverBoolName);
@@ -596,7 +617,7 @@ public class GameOver : MonoBehaviour
 
         Debug.Log(
             header +
-            " layer=" + GhostAnimLayer +   // ★修正: GameOverAnimLayer -> GhostAnimLayer
+            " layer=" + GhostAnimLayer +
             " bool(" + GameOverBoolName + ")=" + currentBool +
             " stateHash=" + shortHash +
             " tagMatch=" + inTagged +
@@ -730,19 +751,17 @@ public class GameOver : MonoBehaviour
         Transform t = GetNearestGhostToPlayer();
         if (!t) return null;
 
-        // ド真ん中のオブジェクト側にAnimatorが無い場合もあるので
-        // 子から探す
+        // ド真ん中のオブジェクト側にAnimatorが無い場合もあるので子から探す
         Animator a = t.GetComponentInChildren<Animator>();
         return a;
     }
 
-    // クローゼットに隠れてる＋幽霊がState1なら、キャッチ無効
+    // クローゼットに隠れてる＋幽霊がState1なら、キャッチ無効（＝それ以外は距離だけで発火）
     private bool ShouldSkipCatch()
     {
-        if (!HideRef || !HideRef.hide) return false;
-
-        int ghostState = (GhostChase ? GhostChase.GetState() : 1);
-        return ghostState == 1;
+        bool hidden = (HideRef && HideRef.hide);
+        int state = (GhostChase ? GhostChase.GetState() : 1);
+        return (state == 1 && hidden);
     }
 
     private void OnDrawGizmosSelected()
