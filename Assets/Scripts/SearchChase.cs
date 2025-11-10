@@ -1,6 +1,6 @@
 // 巡回しながら探して、見つけたら追いかけるスクリプト（LoS 必須＋クローゼット例外）
 // 仕様：
-//  state1 … ★隠れている間（HideCroset.hide==true）は絶対に未発見＆非捕獲。隠れていなければ「視線が通れば」発見。
+//  state1 … 隠れている間（HideCroset.hide==true）は絶対に未発見＆非捕獲。隠れていなければ「視線が通れば」発見。
 //  state2 … クローゼット内なら LoS を無視して即発見。それ以外は「視線が通れば」発見。
 //  ※「家具など通常の遮蔽物」がプレイヤーと幽霊の間にある場合は、LoS が遮られて未発見。
 //  ※「クローゼット（HideCroset.hide==true）」の中は state2 のときだけ例外的に必ず発見。
@@ -90,6 +90,17 @@ public class SearchChase : MonoBehaviour
     [Header("ランタイムNavMesh更新（任意）")]
     [Tooltip("ランタイムでNavMeshを頻繁に再構築する必要がある場合のみON。通常はOFF推奨。")]
     public bool enableRuntimeNavmeshUpdate = false; // デフォルトOFF
+
+    // ===== 視線(LoS)設定 =====
+    [Header("視線(LoS)設定")]
+    [Tooltip("幽霊の目の高さオフセット")]
+    public float eyeHeight = 1.6f;
+
+    [Tooltip("プレイヤーの上半身あたりの高さオフセット")]
+    public float playerHeight = 1.2f;
+
+    [Tooltip("視線を遮るレイヤー（Enemy レイヤーは OFF 推奨）")]
+    public LayerMask losBlockMask = ~0;  // インスペクタ側で Enemy を除外して使う
 
     void Start()
     {
@@ -322,17 +333,28 @@ public class SearchChase : MonoBehaviour
     // LoSチェック：Raycastで間に何があるか見る
     private bool HasLineOfSightToPlayer()
     {
-        Vector3 origin = transform.position;
-        Vector3 dir = (Player.position - origin);
+        if (!Player) return false;
+
+        // 幽霊の目の位置から、プレイヤーの上半身あたりを狙う
+        Vector3 origin = transform.position + Vector3.up * eyeHeight;
+        Vector3 targetPos = Player.position + Vector3.up * playerHeight;
+
+        Vector3 dir = targetPos - origin;
         float dist = dir.magnitude;
         if (dist <= 0.0001f) return true;
 
         dir /= dist; // 正規化
 
-        if (Physics.Raycast(origin, dir, out RaycastHit hit, dist, ~0, QueryTriggerInteraction.Ignore))
+        // 自分のレイヤーは losBlockMask から外しておくこと（インスペクタ側で設定）
+        if (Physics.Raycast(origin, dir, out RaycastHit hit, dist, losBlockMask, QueryTriggerInteraction.Ignore))
         {
-            // まっさきにPlayerに当たれば見えてる扱い
-            return hit.collider.CompareTag("Player");
+            // まっさきにPlayerに当たれば見えてる扱い。
+            // 子オブジェクトにコライダーがある場合も root で拾う。
+            if (hit.collider.CompareTag("Player")) return true;
+            if (hit.collider.transform.root.CompareTag("Player")) return true;
+
+            // それ以外（家具/壁/自分など）は遮蔽物扱い
+            return false;
         }
 
         // 何にも当たらない＝遮蔽物なし＝見えてる扱い
@@ -461,6 +483,7 @@ public class SearchChase : MonoBehaviour
     {
         if (!Player) return;
         Gizmos.color = isDiscovery ? Color.red : Color.cyan;
-        Gizmos.DrawLine(transform.position, Player.position);
+        Gizmos.DrawLine(transform.position + Vector3.up * eyeHeight,
+                        Player.position + Vector3.up * playerHeight);
     }
 }

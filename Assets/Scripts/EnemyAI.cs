@@ -96,7 +96,7 @@ public class EnemyAI : MonoBehaviour
     private float _blueLerp = 0f;                 // ★追加（0..1）
     private float _baseVolumeWeight = 1f;         // ★追加
 
-    // ================= ライフサイクル =================
+    // =================サイクル =================
 
     void Start()
     {
@@ -113,27 +113,24 @@ public class EnemyAI : MonoBehaviour
                   $"Listener.pause={AudioListener.pause}, " +
                   $"AudioMgr={(AudioMgr ? "OK" : "null")}");
 
-        // ★追加: ColorAdjustmentsの参照を取る＆元の色を記録
+        // ColorAdjustmentsの参照を取る＆元の色を記録
         if (PostVolume && PostVolume.profile)
         {
             PostVolume.profile.TryGet(out _ca);
             if (_ca != null) _baseFilter = _ca.colorFilter.value;
-            _baseVolumeWeight = PostVolume.weight;  // ★追加: 元のWeightを記録
+            _baseVolumeWeight = PostVolume.weight;  // 元のWeightを記録
         }
 
         if (AutoStart) _spawnLoop = StartCoroutine(SpawnLoop());
     }
 
-    void OnValidate()
-    {
-        // 以前のAudioSource同期処理は不要になったので空
-    }
+
 
     void Update()
     {
         GhostPosition = PickSpawnPointInRect();
 
-        // ★追加: 出現している間だけ青化（フェードでON/OFF）
+        // 出現している間だけ青化（フェードでON/OFF）
         if (_ca != null)
         {
             bool present = (CurrentGhost != null);                   // いま出現中？
@@ -142,7 +139,7 @@ public class EnemyAI : MonoBehaviour
                                    : (1f / Mathf.Max(0.01f, BlueFadeOut));
             _blueLerp = Mathf.MoveTowards(_blueLerp, target, Time.deltaTime * speed);
 
-            // ★追加: 近接警告が強いほど青を抑える（優先度：警告ビネット）
+            // 近接警告が強いほど青を抑える（優先度：警告ビネット）
             float danger = (DangerRef != null) ? DangerRef.GetDangerBlend01() : 0f;   // 0..1
             float blueWeight = _blueLerp * (1f - danger); // 危険時ほど小さく
 
@@ -150,7 +147,7 @@ public class EnemyAI : MonoBehaviour
             Color goal = Color.Lerp(_baseFilter, BlueTintColor, Mathf.Clamp01(BlueTintStrength));
             _ca.colorFilter.value = Color.Lerp(_baseFilter, goal, blueWeight);
 
-            // ★Volume自体のWeightも在位係数でブレンド（効きを保証）
+            // Volume自体のWeight
             if (PostVolume)
             {
                 PostVolume.weight = Mathf.Lerp(_baseVolumeWeight, 1f, blueWeight);
@@ -158,7 +155,7 @@ public class EnemyAI : MonoBehaviour
         }
     }
 
-    // ================= 外部公開：開始/停止 =================
+    // ================= 外部 =================
 
     public void BeginSpawning()
     {
@@ -190,7 +187,7 @@ public class EnemyAI : MonoBehaviour
         // ゴースト本体生成
         CurrentGhost = Instantiate(Ghost, pos, Quaternion.identity);
 
-        // ★ 生成エフェクト
+        // 生成エフェクト
         SpawnGhostEffect(pos, CurrentGhost);
 
         ForceFirstTwoStates(CurrentGhost);
@@ -231,7 +228,7 @@ public class EnemyAI : MonoBehaviour
 
                 CurrentGhost = Instantiate(Ghost, pos0, Quaternion.identity);
 
-                // ★ 生成エフェクト
+                // 生成エフェクト
                 SpawnGhostEffect(pos0, CurrentGhost);
 
                 ForceFirstTwoStates(CurrentGhost);
@@ -262,7 +259,7 @@ public class EnemyAI : MonoBehaviour
 
                 CurrentGhost = Instantiate(Ghost, pos, Quaternion.identity);
 
-                // ★ 生成エフェクト
+                // 生成エフェクト
                 SpawnGhostEffect(pos, CurrentGhost);
 
                 ForceFirstTwoStates(CurrentGhost);

@@ -305,7 +305,7 @@ public class GameOver : MonoBehaviour
         }
     }
 
-    // ★ここで実際に「捕まった！」の処理
+    // ここで実際に「捕まった！」の処理
     private void FireGameOver()
     {
         if (_gameOverFired) return;
