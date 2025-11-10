@@ -154,19 +154,6 @@ public class ItemPickupController2 : MonoBehaviour
         return false;
     }
 
-    // <summary>
-    // ESCキーでUIを非表示にする
-    // </summary>
-    //private void HideItemUI()
-    //{
-    //    _itemDetailUI?.HideWindow();
-
-    //    // アイテム名などテキストだけ手動でクリア
-    //    if (_itemTextMeshPro != null)
-    //        _itemTextMeshPro.text = "";
-
-    //    Debug.Log("[ItemSystem] ESCキーでUIを非表示にしました");
-    //}
 
     /// <summary>
     /// 一定間隔でアイテムを探索するループ
@@ -189,6 +176,7 @@ public class ItemPickupController2 : MonoBehaviour
         if (allItems.Length == 0)
         {
             _nearestItem = null;
+            _itemTextMeshPro.text = ""; 
             return;
         }
 
@@ -206,6 +194,15 @@ public class ItemPickupController2 : MonoBehaviour
         }
 
         _nearestItem = nearest;
+
+        if (_nearestItem != null && _itemTextMeshPro != null)
+        {
+            _itemTextMeshPro.text = "Qキーでアイテムを拾う";
+        }
+        else
+        {
+            _itemTextMeshPro.text = "";
+        }
     }
 
     private void OnDrawGizmosSelected()
