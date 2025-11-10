@@ -105,7 +105,7 @@ public class PushController : MonoBehaviour
         {
             if (hit.collider.CompareTag("Chair"))
             {
-                _pushTextMeshPro.SetText("Qキーで椅子に乗る\nFキーで椅子を押す");
+                _pushTextMeshPro.SetText("左クリックで押す");
                 TryUpdatePush(hit);
             }
             else
