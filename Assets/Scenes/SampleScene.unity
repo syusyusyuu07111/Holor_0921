@@ -18514,7 +18514,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 1.8
+      value: 11.88
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       propertyPath: m_LocalPosition.y
@@ -21464,8 +21464,9 @@ MonoBehaviour:
   _text: {fileID: 1674812205}
   _hitMessage: "Q\u30AD\u30FC\u3067\u7D75\u3092\u898B\u308B"
   _targetTags:
-  - Picture
-  - Item
+  - paintings_sea
+  - paintings_sunflower
+  - paintings_swing
 --- !u!4 &957036294 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 7787048224407105938, guid: 3d21ab27376275d43b5bcc180968ceeb, type: 3}
@@ -32978,7 +32979,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1508303430
 RectTransform:
   m_ObjectHideFlags: 0
@@ -32995,8 +32996,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 200, y: 50}
+  m_AnchoredPosition: {x: 0, y: -302}
+  m_SizeDelta: {x: 450, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1508303431
 MonoBehaviour:
@@ -33018,7 +33019,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "Q\u30AD\u30FC\u3067\u62FE\u3046"
+  m_text: 
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 49e3b828b75674a458aa872b64d7e9ec, type: 2}
   m_sharedMaterial: {fileID: -6670848820412212860, guid: 49e3b828b75674a458aa872b64d7e9ec, type: 2}
