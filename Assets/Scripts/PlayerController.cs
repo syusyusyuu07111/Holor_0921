@@ -50,6 +50,20 @@ public class PlayerController : MonoBehaviour
     [SerializeField] float skin = 0.01f;                       // 壁手前で止める余白
     [SerializeField, Range(0f, 1f)] float slideFactor = 1.0f;  // 残り距離に対するスライド反映率
 
+    // ===== 切り返し/微小移動対策 =====
+    [Header("Turn / Micro-move")]
+    [Tooltip("右↔左や前↔後の“符号反転フレーム”はスライドを無効化")]
+    [SerializeField] bool disableSlideOnFlip = true;
+    [Tooltip("フレーム移動量がこの値未満なら位置を元に戻す")]
+    [SerializeField] float microMoveEps = 0.0025f;
+    [Tooltip("衝突で移動できなくても入力があれば回頭だけは行う")]
+    [SerializeField] bool rotateEvenIfBlocked = true;
+
+    // ===== 回頭スムージング =====
+    [Header("Rotation (Turn Smoothing)")]
+    [Tooltip("1秒に何度回れるか（360〜900あたりで調整）")]
+    [SerializeField] float turnSpeedDeg = 540f;
+
     // ===== Block Logging =====
     [Header("Block Logging")]
     [SerializeField] bool logBlockObjects = false;
@@ -65,7 +79,10 @@ public class PlayerController : MonoBehaviour
     private float _fixedY;
     private CapsuleCollider _cap;
 
-    // 他スクリプト互換
+    // 入力方向の符号記録（反転検出用）
+    private int _lastSignX = 0, _lastSignY = 0;
+
+    // 公開（他スクリプト互換）
     [System.Serializable] public class DashEvent : UnityEngine.Events.UnityEvent { }
     public bool IsMovingNow { get; private set; }
     public bool IsDashingNow { get; private set; }
@@ -73,7 +90,7 @@ public class PlayerController : MonoBehaviour
     public DashEvent OnDashStart = new DashEvent();
     public DashEvent OnDashEnd = new DashEvent();
 
-    // debug buf
+    // temp buffers
     private static readonly Collider[] _overlapBuf = new Collider[16];
 
     void Awake()
@@ -92,7 +109,7 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
-        // 入力
+        // ===== 入力 =====
         Vector2 moveRaw = Input.Player.Move.ReadValue<Vector2>();
         bool slowHeld = Input.Player.SlowWalk.ReadValue<float>() >= analogPressPoint;
         bool dashHeld = Input.Player.Dash.ReadValue<float>() >= analogPressPoint;
@@ -114,9 +131,16 @@ public class PlayerController : MonoBehaviour
             if (_prevDash) { OnDashEnd.Invoke(); _prevDash = false; }
             ToggleFootLoop(false);
             _dominantAxis = 0;
+            _lastSignX = 0; _lastSignY = 0;
             return;
         }
         _noInputTimer = 0f;
+
+        // 符号反転検出
+        int signX = (moveSnap.x > 0f) ? 1 : (moveSnap.x < 0f ? -1 : 0);
+        int signY = (moveSnap.y > 0f) ? 1 : (moveSnap.y < 0f ? -1 : 0);
+        bool flipped = (signX != 0 && _lastSignX != 0 && signX != _lastSignX)
+                    || (signY != 0 && _lastSignY != 0 && signY != _lastSignY);
 
         // 方向
         float yaw = GetYaw();
@@ -128,7 +152,8 @@ public class PlayerController : MonoBehaviour
         float speed = slowHeld ? SlowSpeed : (dashHeld && !isBackward ? DashSpeed : MoveSpeed);
         bool isDashing = (!slowHeld && dashHeld && !isBackward);
 
-        // サブステップ前進（スイープ→衝突→壁面投影で残り距離を滑らせる）
+        // ===== サブステップ移動 =====
+        Vector3 frameStart = transform.position; // 微小移動キャンセル用に保持
         Vector3 desired = moveDir * speed * Time.deltaTime;
         float remain = desired.magnitude;
         bool movedThisFrame = false;
@@ -148,7 +173,7 @@ public class PlayerController : MonoBehaviour
                 // 1回目：目標へスイープ
                 if (!TrySweepTo(startPos, targetPos, out Vector3 stopPos, out RaycastHit hit))
                 {
-                    // ログ出力（任意）
+                    // ログ（任意）
                     if (logBlockObjects && Time.frameCount % blockLogEveryNFrames == 0)
                     {
                         Vector3 moveDirLog = (targetPos - startPos).normalized;
@@ -158,21 +183,24 @@ public class PlayerController : MonoBehaviour
                     // 当たった → 止め位置まで進める
                     transform.position = stopPos;
 
-                    // 残り距離を計算（skin分だけ余裕を持って見積もり）
+                    // 残り距離（純粋な未到達分のみ）
                     float traveled = (stopPos - startPos).magnitude;
-                    float leftover = Mathf.Max(0f, stepLen - traveled + skin);
+                    float leftover = Mathf.Max(0f, stepLen - traveled);
 
-                    // 残りを壁面へ投影して二度目のスイープ（前＋横が自然に出る）
+                    // 方向反転フレームはスライド無効化
+                    if (disableSlideOnFlip && flipped) leftover = 0f;
+
+                    // 残りを壁面へ投影して二度目のスイープ（壁沿いスライド）
                     if (leftover > 1e-5f)
                     {
                         Vector3 n = hit.normal;
-                        Vector3 slideDir = Vector3.ProjectOnPlane(dir, n).normalized; // 入力進行の法線成分を殺して接線成分のみ
+                        Vector3 slideDir = Vector3.ProjectOnPlane(dir, n).normalized;
                         if (slideDir.sqrMagnitude > 1e-6f)
                         {
                             Vector3 slideTarget = stopPos + slideDir * (leftover * slideFactor);
                             if (lockY) slideTarget.y = _fixedY;
 
-                            // 2回目：壁沿いに滑る
+                            // 2回目
                             TrySweepTo(stopPos, slideTarget, out Vector3 slidPos, out _);
                             if ((slidPos - stopPos).sqrMagnitude > 1e-8f)
                             {
@@ -181,7 +209,6 @@ public class PlayerController : MonoBehaviour
                             }
                         }
                     }
-                    // 1サブステップはここで終了
                 }
                 else
                 {
@@ -192,8 +219,25 @@ public class PlayerController : MonoBehaviour
             }
         }
 
-        if (movedThisFrame && !isBackward)
-            transform.rotation = Quaternion.LookRotation(moveDir, Vector3.up);
+        // 微小移動カット（視覚的“ピクッ”抑止）
+        float frameMoved = (transform.position - frameStart).magnitude;
+        if (frameMoved < microMoveEps)
+        {
+            transform.position = frameStart;
+            movedThisFrame = false;
+        }
+
+        // ===== スムーズ回頭（RotateTowards） =====
+        bool canRotateThisFrame = !isBackward && (movedThisFrame || rotateEvenIfBlocked);
+        if (canRotateThisFrame && moveDir.sqrMagnitude > 1e-6f)
+        {
+            Quaternion targetRot = Quaternion.LookRotation(moveDir, Vector3.up);
+            transform.rotation = Quaternion.RotateTowards(
+                transform.rotation,
+                targetRot,
+                turnSpeedDeg * Time.deltaTime
+            );
+        }
 
         // lock & anim
         _lockedPos = transform.position;
@@ -203,7 +247,7 @@ public class PlayerController : MonoBehaviour
         {
             // 衝突で実際は動けなくても、入力がある限りIdleに戻さない
             animator.SetBool("IsMoving", hasInput);
-            animator.SetBool("IsDashing", hasInput && isDashing);
+            animator.SetBool("IsDashing", hasInput && isDashing && movedThisFrame);
             animator.SetBool("IsSlowWalking", slowHeld);
         }
 
@@ -216,9 +260,12 @@ public class PlayerController : MonoBehaviour
         _prevDash = IsDashingNow;
 
         ToggleFootLoop(movedThisFrame); // 壁押し中は足音オフ
+
+        // 符号の記録
+        _lastSignX = signX; _lastSignY = signY;
     }
 
-    // --- 1方向限定
+    // --- 1方向限定（上下左右どちらか一方のみ通す）
     Vector2 SnapOneAxis(Vector2 raw)
     {
         float ax = Mathf.Abs(raw.x), ay = Mathf.Abs(raw.y);
@@ -245,53 +292,23 @@ public class PlayerController : MonoBehaviour
         else if (!on && _footLoopOn) { audioManager.StopFootstepLoop(); _footLoopOn = false; }
     }
 
-    // --- 次位置で家具レイヤーと重なるか？（最初のヒットも返す）
-    bool WouldOverlapFurnitureAt(Vector3 nextPos, out int count, out Collider firstHit)
-    {
-        firstHit = null;
-        // 現在のワールド・カプセルを取得 → nextPos に平行移動
-        GetCapsuleWorld(out Vector3 p1, out Vector3 p2, out float r);
-        Vector3 offset = nextPos - transform.position;
-        p1 += offset; p2 += offset;
-
-        float rAdj = Mathf.Max(0.001f, r - Mathf.Max(0f, overlapShrink));
-
-        count = Physics.OverlapCapsuleNonAlloc(
-            p1, p2, rAdj, _overlapBuf, furnitureMask, QueryTriggerInteraction.Ignore
-        );
-
-        for (int i = 0; i < count; i++)
-        {
-            var c = _overlapBuf[i];
-            if (!c) continue;
-            if (c.transform == transform || c.transform.IsChildOf(transform)) continue;
-            firstHit = c;         // 何か1つでもあればブロック
-            return true;
-        }
-        return false;
-    }
-
     // --- ログ
     void LogBlock(Vector3 nextPos, int hitCount, Collider first, Vector3 moveDir)
     {
         if (!first) return;
-
         string layer = LayerMask.LayerToName(first.gameObject.layer);
         float approxDist = ApproxPenetration(nextPos, first);
         Debug.Log(
-            $"[Block] 停止: \"{first.name}\" (Layer={layer}) " +
-            $"hits={hitCount} approxPenetration={approxDist:0.000}m dir=({moveDir.x:0.00},{moveDir.z:0.00})",
+            $"[Block] 停止: \"{first.name}\" (Layer={layer}) hits={hitCount} approxPenetration={approxDist:0.000}m dir=({moveDir.x:0.00},{moveDir.z:0.00})",
             first
         );
     }
 
-    // Overlap結果からの「だいたいのめり込み量」
     float ApproxPenetration(Vector3 nextPos, Collider other)
     {
-        // CapsuleCollider があるなら ComputePenetration で正確に
         if (_cap != null)
         {
-            Vector3 posA = nextPos;                      // 次位置のルート
+            Vector3 posA = nextPos;
             Quaternion rotA = transform.rotation;
             Vector3 direction; float distance;
             if (Physics.ComputePenetration(
@@ -302,12 +319,11 @@ public class PlayerController : MonoBehaviour
                 return distance; // 離すのに必要な距離
             }
         }
-        // 相手の ClosestPoint との距離で近さを見る
-        Vector3 p = other.ClosestPoint(nextPos); // NOTE: 大文字でも可（ClosestPoint）
+        Vector3 p = other.ClosestPoint(nextPos);
         return Mathf.Max(0f, (nextPos - p).magnitude);
     }
 
-    // --- 当たり判定
+    // --- カプセル形状（現在位置）
     void GetCapsuleWorld(out Vector3 p1, out Vector3 p2, out float r)
     {
         var s = transform.lossyScale;
@@ -340,7 +356,6 @@ public class PlayerController : MonoBehaviour
         hitInfo = default;
         hitStopPos = toPos;
 
-        // 現在のワールド・カプセル（中心線p1-p2, 半径r）を取得
         GetCapsuleWorld(out Vector3 p1, out Vector3 p2, out float r);
 
         Vector3 dir = toPos - fromPos;
@@ -348,7 +363,6 @@ public class PlayerController : MonoBehaviour
         if (dist <= 0f) return true;
 
         dir /= dist;
-
         float rAdj = Mathf.Max(0.001f, r - Mathf.Max(0f, overlapShrink));
 
         if (Physics.CapsuleCast(p1, p2, rAdj, dir, out RaycastHit hit, dist, furnitureMask, QueryTriggerInteraction.Ignore))

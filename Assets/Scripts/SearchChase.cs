@@ -29,7 +29,7 @@ public class SearchChase : MonoBehaviour
     private bool _foundPrev = false;
 
     [Header("状態(1=通常探索, 2=追跡モード)")]
-    [SerializeField] private int fixedState = 2; // ← デフォルトを2に固定（捕獲可能）
+    [SerializeField] private int fixedState = 2; // デフォルト2（隠れていても発見可）
     private bool _stateOverridden = false;
     public int GetState() => fixedState;
     public void ForceState(int state)
@@ -75,9 +75,17 @@ public class SearchChase : MonoBehaviour
     public bool enableRuntimeNavmeshUpdate = false;
 
     [Header("視線(LoS)設定")]
+    [Tooltip("幽霊の目の高さ（ワールド座標オフセット）")]
     public float eyeHeight = 1.6f;
+
+    [Tooltip("プレイヤー上半身付近の高さ（ワールド座標オフセット）")]
     public float playerHeight = 1.2f;
+
+    [Tooltip("視線を遮るレイヤー（Enemyなど自分は除外推奨）")]
     public LayerMask losBlockMask = ~0;
+
+    [Tooltip("この距離より遠いプレイヤーは見えない扱い（0以下なら無制限）")]
+    public float maxSightRange = 12f;
 
     void Start()
     {
@@ -105,8 +113,10 @@ public class SearchChase : MonoBehaviour
 
     void Update()
     {
+        // 1) 発見ロジック
         UpdateDiscovery();
 
+        // 2) 発見/未発見の切り替わりトリガ
         if (isDiscovery != _foundPrev)
         {
             if (isDiscovery)
@@ -124,7 +134,7 @@ public class SearchChase : MonoBehaviour
         }
         _foundPrev = isDiscovery;
 
-        // 探索行動
+        // 3) 見渡し（未発見のときだけ）
         if (!isDiscovery)
         {
             lookTimer += Time.deltaTime;
@@ -136,13 +146,17 @@ public class SearchChase : MonoBehaviour
                     lookTimer = 0f;
             }
         }
-        else lookTimer = 0f;
+        else
+        {
+            lookTimer = 0f;
+        }
 
-        // 経路更新
+        // 4) 経路更新
         repathtimer += Time.deltaTime;
         if (repathtimer > repathInterval)
         {
             repathtimer = 0f;
+
             if (surface && enableRuntimeNavmeshUpdate)
                 surface.UpdateNavMesh(surface.navMeshData);
 
@@ -150,12 +164,15 @@ public class SearchChase : MonoBehaviour
                 ChaseMove();
         }
 
+        // 5) NavMesh 安全化
         EnsureAgentOnNavMesh();
     }
 
+    // ========== NavMesh に従って目的地へ動く ==========
     void ChaseMove()
     {
         if (!agent || !agent.isOnNavMesh || !target) return;
+
         if (NavMesh.SamplePosition(target.position, out var hit, maxdistance, NavMesh.AllAreas))
         {
             agent.ResetPath();
@@ -164,53 +181,67 @@ public class SearchChase : MonoBehaviour
         }
     }
 
+    // ========== NavMesh 安全化 ==========
     void EnsureAgentOnNavMesh()
     {
         if (!agent) return;
-        if (!agent.isOnNavMesh && NavMesh.SamplePosition(agent.transform.position, out var hit, 0.5f, NavMesh.AllAreas))
+        if (!agent.isOnNavMesh &&
+            NavMesh.SamplePosition(agent.transform.position, out var hit, 0.5f, NavMesh.AllAreas))
+        {
             agent.Warp(hit.position);
+        }
     }
 
+    // ========== 次のパトロール地点に回す ==========
     void TargetChange()
     {
         if (!agent) return;
         if (!agent.isStopped) return;
+
         CurrenTtargetNum++;
         if (targetlist.Count <= CurrenTtargetNum) CurrenTtargetNum = 0;
         if (targetlist.Count > 0) target = targetlist[CurrenTtargetNum];
+
         agent.isStopped = false;
         ChaseMove();
     }
 
+    // ========== 発見ロジック（LoS＋隠れ例外） ==========
     private void UpdateDiscovery()
     {
-        if (!Player) { isDiscovery = false; return; }
-
-        bool hidden = HideRef && HideRef.hide;
-        switch (fixedState)
+        if (!Player)
         {
-            case 1:
-                if (hidden)
-                {
-                    isDiscovery = false;
-                    return;
-                }
-                break;
-
-            case 2:
-                if (hidden)
-                {
-                    isDiscovery = true;
-                    UpdateLostAndTarget();
-                    return;
-                }
-                break;
+            isDiscovery = false;
+            return;
         }
 
+        bool hidden = HideRef && HideRef.hide;
+
+        // 先に state と隠れの例外を処理
+        if (fixedState == 1)
+        {
+            if (hidden)
+            {
+                isDiscovery = false; // state1 かつ 隠れ中は絶対未発見
+                return;
+            }
+        }
+        else if (fixedState == 2)
+        {
+            if (hidden)
+            {
+                isDiscovery = true;  // state2 かつ 隠れ中は無条件発見
+                UpdateLostAndTarget();
+                return;
+            }
+        }
+
+        // それ以外は LoS 判定（上限距離あり）
         isDiscovery = HasLineOfSightToPlayer();
         if (isDiscovery) UpdateLostAndTarget();
     }
 
+    // いまのプレイヤー位置を lostposition に記憶＆追跡ターゲットに
     private void UpdateLostAndTarget()
     {
         if (lostposition)
@@ -218,29 +249,49 @@ public class SearchChase : MonoBehaviour
             lostposition.position = Player.position;
             target = lostposition;
         }
-        else target = Player;
+        else
+        {
+            target = Player; // 保険
+        }
     }
 
+    // ========== LoSチェック：Raycastで間に何があるかを見る（距離上限付き） ==========
     private bool HasLineOfSightToPlayer()
     {
         if (!Player) return false;
 
         Vector3 origin = transform.position + Vector3.up * eyeHeight;
         Vector3 targetPos = Player.position + Vector3.up * playerHeight;
+
         Vector3 dir = targetPos - origin;
         float dist = dir.magnitude;
         if (dist <= 0.0001f) return true;
 
-        dir.Normalize();
-        if (Physics.Raycast(origin, dir, out RaycastHit hit, dist, losBlockMask, QueryTriggerInteraction.Ignore))
+        // 距離上限が有効なら、上限を超えている時点で見えない扱い
+        if (maxSightRange > 0f && dist > maxSightRange)
         {
-            if (hit.collider.CompareTag("Player") || hit.collider.transform.root.CompareTag("Player"))
-                return true;
+            // Debug.Log($"[LoS] 距離超過 dist={dist:F2} > max={maxSightRange:F2}");
             return false;
         }
+
+        dir /= dist;
+        float rayLen = (maxSightRange > 0f) ? Mathf.Min(dist, maxSightRange) : dist;
+
+        if (Physics.Raycast(origin, dir, out RaycastHit hit, rayLen, losBlockMask, QueryTriggerInteraction.Ignore))
+        {
+            // 最初に当たったのがプレイヤー（子含む）なら見えている
+            if (hit.collider.CompareTag("Player") || hit.collider.transform.root.CompareTag("Player"))
+                return true;
+
+            // それ以外に当たった＝遮蔽物に遮られた
+            return false;
+        }
+
+        // 何にも当たらない＝遮蔽物なし＝見えている
         return true;
     }
 
+    // 画面デバッグ用ラベル更新
     private void UpdateStateLabel()
     {
         string msg = (fixedState == 1) ? State1Text : State2Text;
@@ -248,11 +299,13 @@ public class SearchChase : MonoBehaviour
         if (StateLabelLegacy) StateLabelLegacy.text = msg;
     }
 
+    // ====== 見渡しモーション（ぐるっと回る） ======
     IEnumerator LookAround()
     {
         isLooking = true;
         float elapsed = 0f;
         float turnSpeed = (LookDuration > 0f) ? (LookAngle / LookDuration) : 0f;
+
         CancelInvoke(nameof(TargetChange));
 
         if (agent)
@@ -263,10 +316,12 @@ public class SearchChase : MonoBehaviour
             agent.updateRotation = false;
         }
 
+        // 回している間も発見チェックを継続。発見したら即中断して追跡へ。
         while (elapsed < LookDuration)
         {
             UpdateDiscovery();
             if (isDiscovery) break;
+
             transform.Rotate(0f, turnSpeed * Time.deltaTime, 0f);
             elapsed += Time.deltaTime;
             yield return null;
@@ -274,20 +329,25 @@ public class SearchChase : MonoBehaviour
 
         isLooking = false;
         lookTimer = 0f;
+
         if (agent)
         {
             agent.updateRotation = true;
             agent.isStopped = false;
         }
+
+        // 直近の target（発見中なら lostposition）に向けて再セット
         ChaseMove();
     }
 
+    // ====== AnimatorのChaseフラグ制御 ======
     private void SetChaseAnim(bool chasing)
     {
         if (!animator || string.IsNullOrEmpty(ChaseBoolName)) return;
         animator.SetBool(ChaseBoolName, chasing);
     }
 
+    // ====== 怒りエフェクトを出す（追跡開始時） ======
     private void SpawnAngryEffect()
     {
         if (!angryEffectPrefab || _angryEffectInstance) return;
@@ -296,6 +356,7 @@ public class SearchChase : MonoBehaviour
         _angryEffectInstance.transform.localPosition = angryEffectLocalOffset;
     }
 
+    // ====== 怒りエフェクトを消す（見失ったとき） ======
     private void DespawnAngryEffect()
     {
         if (_angryEffectInstance)
@@ -305,23 +366,36 @@ public class SearchChase : MonoBehaviour
         }
     }
 
+    // ====== 捕獲イベントのガード（このスクリプトにCollider/Triggerが来る場合のみ） ======
     private void OnTriggerEnter(Collider other)
     {
         if (!GuardCatchByState) return;
         if (fixedState == 1 && HideRef && HideRef.hide) return;
+        // ここで捕獲処理をしている場合は引き続き…
     }
 
     private void OnTriggerStay(Collider other)
     {
         if (!GuardCatchByState) return;
         if (fixedState == 1 && HideRef && HideRef.hide) return;
+        // ここで捕獲処理をしている場合は引き続き…
     }
 
+    // ====== デバッグ可視化 ======
     private void OnDrawGizmosSelected()
     {
         if (!Player) return;
+
         Gizmos.color = isDiscovery ? Color.red : Color.cyan;
-        Gizmos.DrawLine(transform.position + Vector3.up * eyeHeight,
-                        Player.position + Vector3.up * playerHeight);
+        Vector3 a = transform.position + Vector3.up * eyeHeight;
+        Vector3 b = Player.position + Vector3.up * playerHeight;
+        Gizmos.DrawLine(a, b);
+
+        // 視認距離の上限の可視化（任意）
+        if (maxSightRange > 0f)
+        {
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawWireSphere(transform.position, maxSightRange);
+        }
     }
 }
