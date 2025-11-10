@@ -4,7 +4,7 @@ using System.Collections.Generic;
 public class Painting : MonoBehaviour
 {
 
-    public static readonly  List<Painting> PaintingAll = new();
+    public static readonly List<Painting> PaintingAll = new();
 
     private Rigidbody _rb;
 
@@ -22,7 +22,8 @@ public class Painting : MonoBehaviour
     /// </summary>
     public void Drop()
     {
-        if(_rb == null)
+        Debug.Log("•¿‚ªŒÄ‚Î‚ê‚½");
+        if (_rb == null)
         {
             Debug.Log($"{name}‚ÉRigidbody‚ª‚È‚¢");
             return;
@@ -30,3 +31,4 @@ public class Painting : MonoBehaviour
         _rb.isKinematic = false;
     }
 }
+

@@ -8,6 +8,13 @@ TagManager:
   - Furniture
   - stairsTag
   - Stairs
+  - Candle
+  - Chair
+  - Item
+  - ItemPanel
+  - paintings_sea
+  - paintings_sunflower
+  - paintings_swing
   layers:
   - Default
   - TransparentFX
