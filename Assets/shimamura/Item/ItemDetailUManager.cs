@@ -20,8 +20,16 @@ public class ItemDetailUManager : MonoBehaviour
     /// </summary>
     public void ToggleItem(GameObject itemObject)
     {
-        // 閉じている → 開く
-        ShowItem(itemObject);
+        if (_isOpen)
+        {
+            // すでに開いていたら閉じる
+            HideWindow();
+        }
+        else
+        {
+            // 閉じていたら表示する
+            ShowItem(itemObject);
+        }
     }
 
     /// <summary>
@@ -49,7 +57,7 @@ public class ItemDetailUManager : MonoBehaviour
         Debug.Log(_isOpen);
 
         //タイムスケール停止
-        Time.timeScale = 0;
+        // Time.timeScale = 0;
     }
 
     /// <summary>
@@ -61,7 +69,7 @@ public class ItemDetailUManager : MonoBehaviour
         if (_panel != null)
             _panel.SetActive(false);
 
-        Time.timeScale = 1.0f;//タイムスケール再開
+        //Time.timeScale = 1.0f;//タイムスケール再開
 
         _isOpen = false;
     }
