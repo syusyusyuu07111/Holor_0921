@@ -20,8 +20,7 @@ public class PaintingText : MonoBehaviour
         if (_text != null)
             _text.gameObject.SetActive(false);
 
-        if (_rayOrigin == null)
-            Debug.LogWarning("Ray Origin ‚ªİ’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñB");
+        if (_rayOrigin == null) return;
     }
 
     private void Update()
