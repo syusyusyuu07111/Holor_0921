@@ -59,7 +59,7 @@ public class PushController : MonoBehaviour
         }
         else
         {
-            Debug.LogError("CandleInteraction ‚É InputActionReference ‚ªİ’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñI");
+            return;
         }
     }
 

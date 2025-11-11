@@ -42,7 +42,6 @@ public class ItemDetailUManager : MonoBehaviour
         var data = itemObject.GetComponent<ItemDate>();
         if (data == null)
         {
-            Debug.LogWarning($"ItemData ‚ª {itemObject.name} ‚ÉŒ©‚Â‚©‚è‚Ü‚¹‚ñB");
             return;
         }
 
@@ -65,7 +64,6 @@ public class ItemDetailUManager : MonoBehaviour
     /// </summary>
     public void HideWindow()
     {
-        Debug.Log("HideWindow");
         if (_panel != null)
             _panel.SetActive(false);
 

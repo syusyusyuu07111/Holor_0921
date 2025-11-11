@@ -18,12 +18,10 @@ public class IconDisplay : MonoBehaviour
     {
         if (itemDate == null)
         {
-            Debug.LogWarning("AddItemIcon: ItemData ‚ª null ‚Å‚·B");
             return;
         }
         if (_iconParent == null || _iconPrefab == null)
         {
-            Debug.LogWarning("ItemIconDisplay: e‚Ü‚½‚ÍPrefab‚ªİ’è‚³‚ê‚Ä‚È‚¢");
             return;
         }
 

@@ -77,7 +77,6 @@ public class ItemPickupController2 : MonoBehaviour
     /// </summary>
     private void OnCancelPressed(InputAction.CallbackContext context)
     {
-        Debug.Log("[ItemSystem] ESCキー入力検知！");
         _itemDetailUI?.HideWindow();
 
         // アイテム名などテキストだけ手動でクリア
@@ -148,7 +147,6 @@ public class ItemPickupController2 : MonoBehaviour
         Ray ray = new Ray(_rayOrigin.position, Vector3.down);
         if (Physics.Raycast(ray, out RaycastHit hit, _rayDistance, _panelLayer))
         {
-            Debug.Log($"[ItemSystem]Hit: {hit.collider.name}, Tag: {hit.collider.tag}");
             return hit.collider.CompareTag(_panelTag);
         }
         return false;

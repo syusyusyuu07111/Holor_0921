@@ -13,7 +13,6 @@ public class Candle : MonoBehaviour
     {
         _candleEfect.SetActive(false);//火のエフェクト削除
         if (_isPutOut) return;
-        Debug.Log("キャンドルはよばれた");
         _isPutOut = true;
 
         foreach (var paintings in Painting.PaintingAll)
@@ -21,7 +20,6 @@ public class Candle : MonoBehaviour
             if (paintings.CompareTag(_candleID))
             {
                 paintings.Drop();
-                Debug.Log("絵が落ちたよ！");
             }
         }
     }

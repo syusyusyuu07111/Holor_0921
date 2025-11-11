@@ -31,7 +31,7 @@ public class CandleInteraction : MonoBehaviour
         }
         else
         {
-            Debug.LogError("CandleInteraction ‚É InputActionReference ‚ªİ’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñI");
+            return;
         }
     }
 
@@ -54,7 +54,6 @@ public class CandleInteraction : MonoBehaviour
         if (_currentCandle != null)
         {
             _currentCandle.CandlePutOut();
-            Debug.Log("˜XC‚ğÁ‚µ‚½I");
             _interactionText?.SetActive(false); // Á‚µ‚½‚çUI‚àÁ‚·
         }
     }
