@@ -15,36 +15,9 @@ ModelImporter:
     resampleCurves: 1
     optimizeGameObjects: 0
     removeConstantScaleCurves: 0
-    motionNodeName: 
+    motionNodeName: Syujinko_1028:group1
     animationImportErrors: 
-    animationImportWarnings: "\nClip 'Take 001' has import animation warnings that
-      might lower retargeting quality:\nNote: Activate translation DOF on avatar
-      to improve retargeting quality.\n\t'spine_C0_1_jnt' has translation animation
-      that will be discarded.\n\t'spine_C0_1_jnt' has scale animation that will be
-      discarded.\n\t'spine_C0_2_jnt' has translation animation that will be discarded.\n\t'spine_C0_2_jnt'
-      has scale animation that will be discarded.\n\t'spine_C0_3_jnt' has translation
-      animation that will be discarded.\n\t'spine_C0_3_jnt' has scale animation that
-      will be discarded.\n\t'spine_C0_4_jnt' has translation animation that will
-      be discarded.\n\t'spine_C0_4_jnt' is inbetween humanoid transforms and has
-      rotation animation that will be discarded.\n\t'spine_C0_4_jnt' has scale animation
-      that will be discarded.\n\t'arm_L0_0_jnt' has translation animation that will
-      be discarded.\n\t'arm_L0_1_jnt' is inbetween humanoid transforms and has rotation
-      animation that will be discarded.\n\t'arm_L0_3_jnt' is inbetween humanoid transforms
-      and has rotation animation that will be discarded.\n\t'arm_L0_5_jnt' has translation
-      animation that will be discarded.\n\t'arm_L0_6_jnt' has translation animation
-      that will be discarded.\n\t'arm_R0_0_jnt' has translation animation that will
-      be discarded.\n\t'arm_R0_3_jnt' is inbetween humanoid transforms and has rotation
-      animation that will be discarded.\n\t'arm_R0_4_jnt' is inbetween humanoid transforms
-      and has rotation animation that will be discarded.\n\t'arm_R0_5_jnt' has translation
-      animation that will be discarded.\n\t'leg_L0_0_jnt' has translation animation
-      that will be discarded.\n\t'leg_L0_1_jnt' has translation animation that will
-      be discarded.\n\t'leg_L0_1_jnt' has scale animation that will be discarded.\n\t'leg_L0_2_jnt'
-      has translation animation that will be discarded.\n\t'leg_L0_2_jnt' has scale
-      animation that will be discarded.\n\t'leg_R0_0_jnt' has translation animation
-      that will be discarded.\n\t'leg_R0_1_jnt' has translation animation that will
-      be discarded.\n\t'leg_R0_1_jnt' has scale animation that will be discarded.\n\t'leg_R0_2_jnt'
-      has translation animation that will be discarded.\n\t'leg_R0_2_jnt' has scale
-      animation that will be discarded.\n"
+    animationImportWarnings: 
     animationRetargetingWarnings: 
     animationDoRetargetingWarnings: 0
     importAnimatedCustomProperties: 0
@@ -58,7 +31,7 @@ ModelImporter:
     extraUserProperties: []
     clipAnimations:
     - serializedVersion: 16
-      name: Take 001
+      name: climb
       takeName: Take 001
       internalID: 1827226128182048838
       firstFrame: 0
@@ -4631,9 +4604,9 @@ ModelImporter:
     skeletonHasParents: 1
   lastHumanDescriptionAvatarSource: {instanceID: 0}
   autoGenerateAvatarMappingIfUnspecified: 1
-  animationType: 2
+  animationType: 3
   humanoidOversampling: 1
-  avatarSetup: 0
+  avatarSetup: 1
   addHumanoidExtraRootOnlyWhenUsingAvatar: 1
   importBlendShapeDeformPercent: 1
   remapMaterialsIfMaterialImportModeIsNone: 0

@@ -3,9 +3,12 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Events;
 
 /// <summary>
-/// プレイヤーの周囲にあるアイテムを一定間隔で探索し、アイテムを拾う処理
+/// プレイヤー周囲のアイテム探索＆拾い処理。
+/// さらに「椅子に上れるタイミング」だけを距離で検出してイベント通知する。
+/// ※ここではプレイヤー/カメラ/椅子を動かさない（検出とUIだけ）
 /// </summary>
 public class ItemPickupController2 : MonoBehaviour
 {
@@ -15,27 +18,33 @@ public class ItemPickupController2 : MonoBehaviour
     [SerializeField] private string _panelTag = "ItemPanel"; // 探索条件のパネル
     [SerializeField] private float _checkInterval = 0.5f;   // 探索間隔
     [SerializeField] private float _rayDistance = 1f;       // パネルを検知するレイ距離
-    [SerializeField] private LayerMask _panelLayer;         //パネル用レイヤー
+    [SerializeField] private LayerMask _panelLayer;         // パネル用レイヤー
     [SerializeField] private IconDisplay _iconDisplay;
 
+    [Header("Chair Climb Timing (Detect Only)")]
+    [SerializeField] private string _chairTag = "Chair";    // 椅子タグ
+    [SerializeField] private float _chairCheckRange = 0.9f; // 「上れる」と見なす距離
+    [Tooltip("上れるタイミングを見つけたら発火（ここでは移動しない）。Args: (chairTransform, chairTopY)")]
+    public UnityEvent<Transform, float> OnChairClimbRequested;
+
     [Header("References")]
-    [SerializeField] private Transform _rayOrigin;                // プレイヤーのカメラ
-    [SerializeField] private Transform _player;             // プレイヤー位置
-    [SerializeField] private GameObject _itemText;
+    [SerializeField] private Transform _rayOrigin;          // 視線や足元判定の基点（読み取りのみ）
+    [SerializeField] private Transform _player;             // プレイヤー位置（距離計算のみ）
+    [SerializeField] private GameObject _itemText;          // アイテムUI
     [SerializeField] private ItemDetailUManager _itemDetailUI;
 
-    private List<GameObject> _inventory = new List<GameObject>();
+    private readonly List<GameObject> _inventory = new List<GameObject>();
     private GameObject _nearestItem;
     private Coroutine _checkRoutine;
     private bool _isLookingAtPanel;
 
     [Header("Input System")]
-    [SerializeField] private InputActionReference _pickupActionRef;
-    [SerializeField] private InputActionReference _cancelActionRef;
+    [SerializeField] private InputActionReference _pickupActionRef; // 既存：アイテム拾い
+    [SerializeField] private InputActionReference _cancelActionRef; // 既存：UI閉じ
     private InputAction _pickupAction;
     private InputAction _cancelAction;
 
-    private void OnEnable()
+    void OnEnable()
     {
         if (_pickupActionRef != null)
         {
@@ -51,7 +60,7 @@ public class ItemPickupController2 : MonoBehaviour
         }
     }
 
-    private void OnDisable()
+    void OnDisable()
     {
         if (_pickupAction != null)
         {
@@ -67,32 +76,26 @@ public class ItemPickupController2 : MonoBehaviour
 
     private void OnPickupPressed(InputAction.CallbackContext context)
     {
+        // アイテム拾いだけをここで実行（移動はしない）
         if (_isLookingAtPanel && _nearestItem != null)
         {
             PickupItem(_nearestItem);
         }
     }
-    /// <summary>
-    /// ESCキーが押されたときの処理
-    /// </summary>
+
+    /// <summary>ESCキーなどで詳細UIを閉じる</summary>
     private void OnCancelPressed(InputAction.CallbackContext context)
     {
         _itemDetailUI?.HideWindow();
-
-        // アイテム名などテキストだけ手動でクリア
-        if (_itemText != null)
-            _itemText.SetActive(false);
-        // HideItemUI();
+        if (_itemText != null) _itemText.SetActive(false);
     }
 
-
-    // Update is called once per frame
     void Update()
     {
-        // 見ているか判定
+        // パネルを見ているか（足元にパネルを想定）
         bool lookingNow = CheckLookingAtPanel();
 
-        // 状態が変わったときだけコルーチンを開始・停止
+        // 状態変化でコルーチン起動/停止
         if (lookingNow != _isLookingAtPanel)
         {
             _isLookingAtPanel = lookingNow;
@@ -108,54 +111,58 @@ public class ItemPickupController2 : MonoBehaviour
                     _checkRoutine = null;
                 }
                 _nearestItem = null;
-                _itemText.SetActive(false);
+                if (_itemText) _itemText.SetActive(false);
             }
         }
+
+        // ここでは「上れるタイミング」を距離だけで検出し、イベント通知だけ行う
+        DetectChairClimbTiming();
     }
 
-    /// <summary>
-    /// アイテムを取得したときの処理
-    /// </summary>
-    private void PickupItem(GameObject item)
+    // ====== 椅子：距離だけで「今上れる」を検出してイベント通知 ======
+    private void DetectChairClimbTiming()
     {
-        _inventory.Add(item);
+        if (!_isLookingAtPanel || _player == null) return;
 
-        // --- アイコン追加（連携用） ---
-        ItemDate data = item.GetComponent<ItemDate>();
-        if (data != null && _iconDisplay != null)
+        // 近い椅子を探索（距離のみ）
+        GameObject[] chairs = GameObject.FindGameObjectsWithTag(_chairTag);
+        if (chairs == null || chairs.Length == 0) return;
+
+        Transform nearestChair = null;
+        float minDist = float.PositiveInfinity;
+        float topY = 0f;
+
+        foreach (var c in chairs)
         {
-            _iconDisplay.AddItemIcon(data);
+            if (!c) continue;
+            float d = Vector3.Distance(_player.position, c.transform.position);
+            if (d < _chairCheckRange && d < minDist)
+            {
+                minDist = d;
+                nearestChair = c.transform;
+
+                // 椅子の天面Yをざっくり計算（Colliderがあればそれを利用）
+                float y = c.transform.position.y;
+                var col = c.GetComponent<Collider>();
+                if (col != null)
+                {
+                    y = col.bounds.center.y + col.bounds.extents.y;
+                }
+                topY = y;
+            }
         }
 
-        // --- 詳細UI表示 ---
-        _itemDetailUI?.ToggleItem(item);
-
-        // --- アイテムを削除 ---
-        Destroy(item);
-
-        _nearestItem = null;
-        _itemText.SetActive(false);
-    }
-
-    /// <summary>
-    /// プレイヤーが特定のパネルを見ているかチェック
-    /// </summary>
-    private bool CheckLookingAtPanel()
-    {
-        if (_rayOrigin == null) return false;
-
-        Ray ray = new Ray(_rayOrigin.position, Vector3.down);
-        if (Physics.Raycast(ray, out RaycastHit hit, _rayDistance, _panelLayer))
+        // 条件を満たしていれば「今上れる」→ イベントを発火（移動は呼び先に任せる）
+        if (nearestChair != null && OnChairClimbRequested != null)
         {
-            return hit.collider.CompareTag(_panelTag);
+            OnChairClimbRequested.Invoke(nearestChair, topY);
+            // ※連発させたくない場合は、呼び先で一度だけ受ける/自身でクールダウン等を実装してください
         }
-        return false;
     }
 
+    // ====== アイテム関連（既存のまま） ======
 
-    /// <summary>
-    /// 一定間隔でアイテムを探索するループ
-    /// </summary>
+    /// <summary>一定間隔でアイテムを探索するループ</summary>
     private IEnumerator CheckItemsRoutine()
     {
         while (true)
@@ -165,16 +172,14 @@ public class ItemPickupController2 : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 一番近いアイテムを探す
-    /// </summary>
+    /// <summary>一番近いアイテムを探す</summary>
     private void FindNearestItem()
     {
         GameObject[] allItems = GameObject.FindGameObjectsWithTag(_itemTag);
         if (allItems.Length == 0)
         {
             _nearestItem = null;
-            _itemText.SetActive(false); 
+            if (_itemText) _itemText.SetActive(false);
             return;
         }
 
@@ -199,8 +204,43 @@ public class ItemPickupController2 : MonoBehaviour
         }
         else
         {
-            _itemText.SetActive(false);
+            if (_itemText) _itemText.SetActive(false);
         }
+    }
+
+    /// <summary>アイテムを取得</summary>
+    private void PickupItem(GameObject item)
+    {
+        _inventory.Add(item);
+
+        // アイコン連携
+        ItemDate data = item.GetComponent<ItemDate>();
+        if (data != null && _iconDisplay != null)
+        {
+            _iconDisplay.AddItemIcon(data);
+        }
+
+        // 詳細UI
+        _itemDetailUI?.ToggleItem(item);
+
+        // アイテム破棄
+        Destroy(item);
+
+        _nearestItem = null;
+        if (_itemText) _itemText.SetActive(false);
+    }
+
+    /// <summary>プレイヤーが特定のパネルを見ているかチェック</summary>
+    private bool CheckLookingAtPanel()
+    {
+        if (_rayOrigin == null) return false;
+
+        Ray ray = new Ray(_rayOrigin.position, Vector3.down);
+        if (Physics.Raycast(ray, out RaycastHit hit, _rayDistance, _panelLayer))
+        {
+            return hit.collider.CompareTag(_panelTag);
+        }
+        return false;
     }
 
     private void OnDrawGizmosSelected()
@@ -209,6 +249,13 @@ public class ItemPickupController2 : MonoBehaviour
         {
             Gizmos.color = Color.yellow;
             Gizmos.DrawWireSphere(_player.position, _itemPickupRange);
+        }
+
+        // 椅子タイミング用の距離参考
+        if (_player != null)
+        {
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawWireSphere(_player.position, _chairCheckRange);
         }
     }
 }

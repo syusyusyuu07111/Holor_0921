@@ -3,44 +3,50 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// 椅子を押したり、乗る（放物線ジャンプ）を管理するスクリプト
+/// 椅子を「押す」＋「乗る（アニメ主導で上昇）」を管理するスクリプト
+/// 旧：放物線ジャンプはフォールバックとして残し、PlayerControllerが未設定時のみ使用
 /// </summary>
 public class PushController : MonoBehaviour
 {
     [Header("Push Settings")]
-    [SerializeField] private float _pushDistance = 0.2f;      // 家具を検出する距離
-    [SerializeField] private float _pushSpeed = 1.5f;         // 移動速度
-    [SerializeField] private LayerMask _LayerPositoin;        // 押せるオブジェクトのレイヤー
+    [SerializeField] private float _pushDistance = 0.2f;     // 家具を検出する距離
+    [SerializeField] private float _pushSpeed = 1.5f;        // 椅子を押す速度
+    [SerializeField] private LayerMask _LayerPositoin;       // 押せるオブジェクトのレイヤー
 
     [Header("References")]
-    [SerializeField] private Transform _rayOrigin;            // レイを飛ばす起点
-    [SerializeField] private Transform _player;               // プレイヤー本体（位置を動かす対象）
+    [SerializeField] private Transform _rayOrigin;           // レイ起点（カメラ前等）
+    [SerializeField] private Transform _player;              // プレイヤーTransform（フォールバック用）
+    [SerializeField] private PlayerController _playerController; // ★アニメ主導で乗るために参照
 
-    [Header("Jump Settings")]
-    [SerializeField] private float _jumpDuration = 0.7f;      // 飛ぶ時間（秒）
-    [SerializeField] private float _jumpHeight = 0.75f;       // 放物線の高さ
+    [Header("Jump (Fallback)")]
+    [SerializeField] private float _jumpDuration = 0.7f;     // 放物線：時間
+    [SerializeField] private float _jumpHeight = 0.75f;      // 放物線：高さ
 
-    [Header("Text")]
-    [SerializeField] private TextMeshProUGUI _pushTextMeshPro;  // 椅子を押す＋乗るテキスト
+    [Header("UI")]
+    [SerializeField] private TextMeshProUGUI _pushTextMeshPro;
 
     [Header("Input Actions")]
-    [SerializeField] private InputActionReference _pushActionRef;   // 押すアクション
-    [SerializeField] private InputActionReference _jumpActionRef;   // 乗るアクション
+    [SerializeField] private InputActionReference _pushActionRef;  // 左クリック等
+    [SerializeField] private InputActionReference _jumpActionRef;  // 乗るボタン
+
+    // ランタイム
     private InputAction _pushAction;
     private InputAction _jumpAction;
 
-
-    private Rigidbody _pushingRb = null;     // 押しているオブジェクト
-    private Transform _pushingTransform = null; //Transform移動用の参照
-    private Vector3 _pushDirection;          // 押す方向
-    private bool _isPushing = false;         //押している間だけ動かす
+    private Rigidbody _pushingRb = null;
+    private Transform _pushingTransform = null;
+    private Vector3 _pushDirection;
+    private bool _isPushing = false;
     private bool _originalKinematic;
 
-    // ジャンプ関連
-    private bool _isJumping = false;         // 飛行中フラグ
-    private Vector3 _jumpStart;              // ジャンプ開始位置
-    private Vector3 _jumpEnd;                // ジャンプ目標位置
-    private float _jumpElapsed = 0f;         // ジャンプ経過時間
+    // 旧・放物線ジャンプ用
+    private bool _isJumping = false;
+    private Vector3 _jumpStart;
+    private Vector3 _jumpEnd;
+    private float _jumpElapsed = 0f;
+
+    // アニメ主導の椅子登り中フラグ（この間は放物線ジャンプを無効化）
+    private bool _animDrivenClimb = false;
 
     private void OnEnable()
     {
@@ -51,15 +57,12 @@ public class PushController : MonoBehaviour
             _pushAction.performed += OnPushPressed;
             _pushAction.canceled += OnPushReleased;
         }
+
         if (_jumpActionRef != null)
         {
             _jumpAction = _jumpActionRef.action;
             _jumpAction.Enable();
             _jumpAction.performed += OnJumpPressed;
-        }
-        else
-        {
-            return;
         }
     }
 
@@ -77,54 +80,57 @@ public class PushController : MonoBehaviour
             _jumpAction.performed -= OnJumpPressed;
             _jumpAction.Disable();
         }
+
+        // 押し状態の後片付け
+        if (_pushingRb != null)
+        {
+            _pushingRb.isKinematic = _originalKinematic;
+            _pushingRb = null;
+        }
+        _pushingTransform = null;
+        _isPushing = false;
     }
 
-    /// <summary>
-    /// Rayで押せる家具を検出し、UI表示や処理更新を行う。
-    /// </summary>
     private void Update()
     {
-
-        // ジャンプ中ならジャンプ処理を更新して終了
-        if (_isJumping)
+        // アニメ主導の登り中は放物線更新を止める
+        if (_isJumping && !_animDrivenClimb)
         {
             UpdateJump();
             return;
         }
 
+        // 椅子を押す処理
         if (_isPushing && _pushingTransform != null)
         {
             _pushingTransform.position += _pushDirection * _pushSpeed * Time.deltaTime;
         }
 
-        // Rayで正面のオブジェクトをチェック
+        // レイで前方チェック＆UI
         Ray ray = new Ray(_rayOrigin.position, _rayOrigin.forward);
-        RaycastHit hit;
-
-        if (Physics.Raycast(ray, out hit, _pushDistance, _LayerPositoin))
+        if (Physics.Raycast(ray, out RaycastHit hit, _pushDistance, _LayerPositoin))
         {
             if (hit.collider.CompareTag("Chair"))
             {
-                _pushTextMeshPro.SetText("左クリックで押す");
+                _pushTextMeshPro?.SetText("左クリックで押す / 乗る");
                 TryUpdatePush(hit);
             }
             else
             {
-                // 何もヒットしていなければ解除
                 _pushingRb = null;
-                _pushTextMeshPro.SetText("");
+                _pushTextMeshPro?.SetText("");
             }
         }
         else
         {
             _pushingRb = null;
-            _pushTextMeshPro.SetText("");
+            _pushTextMeshPro?.SetText("");
         }
     }
 
-    /// <summary>
-    /// 椅子にRayが当たっていれば押し始める。
-    /// </summary>
+    // ─────────────────────────────────────────────────────────────
+    // 押す入力
+    // ─────────────────────────────────────────────────────────────
     private void OnPushPressed(InputAction.CallbackContext context)
     {
         Ray ray = new Ray(_rayOrigin.position, _rayOrigin.forward);
@@ -150,23 +156,52 @@ public class PushController : MonoBehaviour
         {
             _pushingRb.isKinematic = _originalKinematic;
         }
-
         _pushingRb = null;
         _pushingTransform = null;
         _isPushing = false;
     }
 
-    /// <summary>
-    /// 「乗る」アクションが押された瞬間の処理 + 正面の椅子にジャンプする。
-    /// </summary>
+    // ─────────────────────────────────────────────────────────────
+    // 乗る入力
+    // ─────────────────────────────────────────────────────────────
     private void OnJumpPressed(InputAction.CallbackContext context)
     {
-        Ray ray = new Ray(_rayOrigin.position, _rayOrigin.forward);
-        if (Physics.Raycast(ray, out RaycastHit hit, _pushDistance, _LayerPositoin))
+        // まずはアニメ主導（PlayerControllerがある場合）
+        if (_playerController != null)
         {
-            if (hit.collider.CompareTag("Chair"))
+            Ray ray = new Ray(_rayOrigin.position, _rayOrigin.forward);
+            if (Physics.Raycast(ray, out RaycastHit hit, _pushDistance, _LayerPositoin))
             {
-                Collider col = hit.collider;
+                if (hit.collider.CompareTag("Chair"))
+                {
+                    Collider col = hit.collider;
+                    if (col == null) return;
+
+                    // 椅子の天面Y（少し上に余裕）
+                    Vector3 topCenter = col.bounds.center + Vector3.up * col.bounds.extents.y;
+                    float targetTopY = topCenter.y + 0.25f;
+
+                    // ★アニメ主導の登り開始
+                    _playerController.BeginChairClimb(targetTopY);
+
+                    // このスクリプト側の状態
+                    _animDrivenClimb = true;
+                    _isJumping = false; // 旧放物線は使わない
+
+                    // 押していたら解除
+                    OnPushReleased(default);
+                    return;
+                }
+            }
+        }
+
+        // フォールバック：PlayerController 未設定 → 旧放物線ジャンプを実行
+        Ray ray2 = new Ray(_rayOrigin.position, _rayOrigin.forward);
+        if (Physics.Raycast(ray2, out RaycastHit hit2, _pushDistance, _LayerPositoin))
+        {
+            if (hit2.collider.CompareTag("Chair"))
+            {
+                Collider col = hit2.collider;
                 if (col == null) return;
 
                 Vector3 topCenter = col.bounds.center + Vector3.up * col.bounds.extents.y;
@@ -175,36 +210,35 @@ public class PushController : MonoBehaviour
 
                 _jumpElapsed = 0f;
                 _isJumping = true;
+                _animDrivenClimb = false;
             }
         }
     }
 
     private void TryUpdatePush(RaycastHit hit)
     {
-        // 押してる対象が変わったら解除
         if (_pushingRb != null && hit.rigidbody != _pushingRb)
         {
             _pushingRb = null;
         }
     }
 
-    /// <summary>
-    /// 放物線ジャンプの更新処理
-    /// </summary>
+    // ─────────────────────────────────────────────────────────────
+    // 旧：放物線ジャンプ
+    // ─────────────────────────────────────────────────────────────
     private void UpdateJump()
     {
         _jumpElapsed += Time.deltaTime;
-        float t = Mathf.Clamp01(_jumpElapsed / _jumpDuration); // 0→1 に正規化
+        float t = Mathf.Clamp01(_jumpElapsed / _jumpDuration); // 0→1
 
-        // 水平移動（Lerp）
+        // 水平：線形
         Vector3 horizontal = Vector3.Lerp(_jumpStart, _jumpEnd, t);
 
-        // 垂直移動（放物線）
+        // 垂直：正弦カーブで山を作る
         float height = Mathf.Sin(t * Mathf.PI) * _jumpHeight;
 
         _player.position = new Vector3(horizontal.x, horizontal.y + height, horizontal.z);
 
-        // 着地したら終了
         if (t >= 1f)
         {
             _player.position = _jumpEnd;
@@ -212,7 +246,17 @@ public class PushController : MonoBehaviour
         }
     }
 
-    private void OnDrawGizmosSelected() // シーンでRayを可視化
+    /// <summary>
+    /// アニメーションイベントから呼ぶ用：登りアニメが終わったらフラグを落とす
+    /// （PlayerController は自分で EndChairClimb する設計）
+    /// </summary>
+    public void NotifyClimbFinished()
+    {
+        _animDrivenClimb = false;
+        _pushTextMeshPro?.SetText("");
+    }
+
+    private void OnDrawGizmosSelected()
     {
         if (_rayOrigin != null)
         {
