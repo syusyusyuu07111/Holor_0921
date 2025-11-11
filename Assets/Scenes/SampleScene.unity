@@ -18513,7 +18513,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -4.81
+      value: 8.42
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       propertyPath: m_LocalPosition.y
@@ -21420,7 +21420,7 @@ MonoBehaviour:
   _iconDisplay: {fileID: 1762575682}
   _rayOrigin: {fileID: 1304231492}
   _player: {fileID: 956023712}
-  _itemTextMeshPro: {fileID: 1508303431}
+  _itemText: {fileID: 0}
   _itemDetailUI: {fileID: 1762575681}
   _pickupActionRef: {fileID: -51991193080126501, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   _cancelActionRef: {fileID: -2792045190831915714, guid: 052faaac586de48259a63d0c4782560b, type: 3}
@@ -32859,7 +32859,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1508303430
 RectTransform:
   m_ObjectHideFlags: 0
