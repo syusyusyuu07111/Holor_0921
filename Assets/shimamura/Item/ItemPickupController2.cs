@@ -21,7 +21,7 @@ public class ItemPickupController2 : MonoBehaviour
     [Header("References")]
     [SerializeField] private Transform _rayOrigin;                // プレイヤーのカメラ
     [SerializeField] private Transform _player;             // プレイヤー位置
-    [SerializeField] private TextMeshProUGUI _itemTextMeshPro;
+    [SerializeField] private GameObject _itemText;
     [SerializeField] private ItemDetailUManager _itemDetailUI;
 
     private List<GameObject> _inventory = new List<GameObject>();
@@ -81,8 +81,8 @@ public class ItemPickupController2 : MonoBehaviour
         _itemDetailUI?.HideWindow();
 
         // アイテム名などテキストだけ手動でクリア
-        if (_itemTextMeshPro != null)
-            _itemTextMeshPro.text = "";
+        if (_itemText != null)
+            _itemText.SetActive(false);
         // HideItemUI();
     }
 
@@ -109,7 +109,7 @@ public class ItemPickupController2 : MonoBehaviour
                     _checkRoutine = null;
                 }
                 _nearestItem = null;
-                _itemTextMeshPro.text = "";
+                _itemText.SetActive(false);
             }
         }
     }
@@ -135,7 +135,7 @@ public class ItemPickupController2 : MonoBehaviour
         Destroy(item);
 
         _nearestItem = null;
-        _itemTextMeshPro.text = "";
+        _itemText.SetActive(false);
     }
 
     /// <summary>
@@ -176,7 +176,7 @@ public class ItemPickupController2 : MonoBehaviour
         if (allItems.Length == 0)
         {
             _nearestItem = null;
-            _itemTextMeshPro.text = ""; 
+            _itemText.SetActive(false); 
             return;
         }
 
@@ -195,13 +195,13 @@ public class ItemPickupController2 : MonoBehaviour
 
         _nearestItem = nearest;
 
-        if (_nearestItem != null && _itemTextMeshPro != null)
+        if (_nearestItem != null && _itemText != null)
         {
-            _itemTextMeshPro.text = "Qキーでアイテムを拾う";
+            _itemText.SetActive(true);
         }
         else
         {
-            _itemTextMeshPro.text = "";
+            _itemText.SetActive(false);
         }
     }
 
