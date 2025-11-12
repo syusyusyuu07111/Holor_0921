@@ -21535,13 +21535,13 @@ MonoBehaviour:
     m_Bits: 4294967295
   _pushDistance: 2
   _pushSpeed: 1.5
-  _pushActionRef: {fileID: -1546430092605635705, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  _pushActionRef: {fileID: 0}
   _playerAnimator: {fileID: 956023716}
   _playerController: {fileID: 956023713}
   _raiseTarget: {fileID: 956023712}
   _climbBoolName: IsClimbing
   _climbTag: Climb
-  _climbStateFullPath: Base Layer.Climb
+  _climbStateFullPath: Base Layer/Climb
   _climbLayer: 0
   _crossFadeDur: 0.15
   _fallbackAnimTime: 1
@@ -21550,11 +21550,13 @@ MonoBehaviour:
   _yRaiseTime: 0.6
   _yRaiseAdd: 0.5
   _holdAfterClimbSec: 2
-  _pushTextMeshPro: {fileID: 1432533245}
   _useRootMotionForClimb: 1
   _debugLogging: 1
   _traceSecondsAfterClimb: 2
   _lockRootYForTraceWindow: 0
+  _lockRootYAfterClimb: 1
+  _lockRootYSeconds: 0.25
+  _pushTextMeshPro: {fileID: 1432533245}
 --- !u!114 &956023722
 MonoBehaviour:
   m_ObjectHideFlags: 0

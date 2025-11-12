@@ -36,9 +36,6 @@ public class PushController : MonoBehaviour
     [Header("Hold After Climb")]
     [SerializeField] private float _holdAfterClimbSec = 2.0f;
 
-    [Header("UI")]
-    [SerializeField] private TextMeshProUGUI _pushTextMeshPro;
-
     [Header("Root Motion")]
     [SerializeField] private bool _useRootMotionForClimb = true;
 
@@ -46,6 +43,13 @@ public class PushController : MonoBehaviour
     [SerializeField] private bool _debugLogging = true;
     [SerializeField] private float _traceSecondsAfterClimb = 2.0f;
     [SerializeField] private bool _lockRootYForTraceWindow = false;
+
+    [Header("Post Lock (Idle復帰直後の落下対策)")]
+    [SerializeField] private bool _lockRootYAfterClimb = true;
+    [SerializeField] private float _lockRootYSeconds = 0.4f;
+
+    [Header("UI")]
+    [SerializeField] private TextMeshProUGUI _pushTextMeshPro;
 
     // 入力
     private InputSystem_Actions _inputs;
@@ -88,6 +92,16 @@ public class PushController : MonoBehaviour
     // 追跡
     private Coroutine _traceCo;
     private float _rootYLockForTrace = float.NaN;
+
+    // ===== Post Lock 内部状態 =====
+    private bool _rootYPostLockActive;
+    private float _rootYPostLockedValue;
+    private float _rootYPostLockUntil;
+
+    // 原状復帰用キャッシュ
+    private bool _rbWasKinematic, _rbWasUseGravity;
+    private Vector3 _rbPrevVelocity;
+    private bool _ccWasEnabled, _nmaWasEnabled;
 
     // ===== 初期化 =====
     private void Awake()
@@ -207,6 +221,7 @@ public class PushController : MonoBehaviour
 
     private void LateUpdate()
     {
+        // 登り直後の保持（Wrapper基準）
         if (!_isClimbing && _holdRaisedPos && _wrapper != null)
         {
             _wrapper.position = _lockedRaisedPos;
@@ -215,7 +230,34 @@ public class PushController : MonoBehaviour
                 _holdRaisedPos = false;
         }
 
-        // 追跡期間中に root のYを固定（原因切り分け用）
+        // Idle復帰直後の Root Y ロック
+        if (_rootYPostLockActive)
+        {
+            Transform root = _wrapper ? _wrapper.parent : null;
+            if (root != null)
+            {
+                Vector3 rp = root.position;
+                root.position = new Vector3(rp.x, _rootYPostLockedValue, rp.z);
+
+                _wrapper.localPosition = Vector3.zero;
+                _wrapper.localRotation = Quaternion.identity;
+
+                var rb = root.GetComponent<Rigidbody>();
+                if (rb != null)
+                {
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                }
+            }
+
+            if (Time.time >= _rootYPostLockUntil)
+            {
+                _rootYPostLockActive = false;
+                EndRootYPostLock();
+            }
+        }
+
+        // 追跡期間中のY固定（デバッグ）
         if (_lockRootYForTraceWindow && !float.IsNaN(_rootYLockForTrace))
         {
             Transform root = _wrapper ? _wrapper.parent : null;
@@ -360,17 +402,21 @@ public class PushController : MonoBehaviour
 
         if (_fbs != null) _fbs.RebaseFeetGround("ClimbEnd from PushController");
 
+        // Idleに戻る直前の落下を防ぐ RootY ロック開始
+        StartRootYPostLock(_lockRootYSeconds);
+
         _playerAnimator.applyRootMotion = false;
 
-        if (!string.IsNullOrEmpty(_climbBoolName))
-            _playerAnimator.SetBool(_climbBoolHash, false);
+        // ★ここを削除：アニメーションフラグをOFFにしない
+        // if (!string.IsNullOrEmpty(_climbBoolName))
+        //     _playerAnimator.SetBool(_climbBoolHash, false);
 
         if (_traceCo != null) StopCoroutine(_traceCo);
         _traceCo = StartCoroutine(TraceAfterClimb(_traceSecondsAfterClimb));
 
+        // FBS解除・コントローラ復帰
         yield return null;
         if (_fbs != null) _fbs.SetClimbOverride(false);
-
         if (_playerController != null)
             _playerController.enabled = true;
 
@@ -418,6 +464,73 @@ public class PushController : MonoBehaviour
         _wrapper.localRotation = Quaternion.identity;
     }
 
+    // ===== Post Lock: Idle復帰直後の RootY 固定 =====
+    private void StartRootYPostLock(float seconds)
+    {
+        if (!_lockRootYAfterClimb || seconds <= 0f || _wrapper == null) return;
+
+        Transform root = _wrapper.parent;
+        if (root == null) return;
+
+        _rootYPostLockedValue = root.position.y;
+        _rootYPostLockUntil = Time.time + seconds;
+        _rootYPostLockActive = true;
+
+        var rb = root.GetComponent<Rigidbody>();
+        var cc = root.GetComponent<CharacterController>();
+        var nma = root.GetComponent<UnityEngine.AI.NavMeshAgent>();
+
+        if (rb != null)
+        {
+            _rbWasKinematic = rb.isKinematic;
+            _rbWasUseGravity = rb.useGravity;
+            _rbPrevVelocity = rb.linearVelocity;
+
+            rb.isKinematic = true;
+            rb.useGravity = false;
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+        }
+
+        if (cc != null)
+        {
+            _ccWasEnabled = cc.enabled;
+            cc.enabled = false;
+        }
+
+        if (nma != null)
+        {
+            _nmaWasEnabled = nma.enabled;
+            nma.enabled = false;
+        }
+
+        if (_debugLogging)
+            Debug.Log(LOG + $" RootY lock start: y={_rootYPostLockedValue:F3} for {seconds:0.###}s (RB/CC/NMA disabled)");
+    }
+
+    private void EndRootYPostLock()
+    {
+        Transform root = _wrapper ? _wrapper.parent : null;
+        if (root == null) return;
+
+        var rb = root.GetComponent<Rigidbody>();
+        var cc = root.GetComponent<CharacterController>();
+        var nma = root.GetComponent<UnityEngine.AI.NavMeshAgent>();
+
+        if (rb != null)
+        {
+            rb.isKinematic = _rbWasKinematic;
+            rb.useGravity = _rbWasUseGravity;
+            rb.linearVelocity = new Vector3(_rbPrevVelocity.x, 0f, _rbPrevVelocity.z);
+        }
+
+        if (cc != null) cc.enabled = _ccWasEnabled;
+        if (nma != null) nma.enabled = _nmaWasEnabled;
+
+        if (_debugLogging)
+            Debug.Log(LOG + " RootY lock end (RB/CC/NMA restored)");
+    }
+
     // ===== 診断 =====
     private IEnumerator TraceAfterClimb(float seconds)
     {
@@ -446,7 +559,11 @@ public class PushController : MonoBehaviour
 
                 if (rb != null)
                 {
+#if UNITY_6000_0_OR_NEWER
                     extra += " RB[kin=" + rb.isKinematic + ",grav=" + rb.useGravity + ",velY=" + rb.linearVelocity.y.ToString("F3") + "]";
+#else
+                    extra += " RB[kin=" + rb.isKinematic + ",grav=" + rb.useGravity + ",velY=" + rb.velocity.y.ToString("F3") + "]";
+#endif
                 }
                 if (cc != null)
                 {
@@ -504,7 +621,7 @@ public class PushController : MonoBehaviour
         Debug.Log(msg);
     }
 
-    // デバッグRay可視化（常時OK：プリプロセッサを使わない）
+    // デバッグRay可視化
     private void OnDrawGizmosSelected()
     {
         if (_rayOrigin == null) return;
