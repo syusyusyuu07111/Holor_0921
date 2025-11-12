@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿// ForceBoneScale.cs (Trace用プロパティ＋ハードロック付き 完全版)
+using System.Collections.Generic;
 using UnityEngine;
 
 [DisallowMultipleComponent]
@@ -11,40 +12,34 @@ public class ForceBoneScale : MonoBehaviour
     public Transform root; // 空なら Animator の Transform
 
     [Header("Animator Ref (任意)")]
-    [SerializeField] private Animator animatorOverride; // 子/親にある場合のため
+    [SerializeField] private Animator animatorOverride;
 
     // ── Y制御 ───────────────────────────────────────────
     [Header("Yをアニメから使う条件")]
-    public string allowYStateTag = "Climb";  // ステートTag名
-    public string allowYBoolParam = "IsClimbing"; // Bool名（空でも可）
+    public string allowYStateTag = "Climb";
+    public string allowYBoolParam = "IsClimbing";
     public int layerIndex = 0;
 
     [Header("挙動オプション")]
     public bool clampYToOnlyGoUp = true;
     public bool applyDeltaRotation = true;
-    public bool forceApplyRootMotion = true;
+    public bool forceApplyRootMotion = false;
 
     // ── Genericサポート ────────────────────────────────
-    [Header("Genericモード（Humanoidでない場合はこちらを使用）")]
+    [Header("Genericモード（Humanoidでない場合はこちら）")]
     public bool genericMode = false;
-    public Transform leftFoot;   // Generic用
-    public Transform rightFoot;  // Generic用
+    public Transform leftFoot;
+    public Transform rightFoot;
 
-    // ── “足高さ＝地面” 固定 ────────────────────────────
+    // ── Feet-as-Ground ────────────────────────────────
     [Header("Feet-as-Ground")]
-    [Tooltip("起動時の足高さを地面として固定します")]
     public bool useFootHeightAsGroundOnStart = true;
-    [Tooltip("左右の足のどちらを基準にするか（Min：低い方、Max：高い方、Average：平均）")]
     public GroundMode groundMode = GroundMode.Min;
     public enum GroundMode { Min, Max, Average }
-
-    [Tooltip("地面とみなす足高さに足底オフセットを加算（足裏厚みなど）")]
     public float footBaseOffset = 0f;
-
-    [Tooltip("当たり抜け防止の微小余白。最終的な基準高さに加算されます")]
     public float safetyMargin = 0.0f;
 
-    // ── デバッグ ───────────────────────────────────────
+    // ── Debug ─────────────────────────────────────────
     [Header("Debug Logs")]
     public bool verboseLog = true;
     public bool logEveryFrame = false;
@@ -52,7 +47,7 @@ public class ForceBoneScale : MonoBehaviour
     public bool logOnValidate = true;
     public bool drawGizmos = true;
 
-    // ===== 追加: 外部から“登り中扱い”を強制する保険（任意） =====
+    // Manual override
     [Header("Manual Override (任意)")]
     [SerializeField] private bool forceClimbOverride = false;
     public void SetClimbOverride(bool on)
@@ -61,12 +56,14 @@ public class ForceBoneScale : MonoBehaviour
         if (verboseLog) Debug.Log($"[FBS] SetClimbOverride => {on}");
     }
 
-    // ===== 追加: 登り終了で自動Rebase & 1～2フレーム猶予 =====
+    // 登り終了の自動処理（今回は外部主導）
     [Header("Climb End Handling")]
-    [Tooltip("登り終了時に足基準を現在の高さへ取り直す")]
-    public bool rebaseOnClimbEnd = true;
-    [Tooltip("Rebase直後にロック処理をスキップするフレーム数")]
-    public int bypassFramesAfterRebase = 2;
+    public bool rebaseOnClimbEnd = false;
+    public int bypassFramesAfterRebase = 0;
+
+    [Header("Lock After External Snap")]
+    [Tooltip("SetGroundYAndSnap() 直後、下方向の移動を無視するフレーム数")]
+    public int lockFramesAfterExternalSnap = 2;
 
     // ── 内部状態 ───────────────────────────────────────
     Dictionary<Transform, Vector3> _initialScales;
@@ -74,18 +71,21 @@ public class ForceBoneScale : MonoBehaviour
     int _allowYBoolHash;
     bool _allowYNow, _allowYPrev;
 
-    // Humanoid足参照
     Transform _lfHum, _rfHum;
 
-    // “足＝地面”のベースY
     float _feetGroundY;
     bool _hasGroundBase;
 
-    // 基準Y（Y固定用）
     float _frozenY;
 
-    // 追加: バイパス用カウンタ
     int _bypassCounter = 0;
+    int _hardLockCounter = 0;
+
+    // ===== 公開読み取り用（PushControllerから参照）=====
+    public bool IsYFree => _allowYNow;
+    public bool HasGroundBase => _hasGroundBase;
+    public float FeetGroundY => _feetGroundY;
+    public int HardLockFramesLeft => _hardLockCounter;
 
     void OnValidate()
     {
@@ -102,7 +102,6 @@ public class ForceBoneScale : MonoBehaviour
 
     void Awake()
     {
-        // 子→自分→親の順で確実にAnimator取得
         _anim = animatorOverride
                 ? animatorOverride
                 : (GetComponentInChildren<Animator>(true) ?? GetComponent<Animator>() ?? GetComponentInParent<Animator>());
@@ -113,11 +112,11 @@ public class ForceBoneScale : MonoBehaviour
         if (includeChildren)
         {
             foreach (var t in root.GetComponentsInChildren<Transform>(true))
-                _initialScales[t] = t.localScale;
+                if (t) _initialScales[t] = t.localScale;
         }
         else
         {
-            _initialScales[root] = root.localScale;
+            if (root) _initialScales[root] = root.localScale;
         }
 
         if (!string.IsNullOrEmpty(allowYBoolParam))
@@ -146,26 +145,27 @@ public class ForceBoneScale : MonoBehaviour
 
     void Update()
     {
-        // Y許可判定（＝登り中フラグ）
         bool byTag = false;
-        if (_anim && !string.IsNullOrEmpty(allowYStateTag))
+        bool byBool = false;
+
+        if (_anim)
         {
-            var st = _anim.GetCurrentAnimatorStateInfo(layerIndex);
-            var nst = _anim.GetNextAnimatorStateInfo(layerIndex);
-            byTag = st.IsTag(allowYStateTag) || (_anim.IsInTransition(layerIndex) && nst.IsTag(allowYStateTag));
+            if (LayerValid() && !string.IsNullOrEmpty(allowYStateTag))
+            {
+                var st = _anim.GetCurrentAnimatorStateInfo(layerIndex);
+                var nst = _anim.GetNextAnimatorStateInfo(layerIndex);
+                byTag = st.IsTag(allowYStateTag) || (_anim.IsInTransition(layerIndex) && nst.IsTag(allowYStateTag));
+            }
+            if (!string.IsNullOrEmpty(allowYBoolParam))
+                byBool = _anim.GetBool(_allowYBoolHash);
         }
-        bool byBool = (!string.IsNullOrEmpty(allowYBoolParam) && _anim) ? _anim.GetBool(_allowYBoolHash) : false;
 
         _allowYPrev = _allowYNow;
         _allowYNow = forceClimbOverride || byTag || byBool;
 
-        // ▼ 追加：下降エッジで自動Rebase＋バイパス付与
         if (_allowYPrev && !_allowYNow)
         {
-            if (rebaseOnClimbEnd)
-            {
-                RebaseFeetGround("ClimbEnd");
-            }
+            if (rebaseOnClimbEnd) RebaseFeetGround("ClimbEnd");
             _bypassCounter = Mathf.Max(0, bypassFramesAfterRebase);
             if (verboseLog) Debug.Log($"[FBS] Climb END → Rebase & bypass {_bypassCounter}f");
         }
@@ -186,19 +186,20 @@ public class ForceBoneScale : MonoBehaviour
 
         Vector3 before = transform.position;
 
-        // RootMotion位置（登り中のみYも通す）
         Vector3 d = _anim.deltaPosition;
+
+        // スナップ直後ロック：下方向成分は捨てる
+        if (_hardLockCounter > 0 && d.y < 0f) d.y = 0f;
+
         if (!_allowYNow) d.y = 0f;
 
         Vector3 next = before + d;
 
-        // “足＝地面”より下へは行かせない（RootMotion段階の簡易クランプ）
         float pushRM = 0f;
         if (_hasGroundBase)
             pushRM = RequiredPushUpToKeepFeetAboveGround(next.y);
         if (pushRM > 0f) next.y += pushRM;
 
-        // 許可中でも“下方向”は無視（任意）
         if (_allowYNow && clampYToOnlyGoUp && next.y < _frozenY)
             next.y = _frozenY;
 
@@ -217,37 +218,37 @@ public class ForceBoneScale : MonoBehaviour
     {
         Vector3 before = transform.position;
 
-        // スケール固定（常時）
-        foreach (var kv in _initialScales) kv.Key.localScale = kv.Value;
+        foreach (var kv in _initialScales)
+            if (kv.Key) kv.Key.localScale = kv.Value;
 
-        // 登り中はロック解除（補正スキップ）
         if (_allowYNow)
         {
-            LogFrame("LateUpdate", before, transform.position, Vector3.zero, 0f, note: "BypassWhileClimb");
+            LogFrame("LateUpdate", before, transform.position, Vector3.zero, 0f, note: "WhileClimb");
+            if (_hardLockCounter > 0) _hardLockCounter--;
             return;
         }
 
-        // Rebase直後の数フレームはスキップ（戻り抑止）
         if (_bypassCounter > 0)
         {
             _bypassCounter--;
             if (verboseLog) Debug.Log($"[FBS] Bypass after rebase... {_bypassCounter}f left");
+            if (_hardLockCounter > 0) _hardLockCounter--;
             return;
         }
 
-        // 既存の“常に一致（上下補正）”
         float pushLate = 0f;
         if (_hasGroundBase && TryGetFootYs(out float yL, out float yR, out _))
         {
-            float feetY = PickFeetY(yL, yR); // 現在の足底高さ
-            float want = _feetGroundY;      // 目標（Rebase＋オフセット＋マージン）
-            float diff = want - feetY;      // 上下どちらも補正
+            float feetY = PickFeetY(yL, yR);
+            float want = _feetGroundY;
+            float diff = want - feetY;
+
+            // スナップ直後ロック：下げ補正は無視
+            if (_hardLockCounter > 0 && diff < 0f) diff = 0f;
 
             if (Mathf.Abs(diff) > 1e-6f)
             {
-                var p = transform.position;
-                p.y += diff;                 // 浮いていれば下げる／沈んでいれば上げる
-                transform.position = p;
+                ApplyDeltaY(diff);
                 pushLate = diff;
             }
 
@@ -255,15 +256,38 @@ public class ForceBoneScale : MonoBehaviour
         }
         else
         {
-            var p = transform.position;
-            p.y = Mathf.Max(p.y, _frozenY);
-            transform.position = p;
+            float diff = Mathf.Max(0f, _frozenY - transform.position.y);
+            if (Mathf.Abs(diff) > 1e-6f) ApplyDeltaY(diff);
         }
 
         LogFrame("LateUpdate", before, transform.position, Vector3.zero, pushLate, note: Mathf.Abs(pushLate) > 0f ? "HardLock" : null);
+
+        if (_hardLockCounter > 0) _hardLockCounter--;
     }
 
-    // —— 公開：いつでも“足＝地面”を取り直せる ——
+    // —— 公開API —— //
+    public bool TryGetFeetGroundY(out float y) { y = _feetGroundY; return _hasGroundBase; }
+
+    public void SetGroundYAndSnap(float groundY, string reason = "External")
+    {
+        _feetGroundY = groundY;
+        _hasGroundBase = true;
+
+        if (TryGetFootYs(out float yL2, out float yR2, out _))
+        {
+            float feetY = PickFeetY(yL2, yR2);
+            float diff = _feetGroundY - feetY;
+            if (Mathf.Abs(diff) > 1e-6f)
+            {
+                ApplyDeltaY(diff);
+                if (diff > 0f) _frozenY = Mathf.Max(_frozenY, transform.position.y);
+            }
+        }
+
+        _hardLockCounter = Mathf.Max(_hardLockCounter, lockFramesAfterExternalSnap);
+        if (verboseLog) Debug.Log($"[FBS] SetGroundYAndSnap({reason}) groundY={_feetGroundY:F4} lock={_hardLockCounter}f");
+    }
+
     [ContextMenu("Rebase Feet Ground")]
     public void RebaseFeetGroundContext() => RebaseFeetGround("ContextMenu");
 
@@ -294,21 +318,20 @@ public class ForceBoneScale : MonoBehaviour
         }
         else
         {
-            baseY = lf ? yL : yR; // どちらか片方
+            baseY = lf ? yL : yR;
         }
 
         _feetGroundY = baseY + footBaseOffset + safetyMargin;
         _hasGroundBase = true;
 
-        // いまの足高さに即一致させる（上げでも下げでも）
         if (TryGetFootYs(out float yL2, out float yR2, out _))
         {
             float feetY = PickFeetY(yL2, yR2);
             float diff = _feetGroundY - feetY;
             if (Mathf.Abs(diff) > 1e-6f)
             {
-                var p = transform.position; p.y += diff; transform.position = p;
-                if (diff > 0f) _frozenY = Mathf.Max(_frozenY, p.y);
+                ApplyDeltaY(diff);
+                if (diff > 0f) _frozenY = Mathf.Max(_frozenY, transform.position.y);
             }
         }
 
@@ -319,7 +342,19 @@ public class ForceBoneScale : MonoBehaviour
         }
     }
 
-    // 足が“地面”より下に行かないために必要な押し上げ量（RM用）
+    // 移動適用（CC.Move優先）
+    void ApplyDeltaY(float diff)
+    {
+        if (Mathf.Abs(diff) < 1e-6f) return;
+        var cc = GetComponent<CharacterController>();
+        if (cc && cc.enabled) cc.Move(new Vector3(0f, diff, 0f));
+        else
+        {
+            var p = transform.position; p.y += diff; transform.position = p;
+        }
+    }
+
+    // —— 足Y取得／補助 —— //
     float RequiredPushUpToKeepFeetAboveGround(float nextY)
     {
         var lf = GetLeftFoot();
@@ -342,10 +377,8 @@ public class ForceBoneScale : MonoBehaviour
         return need > 0f ? need : 0f;
     }
 
-    // —— 足高さの取得（Humanoid/Generic） ——
     bool TryGetFootYs(out float yL, out float yR, out string src)
     {
-        // 明示指定があれば最優先
         if (IsValidFootPair(leftFoot, rightFoot))
         {
             yL = leftFoot.position.y;
@@ -354,11 +387,10 @@ public class ForceBoneScale : MonoBehaviour
             return true;
         }
 
-        // Humanoidならボーン名で取る
         if (_anim && _anim.isHuman)
         {
-            var lf = _anim.GetBoneTransform(HumanBodyBones.LeftFoot);
-            var rf = _anim.GetBoneTransform(HumanBodyBones.RightFoot);
+            var lf = _lfHum ? _lfHum : _anim.GetBoneTransform(HumanBodyBones.LeftFoot);
+            var rf = _rfHum ? _rfHum : _anim.GetBoneTransform(HumanBodyBones.RightFoot);
             if (IsValidFootPair(lf, rf))
             {
                 yL = lf.position.y;
@@ -368,7 +400,6 @@ public class ForceBoneScale : MonoBehaviour
             }
         }
 
-        // 取れない
         yL = yR = 0f;
         src = "none";
         return false;
@@ -377,7 +408,7 @@ public class ForceBoneScale : MonoBehaviour
     static bool IsValidFootPair(Transform l, Transform r)
     {
         if (l == null || r == null) return false;
-        if (l == r) return false; // 左右同一は無効
+        if (l == r) return false;
         return true;
     }
 
@@ -400,7 +431,23 @@ public class ForceBoneScale : MonoBehaviour
         {
             case GroundMode.Min: return Mathf.Min(yL, yR);
             case GroundMode.Max: return Mathf.Max(yL, yR);
-            default /*Average*/: return 0.5f * (yL + yR);
+            default: return 0.5f * (yL + yR);
+        }
+    }
+
+    bool LayerValid() => _anim && layerIndex >= 0 && layerIndex < _anim.layerCount;
+
+    public void RebuildScaleTargets()
+    {
+        _initialScales.Clear();
+        if (includeChildren)
+        {
+            foreach (var t in root.GetComponentsInChildren<Transform>(true))
+                if (t) _initialScales[t] = t.localScale;
+        }
+        else if (root)
+        {
+            _initialScales[root] = root.localScale;
         }
     }
 
@@ -431,7 +478,7 @@ public class ForceBoneScale : MonoBehaviour
         Debug.Log(
             $"[FBS]{suffix} {phase} f#{Time.frameCount} {tag} pos {before} -> {after} ΔRM=({deltaRM.x:F3},{deltaRM.y:F3},{deltaRM.z:F3}) push={push:+0.0000;-0.0000} " +
             $"feetGroundY={_feetGroundY:F4} frozenY={_frozenY:F4} " +
-            $"LF({lfName})={lfY:F4} RF({rfName})={rfY:F4} generic={genericMode} human={(_anim && _anim.isHuman)}"
+            $"LF({lfName})={lfY:F4} RF({rfName})={rfY:F4} generic={genericMode} human={(_anim && _anim.isHuman)} hardLock={_hardLockCounter}"
         );
     }
 

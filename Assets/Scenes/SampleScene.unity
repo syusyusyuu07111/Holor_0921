@@ -21530,9 +21530,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _rayOrigin: {fileID: 1302683134}
-  _LayerPositoin:
+  _detectMask:
     serializedVersion: 2
     m_Bits: 4294967295
+  _chairTag: Chair
   _pushDistance: 2
   _pushSpeed: 1.5
   _pushActionRef: {fileID: 0}
@@ -21541,7 +21542,7 @@ MonoBehaviour:
   _raiseTarget: {fileID: 956023712}
   _climbBoolName: IsClimbing
   _climbTag: Climb
-  _climbStateFullPath: Base Layer/Climb
+  _climbStateName: Climb
   _climbLayer: 0
   _crossFadeDur: 0.15
   _fallbackAnimTime: 1
@@ -21551,12 +21552,12 @@ MonoBehaviour:
   _yRaiseAdd: 0.5
   _holdAfterClimbSec: 2
   _useRootMotionForClimb: 1
-  _debugLogging: 1
-  _traceSecondsAfterClimb: 2
-  _lockRootYForTraceWindow: 0
-  _lockRootYAfterClimb: 1
-  _lockRootYSeconds: 0.25
   _pushTextMeshPro: {fileID: 1432533245}
+  _fbsRef: {fileID: 1294814945}
+  _debugLogging: 1
+  _logMinimal: 1
+  traceAfterDescendFrames: 3
+  _inputCooldownSec: 0.12
 --- !u!114 &956023722
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -29129,6 +29130,7 @@ MonoBehaviour:
   forceClimbOverride: 0
   rebaseOnClimbEnd: 1
   bypassFramesAfterRebase: 2
+  lockFramesAfterExternalSnap: 2
 --- !u!1001 &1296302405
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -42943,7 +42945,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: 37fb1335e95c54845b648a4c6e00cabd, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 10.979357
+      value: 12.613
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 37fb1335e95c54845b648a4c6e00cabd, type: 3}
       propertyPath: m_LocalPosition.y
@@ -42951,23 +42953,23 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 37fb1335e95c54845b648a4c6e00cabd, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -2.7971892
+      value: -2.378
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 37fb1335e95c54845b648a4c6e00cabd, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 37fb1335e95c54845b648a4c6e00cabd, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 37fb1335e95c54845b648a4c6e00cabd, type: 3}
-      propertyPath: m_LocalRotation.y
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 37fb1335e95c54845b648a4c6e00cabd, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 37fb1335e95c54845b648a4c6e00cabd, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 37fb1335e95c54845b648a4c6e00cabd, type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 37fb1335e95c54845b648a4c6e00cabd, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -42975,7 +42977,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 37fb1335e95c54845b648a4c6e00cabd, type: 3}
       propertyPath: m_LocalEulerAnglesHint.y
-      value: 180
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 37fb1335e95c54845b648a4c6e00cabd, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
