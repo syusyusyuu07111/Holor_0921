@@ -1,52 +1,132 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using System.Collections;
 
-/// <summary>
-/// ˆÖq‚ğu‰Ÿ‚·v{uæ‚éiƒAƒjƒå“±‚Åã¸jv‚ğŠÇ—‚·‚éƒXƒNƒŠƒvƒg
-/// ‹ŒF•ú•¨üƒWƒƒƒ“ƒv‚ÍƒtƒH[ƒ‹ƒoƒbƒN‚Æ‚µ‚Äc‚µAPlayerController‚ª–¢İ’è‚Ì‚İg—p
-/// </summary>
 public class PushController : MonoBehaviour
 {
-    [Header("Push Settings")]
-    [SerializeField] private float _pushDistance = 0.2f;     // ‰Æ‹ï‚ğŒŸo‚·‚é‹——£
-    [SerializeField] private float _pushSpeed = 1.5f;        // ˆÖq‚ğ‰Ÿ‚·‘¬“x
-    [SerializeField] private LayerMask _LayerPositoin;       // ‰Ÿ‚¹‚éƒIƒuƒWƒFƒNƒg‚ÌƒŒƒCƒ„[
+    [Header("Detection / Physics")]
+    [SerializeField] private Transform _rayOrigin;
+    [SerializeField] private LayerMask _LayerPositoin;
+    [SerializeField] private float _pushDistance = 2.0f;
 
-    [Header("References")]
-    [SerializeField] private Transform _rayOrigin;           // ƒŒƒC‹N“_iƒJƒƒ‰‘O“™j
-    [SerializeField] private Transform _player;              // ƒvƒŒƒCƒ„[TransformiƒtƒH[ƒ‹ƒoƒbƒN—pj
-    [SerializeField] private PlayerController _playerController; // šƒAƒjƒå“±‚Åæ‚é‚½‚ß‚ÉQÆ
+    [Header("Push (Left Click)")]
+    [SerializeField] private float _pushSpeed = 1.5f;
+    [SerializeField] private InputActionReference _pushActionRef;
 
-    [Header("Jump (Fallback)")]
-    [SerializeField] private float _jumpDuration = 0.7f;     // •ú•¨üFŠÔ
-    [SerializeField] private float _jumpHeight = 0.75f;      // •ú•¨üF‚‚³
+    [Header("Climb (Right Click / DoorOpen)")]
+    [SerializeField] private Animator _playerAnimator;
+    [SerializeField] private PlayerController _playerController;
+    [SerializeField] private Transform _raiseTarget;
+
+    [Header("Climb Animation")]
+    [SerializeField] private string _climbBoolName = "IsClimbing";
+    [SerializeField] private string _climbTag = "Climb";
+    [SerializeField] private string _climbStateFullPath = "Base Layer/Climb";
+    [SerializeField] private int _climbLayer = 0;
+    [SerializeField] private float _crossFadeDur = 0.15f;
+    [SerializeField] private float _fallbackAnimTime = 1.0f;
+
+    [Header("Timed Raise (éRootMotionæ™‚ã®ã¿)")]
+    [SerializeField] private bool _snapToChairTop = true;
+    [SerializeField] private float _chairTopOffset = 0.25f;
+    [SerializeField] private float _yRaiseTime = 0.6f;
+    [SerializeField] private float _yRaiseAdd = 0.5f;
+
+    [Header("Hold After Climb")]
+    [SerializeField] private float _holdAfterClimbSec = 2.0f;
 
     [Header("UI")]
     [SerializeField] private TextMeshProUGUI _pushTextMeshPro;
 
-    [Header("Input Actions")]
-    [SerializeField] private InputActionReference _pushActionRef;  // ¶ƒNƒŠƒbƒN“™
-    [SerializeField] private InputActionReference _jumpActionRef;  // æ‚éƒ{ƒ^ƒ“
+    [Header("Root Motion")]
+    [SerializeField] private bool _useRootMotionForClimb = true;
 
-    // ƒ‰ƒ“ƒ^ƒCƒ€
+    [Header("Debug / Trace")]
+    [SerializeField] private bool _debugLogging = true;
+    [SerializeField] private float _traceSecondsAfterClimb = 2.0f;
+    [SerializeField] private bool _lockRootYForTraceWindow = false;
+
+    // å…¥åŠ›
+    private InputSystem_Actions _inputs;
+    private InputAction _doorOpen;
+    private InputAction _rightClick;
     private InputAction _pushAction;
-    private InputAction _jumpAction;
 
-    private Rigidbody _pushingRb = null;
-    private Transform _pushingTransform = null;
-    private Vector3 _pushDirection;
-    private bool _isPushing = false;
+    // æŠ¼ã—
+    private Rigidbody _pushingRb;
+    private Transform _pushingTransform;
+    private Vector3 _pushDir;
+    private bool _isPushing;
     private bool _originalKinematic;
 
-    // ‹ŒE•ú•¨üƒWƒƒƒ“ƒv—p
-    private bool _isJumping = false;
-    private Vector3 _jumpStart;
-    private Vector3 _jumpEnd;
-    private float _jumpElapsed = 0f;
+    // ç™»ã‚Š
+    private bool _isClimbing;
+    private float _elapsedClimb;
+    private bool _yRaised;
 
-    // ƒAƒjƒå“±‚ÌˆÖq“o‚è’†ƒtƒ‰ƒOi‚±‚ÌŠÔ‚Í•ú•¨üƒWƒƒƒ“ƒv‚ğ–³Œø‰»j
-    private bool _animDrivenClimb = false;
+    // ã‚¹ãƒŠãƒƒãƒ—
+    private float _plannedSnapY;
+    private bool _hasPlannedSnapY;
+
+    // ä½ç½®ä¿æŒ
+    private bool _holdRaisedPos;
+    private float _holdTimer;
+    private Vector3 _lockedRaisedPos;
+
+    // å®Ÿç§»å‹•å¯¾è±¡ï¼ˆAnimatorã®è¦ªï¼‰
+    private Transform _wrapper;
+
+    // FBS
+    private ForceBoneScale _fbs;
+
+    // è£œåŠ©
+    private const string LOG = "[CLIMB]";
+    private Coroutine _climbCo;
+    private int _climbBoolHash;
+
+    // è¿½è·¡
+    private Coroutine _traceCo;
+    private float _rootYLockForTrace = float.NaN;
+
+    // ===== åˆæœŸåŒ– =====
+    private void Awake()
+    {
+        if (_playerAnimator == null)
+            Debug.LogError(LOG + " Animator is null.");
+
+        if (_raiseTarget == null && _playerAnimator != null)
+            _raiseTarget = _playerAnimator.transform;
+
+        // è¦ªWrapperç”Ÿæˆï¼ˆAnimatorç›´å‹•ã®æˆ»ã‚Šå¯¾ç­–ï¼‰
+        if (_raiseTarget != null && _raiseTarget.GetComponent<Animator>() != null)
+        {
+            Transform child = _raiseTarget;
+            Transform parent = child.parent;
+
+            GameObject go = new GameObject(child.name + "_LiftWrapper");
+            _wrapper = go.transform;
+
+            int si = parent ? child.GetSiblingIndex() : 0;
+            _wrapper.SetPositionAndRotation(child.position, child.rotation);
+            _wrapper.localScale = Vector3.one;
+            if (parent) { _wrapper.SetParent(parent, true); _wrapper.SetSiblingIndex(si); }
+
+            child.SetParent(_wrapper, true);
+            if (_debugLogging) Debug.Log(LOG + " Setup Wrapped -> " + _wrapper.name);
+        }
+        else
+        {
+            _wrapper = _raiseTarget;
+            if (_wrapper != null && _debugLogging) Debug.Log(LOG + " Using raise target -> " + _wrapper.name);
+        }
+
+        if (_wrapper != null) _fbs = _wrapper.GetComponentInParent<ForceBoneScale>();
+        if (_fbs == null && _playerAnimator != null) _fbs = _playerAnimator.GetComponentInParent<ForceBoneScale>();
+
+        if (!string.IsNullOrEmpty(_climbBoolName))
+            _climbBoolHash = Animator.StringToHash(_climbBoolName);
+    }
 
     private void OnEnable()
     {
@@ -58,12 +138,15 @@ public class PushController : MonoBehaviour
             _pushAction.canceled += OnPushReleased;
         }
 
-        if (_jumpActionRef != null)
-        {
-            _jumpAction = _jumpActionRef.action;
-            _jumpAction.Enable();
-            _jumpAction.performed += OnJumpPressed;
-        }
+        if (_inputs == null) _inputs = new InputSystem_Actions();
+        _inputs.Enable();
+        _doorOpen = _inputs.Player.DoorOpen;
+        _doorOpen.Enable();
+        _doorOpen.performed += OnClimbPressed;
+
+        _rightClick = new InputAction(type: InputActionType.Button, binding: "<Mouse>/rightButton");
+        _rightClick.Enable();
+        _rightClick.performed += OnClimbPressed;
     }
 
     private void OnDisable()
@@ -75,193 +158,357 @@ public class PushController : MonoBehaviour
             _pushAction.Disable();
         }
 
-        if (_jumpAction != null)
+        if (_doorOpen != null)
         {
-            _jumpAction.performed -= OnJumpPressed;
-            _jumpAction.Disable();
+            _doorOpen.performed -= OnClimbPressed;
+            _doorOpen.Disable();
+        }
+        if (_rightClick != null)
+        {
+            _rightClick.performed -= OnClimbPressed;
+            _rightClick.Disable();
         }
 
-        // ‰Ÿ‚µó‘Ô‚ÌŒã•Ğ•t‚¯
-        if (_pushingRb != null)
-        {
-            _pushingRb.isKinematic = _originalKinematic;
-            _pushingRb = null;
-        }
-        _pushingTransform = null;
-        _isPushing = false;
+        if (_inputs != null) _inputs.Disable();
     }
 
+    // ===== æ›´æ–° =====
     private void Update()
     {
-        // ƒAƒjƒå“±‚Ì“o‚è’†‚Í•ú•¨üXV‚ğ~‚ß‚é
-        if (_isJumping && !_animDrivenClimb)
-        {
-            UpdateJump();
-            return;
-        }
+        if (_isClimbing) return;
 
-        // ˆÖq‚ğ‰Ÿ‚·ˆ—
         if (_isPushing && _pushingTransform != null)
-        {
-            _pushingTransform.position += _pushDirection * _pushSpeed * Time.deltaTime;
-        }
+            _pushingTransform.position += _pushDir * _pushSpeed * Time.deltaTime;
 
-        // ƒŒƒC‚Å‘O•ûƒ`ƒFƒbƒN•UI
+        if (_rayOrigin == null) return;
+
         Ray ray = new Ray(_rayOrigin.position, _rayOrigin.forward);
-        if (Physics.Raycast(ray, out RaycastHit hit, _pushDistance, _LayerPositoin))
+        RaycastHit hit;
+        if (Physics.Raycast(ray, out hit, _pushDistance, _LayerPositoin, QueryTriggerInteraction.Ignore))
         {
-            if (hit.collider.CompareTag("Chair"))
+            Transform root = hit.rigidbody ? hit.rigidbody.transform : hit.collider.transform;
+            if (root != null && root.CompareTag("Chair"))
             {
-                _pushTextMeshPro?.SetText("¶ƒNƒŠƒbƒN‚Å‰Ÿ‚· / æ‚é");
+                if (_pushTextMeshPro != null) _pushTextMeshPro.SetText("å·¦ã‚¯ãƒªãƒƒã‚¯ã§æŠ¼ã™ / å³ã‚¯ãƒªãƒƒã‚¯ or DoorOpen ã§ä¹—ã‚‹");
                 TryUpdatePush(hit);
             }
             else
             {
                 _pushingRb = null;
-                _pushTextMeshPro?.SetText("");
+                if (_pushTextMeshPro != null) _pushTextMeshPro.SetText("");
             }
         }
         else
         {
             _pushingRb = null;
-            _pushTextMeshPro?.SetText("");
+            if (_pushTextMeshPro != null) _pushTextMeshPro.SetText("");
         }
     }
 
-    // „Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ
-    // ‰Ÿ‚·“ü—Í
-    // „Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ
-    private void OnPushPressed(InputAction.CallbackContext context)
+    private void LateUpdate()
     {
-        Ray ray = new Ray(_rayOrigin.position, _rayOrigin.forward);
-        if (Physics.Raycast(ray, out RaycastHit hit, _pushDistance, _LayerPositoin))
+        if (!_isClimbing && _holdRaisedPos && _wrapper != null)
         {
-            if (hit.collider.CompareTag("Chair") && hit.rigidbody != null)
+            _wrapper.position = _lockedRaisedPos;
+            _holdTimer += Time.deltaTime;
+            if (_holdTimer >= _holdAfterClimbSec)
+                _holdRaisedPos = false;
+        }
+
+        // è¿½è·¡æœŸé–“ä¸­ã« root ã®Yã‚’å›ºå®šï¼ˆåŸå› åˆ‡ã‚Šåˆ†ã‘ç”¨ï¼‰
+        if (_lockRootYForTraceWindow && !float.IsNaN(_rootYLockForTrace))
+        {
+            Transform root = _wrapper ? _wrapper.parent : null;
+            if (root != null)
             {
-                _pushingRb = hit.rigidbody;
-                _pushingTransform = hit.collider.transform;
+                Vector3 rp = root.position;
+                root.position = new Vector3(rp.x, _rootYLockForTrace, rp.z);
+            }
+        }
+    }
 
-                _originalKinematic = _pushingRb.isKinematic;
-                _pushingRb.isKinematic = false;
+    // ===== æŠ¼ã™ =====
+    private void OnPushPressed(InputAction.CallbackContext _)
+    {
+        if (_isClimbing || _rayOrigin == null) return;
 
-                _pushDirection = _rayOrigin.forward.normalized;
+        Ray ray = new Ray(_rayOrigin.position, _rayOrigin.forward);
+        RaycastHit hit;
+        if (Physics.Raycast(ray, out hit, _pushDistance, _LayerPositoin, QueryTriggerInteraction.Ignore))
+        {
+            Transform root = hit.rigidbody ? hit.rigidbody.transform : hit.collider.transform;
+            if (root != null && root.CompareTag("Chair"))
+            {
+                _pushingRb = root.GetComponent<Rigidbody>();
+                _pushingTransform = root;
+
+                if (_pushingRb != null)
+                {
+                    _originalKinematic = _pushingRb.isKinematic;
+                    _pushingRb.isKinematic = true;
+                }
+
+                _pushDir = _rayOrigin.forward.normalized;
                 _isPushing = true;
             }
         }
     }
 
-    private void OnPushReleased(InputAction.CallbackContext context)
+    private void OnPushReleased(InputAction.CallbackContext _)
     {
-        if (_pushingRb != null)
-        {
-            _pushingRb.isKinematic = _originalKinematic;
-        }
+        if (_pushingRb != null) _pushingRb.isKinematic = _originalKinematic;
         _pushingRb = null;
         _pushingTransform = null;
         _isPushing = false;
     }
 
-    // „Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ
-    // æ‚é“ü—Í
-    // „Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ
-    private void OnJumpPressed(InputAction.CallbackContext context)
-    {
-        // ‚Ü‚¸‚ÍƒAƒjƒå“±iPlayerController‚ª‚ ‚éê‡j
-        if (_playerController != null)
-        {
-            Ray ray = new Ray(_rayOrigin.position, _rayOrigin.forward);
-            if (Physics.Raycast(ray, out RaycastHit hit, _pushDistance, _LayerPositoin))
-            {
-                if (hit.collider.CompareTag("Chair"))
-                {
-                    Collider col = hit.collider;
-                    if (col == null) return;
-
-                    // ˆÖq‚Ì“V–ÊYi­‚µã‚É—]—Tj
-                    Vector3 topCenter = col.bounds.center + Vector3.up * col.bounds.extents.y;
-                    float targetTopY = topCenter.y + 0.25f;
-
-                    // šƒAƒjƒå“±‚Ì“o‚èŠJn
-                    _playerController.BeginChairClimb(targetTopY);
-
-                    // ‚±‚ÌƒXƒNƒŠƒvƒg‘¤‚Ìó‘Ô
-                    _animDrivenClimb = true;
-                    _isJumping = false; // ‹Œ•ú•¨ü‚Íg‚í‚È‚¢
-
-                    // ‰Ÿ‚µ‚Ä‚¢‚½‚ç‰ğœ
-                    OnPushReleased(default);
-                    return;
-                }
-            }
-        }
-
-        // ƒtƒH[ƒ‹ƒoƒbƒNFPlayerController –¢İ’è ¨ ‹Œ•ú•¨üƒWƒƒƒ“ƒv‚ğÀs
-        Ray ray2 = new Ray(_rayOrigin.position, _rayOrigin.forward);
-        if (Physics.Raycast(ray2, out RaycastHit hit2, _pushDistance, _LayerPositoin))
-        {
-            if (hit2.collider.CompareTag("Chair"))
-            {
-                Collider col = hit2.collider;
-                if (col == null) return;
-
-                Vector3 topCenter = col.bounds.center + Vector3.up * col.bounds.extents.y;
-                _jumpStart = _player.position;
-                _jumpEnd = topCenter + Vector3.up * 0.25f;
-
-                _jumpElapsed = 0f;
-                _isJumping = true;
-                _animDrivenClimb = false;
-            }
-        }
-    }
-
     private void TryUpdatePush(RaycastHit hit)
     {
-        if (_pushingRb != null && hit.rigidbody != _pushingRb)
+        if (_pushingTransform == null) return;
+        Transform root = hit.rigidbody ? hit.rigidbody.transform : hit.collider.transform;
+        if (root != _pushingTransform) _pushingRb = null;
+    }
+
+    // ===== ä¸Šã‚‹ =====
+    private void OnClimbPressed(InputAction.CallbackContext ctx)
+    {
+        if (_isClimbing || _playerAnimator == null || _wrapper == null || _rayOrigin == null) return;
+
+        Ray ray = new Ray(_rayOrigin.position, _rayOrigin.forward);
+        RaycastHit hit;
+        if (!Physics.Raycast(ray, out hit, _pushDistance, _LayerPositoin, QueryTriggerInteraction.Ignore)) return;
+
+        Transform target = hit.rigidbody ? hit.rigidbody.transform : hit.collider.transform;
+        if (target == null || !target.CompareTag("Chair")) return;
+
+        _hasPlannedSnapY = false;
+        if (_snapToChairTop)
         {
-            _pushingRb = null;
+            Bounds b = hit.collider.bounds;
+            _plannedSnapY = b.center.y + b.extents.y + _chairTopOffset;
+            _hasPlannedSnapY = true;
+        }
+
+        if (_isPushing) OnPushReleased(default);
+
+        if (_fbs != null) _fbs.SetClimbOverride(true);
+
+        if (_playerController != null && _playerController.enabled)
+            _playerController.enabled = false;
+
+        _playerAnimator.applyRootMotion = _useRootMotionForClimb;
+
+        if (!string.IsNullOrEmpty(_climbBoolName))
+            _playerAnimator.SetBool(_climbBoolHash, true);
+
+        if (!string.IsNullOrEmpty(_climbStateFullPath))
+            _playerAnimator.CrossFadeInFixedTime(_climbStateFullPath, _crossFadeDur, _climbLayer);
+
+        _isClimbing = true;
+        _elapsedClimb = 0f;
+        _yRaised = false;
+
+        if (_climbCo != null) StopCoroutine(_climbCo);
+        _climbCo = StartCoroutine(ClimbRoutine());
+
+        if (_debugLogging)
+        {
+            Debug.Log(LOG + " Start climb. applyRM=" + _playerAnimator.applyRootMotion + " input=" + (ctx.control != null ? ctx.control.name : "null"));
+            DumpRootStack("ClimbStart");
         }
     }
 
-    // „Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ
-    // ‹ŒF•ú•¨üƒWƒƒƒ“ƒv
-    // „Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ
-    private void UpdateJump()
+    private IEnumerator ClimbRoutine()
     {
-        _jumpElapsed += Time.deltaTime;
-        float t = Mathf.Clamp01(_jumpElapsed / _jumpDuration); // 0¨1
+        float t = 0f;
+        bool sawTag = false;
 
-        // …•½FüŒ`
-        Vector3 horizontal = Vector3.Lerp(_jumpStart, _jumpEnd, t);
+        yield return null;
 
-        // ‚’¼F³Œ·ƒJ[ƒu‚ÅR‚ğì‚é
-        float height = Mathf.Sin(t * Mathf.PI) * _jumpHeight;
-
-        _player.position = new Vector3(horizontal.x, horizontal.y + height, horizontal.z);
-
-        if (t >= 1f)
+        while (true)
         {
-            _player.position = _jumpEnd;
-            _isJumping = false;
+            _elapsedClimb += Time.deltaTime;
+            t += Time.deltaTime;
+
+            if (!_useRootMotionForClimb && !_yRaised && _elapsedClimb >= _yRaiseTime && _wrapper != null)
+            {
+                Vector3 p = _wrapper.position;
+                float targetY = _hasPlannedSnapY ? _plannedSnapY : (p.y + _yRaiseAdd);
+                _wrapper.position = new Vector3(p.x, targetY, p.z);
+                _lockedRaisedPos = _wrapper.position; _holdRaisedPos = true; _holdTimer = 0f;
+                _yRaised = true;
+            }
+
+            if (_playerAnimator != null)
+            {
+                AnimatorStateInfo st = _playerAnimator.GetCurrentAnimatorStateInfo(_climbLayer);
+                if (st.IsTag(_climbTag))
+                {
+                    sawTag = true;
+                    if (st.normalizedTime >= 1.0f) break;
+                }
+                else
+                {
+                    if (!sawTag && t >= _fallbackAnimTime) break;
+                }
+            }
+            yield return null;
         }
+
+        FinalizeAtChildWorld();
+        PromoteWrapperHeightToRoot(); // è¦ªãƒ«ãƒ¼ãƒˆã‚’æŒã¡ä¸Šã’
+
+        if (_fbs != null) _fbs.RebaseFeetGround("ClimbEnd from PushController");
+
+        _playerAnimator.applyRootMotion = false;
+
+        if (!string.IsNullOrEmpty(_climbBoolName))
+            _playerAnimator.SetBool(_climbBoolHash, false);
+
+        if (_traceCo != null) StopCoroutine(_traceCo);
+        _traceCo = StartCoroutine(TraceAfterClimb(_traceSecondsAfterClimb));
+
+        yield return null;
+        if (_fbs != null) _fbs.SetClimbOverride(false);
+
+        if (_playerController != null)
+            _playerController.enabled = true;
+
+        if (_debugLogging)
+            Debug.Log(LOG + " End climb.");
+
+        _isClimbing = false;
+        _climbCo = null;
     }
 
-    /// <summary>
-    /// ƒAƒjƒ[ƒVƒ‡ƒ“ƒCƒxƒ“ƒg‚©‚çŒÄ‚Ô—pF“o‚èƒAƒjƒ‚ªI‚í‚Á‚½‚çƒtƒ‰ƒO‚ğ—‚Æ‚·
-    /// iPlayerController ‚Í©•ª‚Å EndChairClimb ‚·‚éİŒvj
-    /// </summary>
-    public void NotifyClimbFinished()
+    private void FinalizeAtChildWorld()
     {
-        _animDrivenClimb = false;
-        _pushTextMeshPro?.SetText("");
+        if (_playerAnimator == null || _wrapper == null) return;
+
+        Transform child = _playerAnimator.transform;
+        Vector3 wp = child.position;
+        Quaternion wr = child.rotation;
+
+        _wrapper.SetPositionAndRotation(wp, wr);
+
+        child.SetPositionAndRotation(_wrapper.position, _wrapper.rotation);
+        child.localPosition = Vector3.zero;
+        child.localRotation = Quaternion.identity;
+
+        _lockedRaisedPos = _wrapper.position;
+        _holdRaisedPos = true;
+        _holdTimer = 0f;
+
+        if (_debugLogging) Debug.Log(LOG + " Finalize wrapperY=" + _wrapper.position.y.ToString("F3"));
     }
 
+    private void PromoteWrapperHeightToRoot()
+    {
+        if (_wrapper == null) return;
+        Transform root = _wrapper.parent;
+        if (root == null) return;
+
+        Vector3 desiredPos = _wrapper.position;
+
+        if (_debugLogging)
+            Debug.Log(LOG + " Promote root: beforeY=" + root.position.y.ToString("F3") + " -> afterY=" + desiredPos.y.ToString("F3"));
+
+        root.position = desiredPos; // å¿…è¦ãªã‚‰Yã ã‘ã«ã—ã¦ã‚‚OK
+        _wrapper.localPosition = Vector3.zero;
+        _wrapper.localRotation = Quaternion.identity;
+    }
+
+    // ===== è¨ºæ–­ =====
+    private IEnumerator TraceAfterClimb(float seconds)
+    {
+        Transform root = _wrapper ? _wrapper.parent : null;
+        Transform child = _playerAnimator ? _playerAnimator.transform : null;
+
+        float endTime = Time.time + Mathf.Max(0.1f, seconds);
+        float prevRootY = root ? root.position.y : 0f;
+        float prevWrapY = _wrapper ? _wrapper.position.y : 0f;
+        float prevChildY = child ? child.position.y : 0f;
+
+        _rootYLockForTrace = float.NaN;
+        if (_lockRootYForTraceWindow && root != null)
+            _rootYLockForTrace = root.position.y;
+
+        DumpRootStack("TraceBegin");
+
+        while (Time.time < endTime)
+        {
+            string extra = "";
+            if (root != null)
+            {
+                Rigidbody rb = root.GetComponent<Rigidbody>();
+                CharacterController cc = root.GetComponent<CharacterController>();
+                UnityEngine.AI.NavMeshAgent nma = root.GetComponent<UnityEngine.AI.NavMeshAgent>();
+
+                if (rb != null)
+                {
+                    extra += " RB[kin=" + rb.isKinematic + ",grav=" + rb.useGravity + ",velY=" + rb.linearVelocity.y.ToString("F3") + "]";
+                }
+                if (cc != null)
+                {
+                    extra += " CC[grounded=" + cc.isGrounded + "]";
+                }
+                if (nma != null)
+                {
+                    extra += " NMA[enabled=" + nma.enabled + ",updatePos=" + nma.updatePosition + "]";
+                }
+            }
+
+            float rootY = root ? root.position.y : float.NaN;
+            float wrapY = _wrapper ? _wrapper.position.y : float.NaN;
+            float childY = child ? child.position.y : float.NaN;
+
+            float dRoot = rootY - prevRootY;
+            float dWrap = wrapY - prevWrapY;
+            float dChild = childY - prevChildY;
+
+            Debug.Log(
+                LOG + " TRACE f#" + Time.frameCount +
+                " RM=" + _playerAnimator.applyRootMotion +
+                " climbing=" + _isClimbing +
+                " | rootY=" + rootY.ToString("F3") + " (d" + dRoot.ToString("+0.000;-0.000") + ")" +
+                " wrapY=" + wrapY.ToString("F3") + " (d" + dWrap.ToString("+0.000;-0.000") + ")" +
+                " childY=" + childY.ToString("F3") + " (d" + dChild.ToString("+0.000;-0.000") + ")" +
+                extra
+            );
+
+            prevRootY = rootY; prevWrapY = wrapY; prevChildY = childY;
+            yield return null;
+        }
+
+        if (_lockRootYForTraceWindow) _rootYLockForTrace = float.NaN;
+        DumpRootStack("TraceEnd");
+    }
+
+    private void DumpRootStack(string tag)
+    {
+        Transform root = _wrapper ? _wrapper.parent : null;
+        Rigidbody rb = root ? root.GetComponent<Rigidbody>() : null;
+        CharacterController cc = root ? root.GetComponent<CharacterController>() : null;
+        UnityEngine.AI.NavMeshAgent nma = root ? root.GetComponent<UnityEngine.AI.NavMeshAgent>() : null;
+
+        string msg =
+            LOG + " [" + tag + "] " +
+            "root=" + (root != null ? root.name : "null") +
+            " y=" + (root != null ? root.position.y.ToString("F3") : "NaN") +
+            " wrapY=" + (_wrapper != null ? _wrapper.position.y.ToString("F3") : "NaN") +
+            " childY=" + (_playerAnimator != null ? _playerAnimator.transform.position.y.ToString("F3") : "NaN") +
+            " | RB=" + (rb != null ? "yes" : "no") +
+            " CC=" + (cc != null ? "yes" : "no") +
+            " NMA=" + (nma != null ? "yes" : "no");
+
+        Debug.Log(msg);
+    }
+
+    // ãƒ‡ãƒãƒƒã‚°Rayå¯è¦–åŒ–ï¼ˆå¸¸æ™‚OKï¼šãƒ—ãƒªãƒ—ãƒ­ã‚»ãƒƒã‚µã‚’ä½¿ã‚ãªã„ï¼‰
     private void OnDrawGizmosSelected()
     {
-        if (_rayOrigin != null)
-        {
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawRay(_rayOrigin.position, _rayOrigin.forward * _pushDistance);
-        }
+        if (_rayOrigin == null) return;
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawRay(_rayOrigin.position, _rayOrigin.forward * _pushDistance);
     }
 }

@@ -8,12 +8,15 @@ public class ForceBoneScale : MonoBehaviour
     public bool includeChildren = true;
 
     [Tooltip("Animatorのあるルートより下だけを固定します")]
-    public Transform root; // 空ならGetComponent<Animator>().transform
+    public Transform root; // 空なら Animator の Transform
+
+    [Header("Animator Ref (任意)")]
+    [SerializeField] private Animator animatorOverride; // 子/親にある場合のため
 
     // ── Y制御 ───────────────────────────────────────────
     [Header("Yをアニメから使う条件")]
-    public string allowYStateTag = "Climb";
-    public string allowYBoolParam = "";
+    public string allowYStateTag = "Climb";  // ステートTag名
+    public string allowYBoolParam = "IsClimbing"; // Bool名（空でも可）
     public int layerIndex = 0;
 
     [Header("挙動オプション")]
@@ -49,6 +52,23 @@ public class ForceBoneScale : MonoBehaviour
     public bool logOnValidate = true;
     public bool drawGizmos = true;
 
+    // ===== 追加: 外部から“登り中扱い”を強制する保険（任意） =====
+    [Header("Manual Override (任意)")]
+    [SerializeField] private bool forceClimbOverride = false;
+    public void SetClimbOverride(bool on)
+    {
+        forceClimbOverride = on;
+        if (verboseLog) Debug.Log($"[FBS] SetClimbOverride => {on}");
+    }
+
+    // ===== 追加: 登り終了で自動Rebase & 1～2フレーム猶予 =====
+    [Header("Climb End Handling")]
+    [Tooltip("登り終了時に足基準を現在の高さへ取り直す")]
+    public bool rebaseOnClimbEnd = true;
+    [Tooltip("Rebase直後にロック処理をスキップするフレーム数")]
+    public int bypassFramesAfterRebase = 2;
+
+    // ── 内部状態 ───────────────────────────────────────
     Dictionary<Transform, Vector3> _initialScales;
     Animator _anim;
     int _allowYBoolHash;
@@ -63,6 +83,9 @@ public class ForceBoneScale : MonoBehaviour
 
     // 基準Y（Y固定用）
     float _frozenY;
+
+    // 追加: バイパス用カウンタ
+    int _bypassCounter = 0;
 
     void OnValidate()
     {
@@ -79,7 +102,11 @@ public class ForceBoneScale : MonoBehaviour
 
     void Awake()
     {
-        _anim = GetComponent<Animator>();
+        // 子→自分→親の順で確実にAnimator取得
+        _anim = animatorOverride
+                ? animatorOverride
+                : (GetComponentInChildren<Animator>(true) ?? GetComponent<Animator>() ?? GetComponentInParent<Animator>());
+
         if (root == null) root = _anim ? _anim.transform : transform;
 
         _initialScales = new Dictionary<Transform, Vector3>(128);
@@ -111,26 +138,46 @@ public class ForceBoneScale : MonoBehaviour
 
         if (verboseLog)
         {
-            Debug.Log($"[FBS] Awake: initY={_frozenY:F3}, applyRootMotion={(_anim ? _anim.applyRootMotion : false)}, isHuman={(_anim && _anim.isHuman)} generic={genericMode}");
+            var animName = _anim ? _anim.name : "null";
+            Debug.Log($"[FBS] Awake: Animator='{animName}' initY={_frozenY:F3} applyRootMotion={(_anim ? _anim.applyRootMotion : false)}, isHuman={(_anim && _anim.isHuman)} generic={genericMode}");
             DumpFootRefs("Awake");
         }
     }
 
     void Update()
     {
-        // Y許可判定
+        // Y許可判定（＝登り中フラグ）
         bool byTag = false;
         if (_anim && !string.IsNullOrEmpty(allowYStateTag))
         {
-            int tag = Animator.StringToHash(allowYStateTag);
             var st = _anim.GetCurrentAnimatorStateInfo(layerIndex);
             var nst = _anim.GetNextAnimatorStateInfo(layerIndex);
-            byTag = (st.tagHash == tag) || (_anim.IsInTransition(layerIndex) && nst.tagHash == tag);
+            byTag = st.IsTag(allowYStateTag) || (_anim.IsInTransition(layerIndex) && nst.IsTag(allowYStateTag));
         }
         bool byBool = (!string.IsNullOrEmpty(allowYBoolParam) && _anim) ? _anim.GetBool(_allowYBoolHash) : false;
 
         _allowYPrev = _allowYNow;
-        _allowYNow = byTag || byBool;
+        _allowYNow = forceClimbOverride || byTag || byBool;
+
+        // ▼ 追加：下降エッジで自動Rebase＋バイパス付与
+        if (_allowYPrev && !_allowYNow)
+        {
+            if (rebaseOnClimbEnd)
+            {
+                RebaseFeetGround("ClimbEnd");
+            }
+            _bypassCounter = Mathf.Max(0, bypassFramesAfterRebase);
+            if (verboseLog) Debug.Log($"[FBS] Climb END → Rebase & bypass {_bypassCounter}f");
+        }
+
+        if (verboseLog && _allowYPrev != _allowYNow)
+        {
+            string reason = forceClimbOverride ? "forceOverride"
+                             : byBool ? $"Bool:{allowYBoolParam}=true"
+                             : byTag ? $"Tag:{allowYStateTag}"
+                             : "none";
+            Debug.Log($"[FBS] ClimbFlag changed => now={_allowYNow} (reason={reason}) layer={layerIndex}");
+        }
     }
 
     void OnAnimatorMove()
@@ -139,9 +186,9 @@ public class ForceBoneScale : MonoBehaviour
 
         Vector3 before = transform.position;
 
-        // RootMotion位置
+        // RootMotion位置（登り中のみYも通す）
         Vector3 d = _anim.deltaPosition;
-        if (!_allowYNow) d.y = 0f; // 許可されてない間はここでY無効化
+        if (!_allowYNow) d.y = 0f;
 
         Vector3 next = before + d;
 
@@ -149,7 +196,6 @@ public class ForceBoneScale : MonoBehaviour
         float pushRM = 0f;
         if (_hasGroundBase)
             pushRM = RequiredPushUpToKeepFeetAboveGround(next.y);
-
         if (pushRM > 0f) next.y += pushRM;
 
         // 許可中でも“下方向”は無視（任意）
@@ -174,36 +220,45 @@ public class ForceBoneScale : MonoBehaviour
         // スケール固定（常時）
         foreach (var kv in _initialScales) kv.Key.localScale = kv.Value;
 
-        // ▼▼ ここを“常に一致（上下補正）”に変更 ▼▼
+        // 登り中はロック解除（補正スキップ）
+        if (_allowYNow)
+        {
+            LogFrame("LateUpdate", before, transform.position, Vector3.zero, 0f, note: "BypassWhileClimb");
+            return;
+        }
+
+        // Rebase直後の数フレームはスキップ（戻り抑止）
+        if (_bypassCounter > 0)
+        {
+            _bypassCounter--;
+            if (verboseLog) Debug.Log($"[FBS] Bypass after rebase... {_bypassCounter}f left");
+            return;
+        }
+
+        // 既存の“常に一致（上下補正）”
         float pushLate = 0f;
         if (_hasGroundBase && TryGetFootYs(out float yL, out float yR, out _))
         {
-            float feetY = PickFeetY(yL, yR);               // 現在の足底高さ
-            float want = _feetGroundY;                      // 目標（Rebase＋オフセット＋マージン済み）
-            float diff = want - feetY;                      // 上下どちらも補正
+            float feetY = PickFeetY(yL, yR); // 現在の足底高さ
+            float want = _feetGroundY;      // 目標（Rebase＋オフセット＋マージン）
+            float diff = want - feetY;      // 上下どちらも補正
 
             if (Mathf.Abs(diff) > 1e-6f)
             {
                 var p = transform.position;
-                p.y += diff;                                // 浮いていれば下げる／沈んでいれば上げる
+                p.y += diff;                 // 浮いていれば下げる／沈んでいれば上げる
                 transform.position = p;
-                pushLate = diff;                            // ログ用（符号付き）
+                pushLate = diff;
             }
 
-            // 以降の“基準Y”は、上げたときだけ引き上げ（下げ補正は基準を下げない）
             if (diff > 0f) _frozenY = Mathf.Max(_frozenY, transform.position.y);
         }
         else
         {
-            // Feet基準が無い場合のみ、従来の「不許可中は下方向抑止」を残す
-            if (!_allowYNow)
-            {
-                var p = transform.position;
-                p.y = Mathf.Max(p.y, _frozenY);
-                transform.position = p;
-            }
+            var p = transform.position;
+            p.y = Mathf.Max(p.y, _frozenY);
+            transform.position = p;
         }
-        // ▲▲ ここまで“常に一致” ▲▲
 
         LogFrame("LateUpdate", before, transform.position, Vector3.zero, pushLate, note: Mathf.Abs(pushLate) > 0f ? "HardLock" : null);
     }
@@ -259,12 +314,12 @@ public class ForceBoneScale : MonoBehaviour
 
         if (verboseLog)
         {
-            Debug.Log($"[FBS] Rebased Feet-Ground ({reason}) baseFootY={baseY:F4} feetGroundY={_feetGroundY:F4} offset={footBaseOffset:F3} safety={safetyMargin:F3} mode={groundMode}");
+            Debug.Log($"[FBS] Rebased Feet-Ground ({reason}) feetGroundY={_feetGroundY:F4}");
             DumpFootRefs("Rebase");
         }
     }
 
-    // 足が“地面”より下に行かないために必要な押し上げ量を返す（RM用）
+    // 足が“地面”より下に行かないために必要な押し上げ量（RM用）
     float RequiredPushUpToKeepFeetAboveGround(float nextY)
     {
         var lf = GetLeftFoot();
@@ -278,14 +333,12 @@ public class ForceBoneScale : MonoBehaviour
         if (rf) needR = _feetGroundY - (rf.position.y + rootDelta);
 
         float need = Mathf.Max(needL, needR, 0f);
-
         if (logEveryFrame && (!logOnlyWhenClamped || need > 0f))
         {
             string lfName = lf ? lf.name : "null";
             string rfName = rf ? rf.name : "null";
             Debug.Log($"[FBS][PushCalc] nextY={nextY:F4} rootDelta={rootDelta:F4} feetGroundY={_feetGroundY:F4}  L({lfName})Now={SafeY(lf):F4} needL={needL:F4}  R({rfName})Now={SafeY(rf):F4} needR={needR:F4}  -> need={need:F4}");
         }
-
         return need > 0f ? need : 0f;
     }
 
@@ -357,7 +410,7 @@ public class ForceBoneScale : MonoBehaviour
         var rf = GetRightFoot();
         string lfLabel = lf ? lf.name : "null";
         string rfLabel = rf ? rf.name : "null";
-        Debug.Log($"[FBS][{where}][Refs] {name} LF={lfLabel} y={SafeY(lf):F4}  RF={rfLabel} y={SafeY(rf):F4}  feetGroundY={_feetGroundY:F4} hasBase={_hasGroundBase} frozenY={_frozenY:F4}");
+        Debug.Log($"[FBS][{where}][Refs] {name} LF={lfLabel} y={SafeY(lf):F4}  RF({rfLabel}) y={SafeY(rf):F4}  feetGroundY={_feetGroundY:F4} hasBase={_hasGroundBase} frozenY={_frozenY:F4}");
     }
 
     void LogFrame(string phase, Vector3 before, Vector3 after, Vector3 deltaRM, float push, string note = null)

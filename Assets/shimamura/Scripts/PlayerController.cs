@@ -14,17 +14,6 @@ public class PlayerController : MonoBehaviour
     [SerializeField] TPSCamera tpsCamera;
     [SerializeField] AudioManager audioManager;
 
-    // 競合しうる代表コンポーネント
-    [Header("Optional Components (競合対策)")]
-    [SerializeField] Rigidbody rb;                   // 付いていれば自動参照
-    [SerializeField] CharacterController cc;         // 付いていれば自動参照
-    [Tooltip("地面スナップ/RootDown系など。ここに入れたBehaviourは登り中に無効化")]
-    [SerializeField] Behaviour[] groundSnapScripts;
-
-    [Header("Ground Snap Permanent Off")]
-    [Tooltip("ONなら groundSnapScripts を常時OFF（登り終了でも復帰しない）")]
-    [SerializeField] bool disableGroundSnapAlways = true;
-
     // ===== Move =====
     [Header("Speed")]
     [SerializeField] float MoveSpeed = 5f;
@@ -38,11 +27,11 @@ public class PlayerController : MonoBehaviour
     [SerializeField] float stopGrace = 0.08f;
 
     [Header("Motion Split")]
-    [SerializeField, Min(0.01f)] float maxStep = 0.2f;
+    [SerializeField, Min(0.01f)] float maxStep = 0.2f; // 1サブステップ最大距離
 
     // ===== Collision (Overlap) =====
     [Header("Overlap Block (Furnitureのみ)")]
-    [SerializeField] LayerMask furnitureMask;
+    [SerializeField] LayerMask furnitureMask;     // ドア/壁/家具のレイヤーだけ触れるように
     [SerializeField] bool lockY = true;
 
     [Header("Capsule (fallback)")]
@@ -51,84 +40,37 @@ public class PlayerController : MonoBehaviour
     [SerializeField] Vector3 capsuleCenter = new Vector3(0f, 0.9f, 0f);
 
     [Header("Overlap Tweaks")]
+    [Tooltip("Overlap判定用に半径をわずかに細く。0〜0.005 推奨")]
     [SerializeField] float overlapShrink = 0.002f;
+    [Tooltip("頭/足の誤反応を減らすため上下を少し削る")]
     [SerializeField] float topTrim = 0.02f, bottomTrim = 0.08f;
 
     // ===== Sweep/Slide =====
     [Header("Sweep/Slide")]
-    [SerializeField] float skin = 0.01f;
-    [SerializeField, Range(0f, 1f)] float slideFactor = 1.0f;
+    [SerializeField] float skin = 0.01f;                       // 壁手前で止める余白
+    [SerializeField, Range(0f, 1f)] float slideFactor = 1.0f;  // 残り距離に対するスライド反映率
 
-    // ===== Turn / Micro =====
+    // ===== 切り返し/微小移動対策 =====
     [Header("Turn / Micro-move")]
+    [Tooltip("右↔左や前↔後の“符号反転フレーム”はスライドを無効化")]
     [SerializeField] bool disableSlideOnFlip = true;
+    [Tooltip("フレーム移動量がこの値未満なら位置を元に戻す")]
     [SerializeField] float microMoveEps = 0.0025f;
+    [Tooltip("衝突で移動できなくても入力があれば回頭だけは行う")]
     [SerializeField] bool rotateEvenIfBlocked = true;
 
-    // ===== Rotation =====
+    // ===== 回頭スムージング =====
     [Header("Rotation (Turn Smoothing)")]
+    [Tooltip("1秒に何度回れるか（360〜900あたりで調整）")]
     [SerializeField] float turnSpeedDeg = 540f;
 
-    // ===== 椅子登り（アニメ主導） =====
-    [Header("Chair Climb (Animator)")]
-    [SerializeField] bool useRootMotionOnClimb = true;
-    [SerializeField] bool rotateWhileClimb = false;
-    [SerializeField] string ClimbBoolName = "IsClimbing";
-    [SerializeField] string ClimbTag = "Climb";
+    // ===== Block Logging =====
+    [Header("Block Logging")]
+    [SerializeField] bool logBlockObjects = false;
+    [SerializeField, Min(1)] int blockLogEveryNFrames = 10;
 
-    // ゴール高さの決定
-    [Header("Climb Height (Inspector)")]
-    [SerializeField] bool preferSeatTopChild = true;
-    [SerializeField] string seatTopChildName = "SeatTop";
-    [SerializeField, Min(0f)] float seatLiftOffsetY = 0.25f;
-    [SerializeField] float extraLiftY = 0f;
-
-    // 上がり方（時間制御）
-    [Header("Chair Lift Timing")]
-    [SerializeField] bool liftByNormalizedTime = false;        // false=秒, true=normalizedTime
-    [SerializeField, Min(0f)] float liftDelaySec = 0.20f;
-    [SerializeField, Min(0.01f)] float liftDurationSec = 0.45f;
-    [SerializeField, Range(0f, 1f)] float liftStartNT = 0.20f;
-    [SerializeField, Range(0f, 1f)] float liftEndNT = 0.80f;
-    [SerializeField] AnimationCurve liftCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
-
-    // フレーム最後でYを確定（他処理に勝つ）
-    [Header("Y Override (競合対策)")]
-    [SerializeField] bool forceYInLateUpdate = true;
-    private bool _hadYOverride = false;
-    private float _yOverride = 0f;
-
-    // ===== ランタイム（登り） =====
-    private bool _isChairClimbing = false;
-    private bool _lockYBeforeClimb = true;
-    private float _targetTopY = 0f;
-    private float _liftStartY;
-    private float _liftStartTime;
-    private bool _liftActive;
-
-    // 競合対策：元の状態
-    bool _rbHad; bool _rbKinematic; bool _rbGravity;
-    bool _ccHad; bool _ccEnabled;
-    (Behaviour b, bool enabled)[] _snapCache;
-
-    // ===== Debug =====
-    [Header("Debug (Climb)")]
-    [SerializeField] bool verboseClimbLogs = true;
-    [SerializeField] bool drawLiftRay = true;
-    int _climbFrame = 0;
-    int _zeroYDeltaFrames = 0;
-    float _lastYForStuckCheck = float.NaN;
-
-    void V(string msg, Object ctx = null)
-    {
-        if (!verboseClimbLogs) return;
-        if (ctx) Debug.Log($"[Climb] {msg}", ctx);
-        else Debug.Log($"[Climb] {msg}");
-    }
-    void W(string msg) { if (verboseClimbLogs) Debug.LogWarning($"[Climb] {msg}"); }
-
-    // ===== Move state =====
-    private int _dominantAxis = 0;
+    // ===== State =====
+    private int _dominantAxis = 0; // 0=未, 1=X, 2=Y
     private float _noInputTimer = 0f;
     private bool _prevDash = false;
     private bool _footLoopOn = false;
@@ -136,240 +78,38 @@ public class PlayerController : MonoBehaviour
     private Quaternion _lockedRot;
     private float _fixedY;
     private CapsuleCollider _cap;
+
+    // 入力方向の符号記録（反転検出用）
     private int _lastSignX = 0, _lastSignY = 0;
 
-    // 公開
+    // 公開（他スクリプト互換）
     [System.Serializable] public class DashEvent : UnityEngine.Events.UnityEvent { }
     public bool IsMovingNow { get; private set; }
     public bool IsDashingNow { get; private set; }
     public bool IsSlowWalkingNow { get; private set; }
-    public bool IsChairClimbing => _isChairClimbing;
     public DashEvent OnDashStart = new DashEvent();
     public DashEvent OnDashEnd = new DashEvent();
+
+    // temp buffers
+    private static readonly Collider[] _overlapBuf = new Collider[16];
 
     void Awake()
     {
         Input = new InputSystem_Actions();
         _cap = GetComponent<CapsuleCollider>();
-        if (!rb) rb = GetComponent<Rigidbody>();
-        if (!cc) cc = GetComponent<CharacterController>();
     }
-
     void OnEnable()
     {
         Input.Player.Enable();
         _lockedPos = transform.position;
         _lockedRot = transform.rotation;
         _fixedY = transform.position.y;
-
-        if (disableGroundSnapAlways && groundSnapScripts != null)
-        {
-            foreach (var b in groundSnapScripts)
-                if (b) b.enabled = false;
-            V("GroundSnapScripts are PERMANENTLY disabled (by inspector).");
-        }
     }
     void OnDisable() => Input.Player.Disable();
 
-    // ===== 椅子登り API =====
-    public void BeginChairClimbFromCollider(Collider col)
-    {
-        float targetTopY = ResolveTargetTopY(col);
-        BeginChairClimb(targetTopY);
-    }
-
-    public void BeginChairClimb(float targetTopY)
-    {
-        if (_isChairClimbing) return;
-        _isChairClimbing = true;
-
-        _climbFrame = 0;
-        _zeroYDeltaFrames = 0;
-        _lastYForStuckCheck = transform.position.y;
-
-        _lockYBeforeClimb = lockY;
-        lockY = false;
-
-        _targetTopY = targetTopY;
-        _liftStartY = transform.position.y;
-        _liftStartTime = Time.time;
-        _liftActive = true;
-
-        EnterClimb_DisableConflicts();
-
-        if (animator)
-        {
-            animator.applyRootMotion = useRootMotionOnClimb;
-            if (!string.IsNullOrEmpty(ClimbBoolName))
-                animator.SetBool(ClimbBoolName, true);
-        }
-
-        ToggleFootLoop(false);
-        _prevDash = false;
-        IsMovingNow = IsDashingNow = IsSlowWalkingNow = false;
-
-        V($"Begin | posY={transform.position.y:0.000} -> targetTopY={targetTopY:0.000}, applyRM={animator?.applyRootMotion}");
-        if (animator)
-        {
-            var infos0 = animator.GetCurrentAnimatorClipInfo(0);
-            if (infos0 != null && infos0.Length > 0)
-            {
-                var clip = infos0[0].clip;
-                V($"BaseClip={clip.name}, hasRootCurves={clip.hasRootCurves}, avgSpeed={clip.averageSpeed}, apparentSpeed={clip.apparentSpeed}");
-            }
-            V($"hasRootMotion={animator.hasRootMotion}, culling={animator.cullingMode}, updateMode={animator.updateMode}");
-        }
-
-        // 競合候補の現状態
-        if (rb) V($"RB kinematic={rb.isKinematic} gravity={rb.useGravity}");
-        if (cc) V($"CC enabled={cc.enabled}");
-        if (groundSnapScripts != null && groundSnapScripts.Length > 0)
-        {
-            for (int i = 0; i < groundSnapScripts.Length; i++)
-                V($"Snap[{i}] name={groundSnapScripts[i]?.GetType().Name} enabled={groundSnapScripts[i]?.enabled}");
-        }
-    }
-
-    public void EndChairClimb()
-    {
-        if (animator)
-        {
-            if (!string.IsNullOrEmpty(ClimbBoolName))
-                animator.SetBool(ClimbBoolName, false);
-            animator.applyRootMotion = false;
-        }
-
-        lockY = _lockYBeforeClimb;
-        _fixedY = transform.position.y;
-
-        _liftActive = false;
-        _isChairClimbing = false;
-
-        ExitClimb_RestoreConflicts();
-
-        V($"End | finalY={_fixedY:0.000} lockY restored={lockY}");
-    }
-
-    // ===== RootMotion適用（XZはスイープ、Yは後で上書き） =====
-    void OnAnimatorMove()
-    {
-        if (!(_isChairClimbing && animator && animator.applyRootMotion)) return;
-
-        _climbFrame++;
-
-        Vector3 delta = animator.deltaPosition;
-        Quaternion dRot = animator.deltaRotation;
-
-        // 参考：そのままYも一度適用（後で上書き）
-        float beforeY = transform.position.y;
-        transform.position += new Vector3(0f, delta.y, 0f);
-
-        // XZはスイープ
-        Vector3 startPos = transform.position;
-        Vector3 targetPos = startPos + new Vector3(delta.x, 0f, delta.z);
-        if (!TrySweepTo(startPos, targetPos, out Vector3 stopPos, out RaycastHit hit))
-        {
-            transform.position = stopPos;
-        }
-        else
-        {
-            transform.position = targetPos;
-        }
-        transform.rotation *= dRot;
-
-        if (_climbFrame <= 3 || _climbFrame % 15 == 0)
-            V($"FM#{_climbFrame:000} | delta={delta} (appliedY {beforeY:0.000}->{transform.position.y:0.000})");
-    }
-
-    // ===== 毎フレーム：Y補間＋詳細ログ =====
     void Update()
     {
-        if (_isChairClimbing && animator)
-        {
-            var st = animator.GetCurrentAnimatorStateInfo(0);
-
-            float curY = transform.position.y;
-
-            if (_liftActive)
-            {
-                float t01;
-                float elapsed = Time.time - _liftStartTime;
-
-                if (!liftByNormalizedTime)
-                {
-                    float eff = Mathf.Max(0f, elapsed - liftDelaySec);
-                    t01 = Mathf.Clamp01(eff / Mathf.Max(0.0001f, liftDurationSec));
-                }
-                else
-                {
-                    float nt = st.normalizedTime;
-                    float nt0 = Mathf.Min(liftStartNT, liftEndNT);
-                    float nt1 = Mathf.Max(liftStartNT, liftEndNT);
-                    t01 = Mathf.Clamp01(Mathf.InverseLerp(nt0, nt1, nt));
-                }
-
-                float curve = liftCurve.Evaluate(t01);
-                float y = Mathf.Lerp(_liftStartY, _targetTopY, curve);
-
-                // 位置反映
-                var p = transform.position;
-                transform.position = new Vector3(p.x, y, p.z);
-                _hadYOverride = true;
-                _yOverride = y;
-
-                // ログ（詳細）
-                if (_climbFrame % 5 == 0)
-                {
-                    V($"Y-Lift t={t01:0.00} curve={curve:0.00} curY(before)={curY:0.000} -> setY={y:0.000}  target={_targetTopY:0.000}  normTime={st.normalizedTime:0.00} tag={st.IsTag(ClimbTag)} RM={animator.applyRootMotion}");
-                }
-
-                // スタック検出（Yが増えない/変わらない）
-                if (float.IsNaN(_lastYForStuckCheck)) _lastYForStuckCheck = y;
-                float dy = Mathf.Abs(y - _lastYForStuckCheck);
-                if (dy < 1e-4f) _zeroYDeltaFrames++; else { _zeroYDeltaFrames = 0; _lastYForStuckCheck = y; }
-
-                if (_zeroYDeltaFrames >= 3)
-                {
-                    W($"Y not changing for {_zeroYDeltaFrames} frames (y≈{y:0.000}). Something is writing Y after Update(). Check: CC({(cc ? cc.enabled : false)}), RB(kine={(rb ? rb.isKinematic : false)},grav={(rb ? rb.useGravity : false)}), SnapCount={groundSnapScripts?.Length ?? 0}, LateUpdate保険={forceYInLateUpdate}");
-                }
-
-                if (t01 >= 1f) _liftActive = false;
-            }
-
-            if (drawLiftRay)
-            {
-                Debug.DrawLine(transform.position, transform.position + Vector3.up * 0.6f, Color.cyan, 0f, false);
-            }
-
-            if (rotateWhileClimb)
-            {
-                Vector2 moveRawTmp = Input.Player.Move.ReadValue<Vector2>();
-                Vector2 moveSnapTmp = SnapOneAxis(moveRawTmp);
-                if (moveSnapTmp.sqrMagnitude > 0f)
-                {
-                    float yawClimb = GetYaw();
-                    Quaternion yawRotClimb = Quaternion.Euler(0f, yawClimb, 0f);
-                    Vector3 dirClimb = (yawRotClimb * new Vector3(moveSnapTmp.x, 0f, moveSnapTmp.y)).normalized;
-                    if (dirClimb.sqrMagnitude > 1e-6f)
-                    {
-                        Quaternion targetRotClimb = Quaternion.LookRotation(dirClimb, Vector3.up);
-                        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotClimb, turnSpeedDeg * Time.deltaTime);
-                    }
-                }
-            }
-
-            // ステート終了監視
-            if (st.IsTag(ClimbTag) && st.normalizedTime >= 1.0f)
-            {
-                V("State finished by tag/time. EndChairClimb().");
-                EndChairClimb();
-            }
-
-            ToggleFootLoop(false);
-            return; // 通常移動はスキップ
-        }
-
-        // ===== ここから通常移動（ログは割愛。既存のまま） =====
+        // ===== 入力 =====
         Vector2 moveRaw = Input.Player.Move.ReadValue<Vector2>();
         bool slowHeld = Input.Player.SlowWalk.ReadValue<float>() >= analogPressPoint;
         bool dashHeld = Input.Player.Dash.ReadValue<float>() >= analogPressPoint;
@@ -396,20 +136,24 @@ public class PlayerController : MonoBehaviour
         }
         _noInputTimer = 0f;
 
+        // 符号反転検出
         int signX = (moveSnap.x > 0f) ? 1 : (moveSnap.x < 0f ? -1 : 0);
         int signY = (moveSnap.y > 0f) ? 1 : (moveSnap.y < 0f ? -1 : 0);
         bool flipped = (signX != 0 && _lastSignX != 0 && signX != _lastSignX)
                     || (signY != 0 && _lastSignY != 0 && signY != _lastSignY);
 
+        // 方向
         float yaw = GetYaw();
         Quaternion yawRot = Quaternion.Euler(0f, yaw, 0f);
         Vector3 moveDir = (yawRot * new Vector3(moveSnap.x, 0f, moveSnap.y)).normalized;
 
+        // 速度
         bool isBackward = moveSnap.y < 0f;
         float speed = slowHeld ? SlowSpeed : (dashHeld && !isBackward ? DashSpeed : MoveSpeed);
         bool isDashing = (!slowHeld && dashHeld && !isBackward);
 
-        Vector3 frameStart = transform.position;
+        // ===== サブステップ移動 =====
+        Vector3 frameStart = transform.position; // 微小移動キャンセル用に保持
         Vector3 desired = moveDir * speed * Time.deltaTime;
         float remain = desired.magnitude;
         bool movedThisFrame = false;
@@ -426,15 +170,27 @@ public class PlayerController : MonoBehaviour
                 Vector3 targetPos = startPos + dir * stepLen;
                 if (lockY) targetPos.y = _fixedY;
 
+                // 1回目：目標へスイープ
                 if (!TrySweepTo(startPos, targetPos, out Vector3 stopPos, out RaycastHit hit))
                 {
+                    // ログ（任意）
+                    if (logBlockObjects && Time.frameCount % blockLogEveryNFrames == 0)
+                    {
+                        Vector3 moveDirLog = (targetPos - startPos).normalized;
+                        LogBlock(stopPos, 1, hit.collider, moveDirLog);
+                    }
+
+                    // 当たった → 止め位置まで進める
                     transform.position = stopPos;
 
+                    // 残り距離（純粋な未到達分のみ）
                     float traveled = (stopPos - startPos).magnitude;
                     float leftover = Mathf.Max(0f, stepLen - traveled);
 
+                    // 方向反転フレームはスライド無効化
                     if (disableSlideOnFlip && flipped) leftover = 0f;
 
+                    // 残りを壁面へ投影して二度目のスイープ（壁沿いスライド）
                     if (leftover > 1e-5f)
                     {
                         Vector3 n = hit.normal;
@@ -444,6 +200,7 @@ public class PlayerController : MonoBehaviour
                             Vector3 slideTarget = stopPos + slideDir * (leftover * slideFactor);
                             if (lockY) slideTarget.y = _fixedY;
 
+                            // 2回目
                             TrySweepTo(stopPos, slideTarget, out Vector3 slidPos, out _);
                             if ((slidPos - stopPos).sqrMagnitude > 1e-8f)
                             {
@@ -455,12 +212,14 @@ public class PlayerController : MonoBehaviour
                 }
                 else
                 {
+                    // 当たらず到達
                     transform.position = stopPos;
                     movedThisFrame = true;
                 }
             }
         }
 
+        // 微小移動カット（視覚的“ピクッ”抑止）
         float frameMoved = (transform.position - frameStart).magnitude;
         if (frameMoved < microMoveEps)
         {
@@ -468,6 +227,7 @@ public class PlayerController : MonoBehaviour
             movedThisFrame = false;
         }
 
+        // ===== スムーズ回頭（RotateTowards） =====
         bool canRotateThisFrame = !isBackward && (movedThisFrame || rotateEvenIfBlocked);
         if (canRotateThisFrame && moveDir.sqrMagnitude > 1e-6f)
         {
@@ -479,16 +239,19 @@ public class PlayerController : MonoBehaviour
             );
         }
 
+        // lock & anim
         _lockedPos = transform.position;
         _lockedRot = transform.rotation;
 
         if (animator)
         {
+            // 衝突で実際は動けなくても、入力がある限りIdleに戻さない
             animator.SetBool("IsMoving", hasInput);
             animator.SetBool("IsDashing", hasInput && isDashing && movedThisFrame);
             animator.SetBool("IsSlowWalking", slowHeld);
         }
 
+        // 公開状態
         IsMovingNow = movedThisFrame;
         IsDashingNow = movedThisFrame && isDashing;
         IsSlowWalkingNow = slowHeld;
@@ -496,43 +259,13 @@ public class PlayerController : MonoBehaviour
         if (!IsDashingNow && _prevDash) OnDashEnd.Invoke();
         _prevDash = IsDashingNow;
 
-        ToggleFootLoop(movedThisFrame);
+        ToggleFootLoop(movedThisFrame); // 壁押し中は足音オフ
+
+        // 符号の記録
         _lastSignX = signX; _lastSignY = signY;
     }
 
-    // ===== フレーム末尾：Yを確定 =====
-    void LateUpdate()
-    {
-        if (forceYInLateUpdate && _isChairClimbing && _hadYOverride)
-        {
-            var p = transform.position;
-            transform.position = new Vector3(p.x, _yOverride, p.z);
-            V($"LateFix Y => {_yOverride:0.000}");
-        }
-        _hadYOverride = false;
-    }
-
-    // ===== 目標高さの解決 =====
-    float ResolveTargetTopY(Collider col)
-    {
-        float baseY;
-
-        if (preferSeatTopChild && col != null)
-        {
-            var t = col.transform.Find(seatTopChildName);
-            if (t != null)
-            {
-                baseY = t.position.y;
-                return baseY + seatLiftOffsetY + extraLiftY;
-            }
-        }
-
-        Bounds b = col.bounds;
-        baseY = b.max.y; // 上端
-        return baseY + seatLiftOffsetY + extraLiftY;
-    }
-
-    // ===== 小物ユーティリティ =====
+    // --- 1方向限定（上下左右どちらか一方のみ通す）
     Vector2 SnapOneAxis(Vector2 raw)
     {
         float ax = Mathf.Abs(raw.x), ay = Mathf.Abs(raw.y);
@@ -559,6 +292,38 @@ public class PlayerController : MonoBehaviour
         else if (!on && _footLoopOn) { audioManager.StopFootstepLoop(); _footLoopOn = false; }
     }
 
+    // --- ログ
+    void LogBlock(Vector3 nextPos, int hitCount, Collider first, Vector3 moveDir)
+    {
+        if (!first) return;
+        string layer = LayerMask.LayerToName(first.gameObject.layer);
+        float approxDist = ApproxPenetration(nextPos, first);
+        Debug.Log(
+            $"[Block] 停止: \"{first.name}\" (Layer={layer}) hits={hitCount} approxPenetration={approxDist:0.000}m dir=({moveDir.x:0.00},{moveDir.z:0.00})",
+            first
+        );
+    }
+
+    float ApproxPenetration(Vector3 nextPos, Collider other)
+    {
+        if (_cap != null)
+        {
+            Vector3 posA = nextPos;
+            Quaternion rotA = transform.rotation;
+            Vector3 direction; float distance;
+            if (Physics.ComputePenetration(
+                    _cap, posA, rotA,
+                    other, other.transform.position, other.transform.rotation,
+                    out direction, out distance))
+            {
+                return distance; // 離すのに必要な距離
+            }
+        }
+        Vector3 p = other.ClosestPoint(nextPos);
+        return Mathf.Max(0f, (nextPos - p).magnitude);
+    }
+
+    // --- カプセル形状（現在位置）
     void GetCapsuleWorld(out Vector3 p1, out Vector3 p2, out float r)
     {
         var s = transform.lossyScale;
@@ -585,6 +350,7 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    // --- 経路スイープ（CapsuleCast）
     bool TrySweepTo(Vector3 fromPos, Vector3 toPos, out Vector3 hitStopPos, out RaycastHit hitInfo)
     {
         hitInfo = default;
@@ -604,66 +370,9 @@ public class PlayerController : MonoBehaviour
             float stopDist = Mathf.Max(0f, hit.distance - skin);
             hitStopPos = fromPos + dir * stopDist;
             hitInfo = hit;
-            return false;
+            return false; // 途中で止まった
         }
 
-        return true;
-    }
-
-    // ===== 競合対策 入退場 =====
-    void EnterClimb_DisableConflicts()
-    {
-        if (rb)
-        {
-            _rbHad = true;
-            _rbKinematic = rb.isKinematic;
-            _rbGravity = rb.useGravity;
-            rb.isKinematic = true;
-            rb.useGravity = false;
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
-        }
-        else _rbHad = false;
-
-        if (cc)
-        {
-            _ccHad = true;
-            _ccEnabled = cc.enabled;
-            cc.enabled = false;
-        }
-        else _ccHad = false;
-
-        if (!disableGroundSnapAlways && groundSnapScripts != null && groundSnapScripts.Length > 0)
-        {
-            _snapCache = new (Behaviour, bool)[groundSnapScripts.Length];
-            for (int i = 0; i < groundSnapScripts.Length; i++)
-            {
-                var b = groundSnapScripts[i];
-                if (!b) { _snapCache[i] = (null, false); continue; }
-                _snapCache[i] = (b, b.enabled);
-                b.enabled = false;
-            }
-        }
-        else _snapCache = null;
-    }
-
-    void ExitClimb_RestoreConflicts()
-    {
-        if (_rbHad && rb)
-        {
-            rb.isKinematic = _rbKinematic;
-            rb.useGravity = _rbGravity;
-        }
-        if (_ccHad && cc)
-        {
-            cc.enabled = _ccEnabled;
-        }
-
-        if (!disableGroundSnapAlways && _snapCache != null)
-        {
-            foreach (var (b, en) in _snapCache)
-                if (b) b.enabled = en;
-        }
-        _snapCache = null;
+        return true; // ぶつからず到達
     }
 }
