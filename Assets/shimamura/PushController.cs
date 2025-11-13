@@ -1,4 +1,4 @@
-// PushController.cs (Trace付き 完全版)
+// PushController.cs (Trace付き 完全版 + インスペクタ調整可能な整列版)
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -35,6 +35,13 @@ public class PushController : MonoBehaviour
     [SerializeField] private float _chairTopOffset = 0.25f;
     [SerializeField] private float _yRaiseTime = 0.6f;
     [SerializeField] private float _yRaiseAdd = 0.5f;
+
+    [Header("Climb Align")]
+    [Tooltip("椅子ローカル座標でのプレイヤー待機位置 (x:右, y:上, z:前)")]
+    [SerializeField] private Vector3 _climbLocalOffset = new Vector3(0f, 0f, -0.5f);
+
+    [Tooltip("椅子の向きに対するプレイヤーのヨー角オフセット (deg)")]
+    [SerializeField] private float _climbYawOffsetDeg = 0f;
 
     [Header("Hold After Climb")]
     [SerializeField] private float _holdAfterClimbSec = 2.0f;
@@ -352,7 +359,7 @@ public class PushController : MonoBehaviour
         _toggleLatched = true;
         _nextAcceptTime = Time.time + _inputCooldownSec;
 
-        // snapshot move root
+        // snapshot move root（降りたときに戻すための元位置）
         {
             var moveRoot = ResolveMovementRoot();
             if (moveRoot != null)
@@ -364,6 +371,18 @@ public class PushController : MonoBehaviour
                 Log("PreClimb SNAP pos=" + _preClimbRootPos.ToString("F3"));
             }
         }
+
+        // 椅子を再レイキャストして、インスペクタの設定どおりに整列
+        Transform chairRoot = null;
+        if (_rayOrigin != null)
+        {
+            Ray ray = new Ray(_rayOrigin.position, _rayOrigin.forward);
+            if (Physics.Raycast(ray, out var hitInfo, _pushDistance, _detectMask, QueryTriggerInteraction.Ignore))
+            {
+                chairRoot = ResolveChairRoot(hitInfo);
+            }
+        }
+        AlignForClimb(chairRoot);
 
         CreateWrapperIfNeeded(initialSetup: false);
         _canAcceptToggle = false;
@@ -637,7 +656,36 @@ public class PushController : MonoBehaviour
 
     private void LogTrace(string msg) => Log("TRACE " + msg);
 
-    // Helpers
+    // ===== Helpers =====
+
+    // 椅子基準で、インスペクタで指定したローカルオフセット＆回転でプレイヤーを整列
+    private void AlignForClimb(Transform chairRoot)
+    {
+        if (chairRoot == null) return;
+
+        var moveRoot = ResolveMovementRoot();
+        if (moveRoot == null) return;
+
+        // 位置：椅子ローカルの _climbLocalOffset をワールドに変換
+        Vector3 targetPos = chairRoot.TransformPoint(_climbLocalOffset);
+
+        // 高さは現在の足元と合わせる（必要ならここを椅子基準に変えてもOK）
+        Vector3 currentPos = moveRoot.position;
+        targetPos.y = currentPos.y;
+
+        moveRoot.position = targetPos;
+
+        // 回転：椅子の回転にヨーオフセットを足す
+        Quaternion baseRot = chairRoot.rotation;
+        Quaternion yawOffset = Quaternion.Euler(0f, _climbYawOffsetDeg, 0f);
+        Quaternion finalRot = baseRot * yawOffset;
+
+        moveRoot.rotation = finalRot;
+
+        Physics.SyncTransforms();
+        Log($"AlignForClimbInspector: pos={targetPos:F3}, yawOffset={_climbYawOffsetDeg}");
+    }
+
     private void CreateWrapperIfNeeded(bool initialSetup)
     {
         if (_playerAnimator == null) return;
