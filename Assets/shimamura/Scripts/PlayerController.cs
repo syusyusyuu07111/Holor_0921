@@ -351,7 +351,8 @@ public class PlayerController : MonoBehaviour
     }
 
     // --- 経路スイープ（CapsuleCast）
-    bool TrySweepTo(Vector3 fromPos, Vector3 toPos, out Vector3 hitStopPos, out RaycastHit hitInfo)
+    // ★ PushController など外部からも使えるように public にする
+    public bool TrySweepTo(Vector3 fromPos, Vector3 toPos, out Vector3 hitStopPos, out RaycastHit hitInfo)
     {
         hitInfo = default;
         hitStopPos = toPos;
@@ -374,5 +375,38 @@ public class PlayerController : MonoBehaviour
         }
 
         return true; // ぶつからず到達
+    }
+
+    // ================================
+    //  外部用: 押しなどで delta だけ動かしたいとき
+    // ================================
+    /// <summary>
+    /// 外部（PushController など）から「この delta 分だけ動かしたい」
+    /// というときに使うメソッド。
+    ///
+    /// ・内部の CapsuleCast / Sweep ロジックをそのまま利用
+    /// ・壁や家具に当たるとそこで止まる（貫通しない）
+    /// ・Y固定（lockY=true）の場合は足元高さを維持する
+    /// </summary>
+    public void ExternalMoveByDelta(Vector3 worldDelta)
+    {
+        if (worldDelta.sqrMagnitude <= 0f) return;
+
+        Vector3 fromPos = transform.position;
+        Vector3 toPos = fromPos + worldDelta;
+
+        if (!TrySweepTo(fromPos, toPos, out Vector3 stopPos, out RaycastHit _))
+        {
+            transform.position = stopPos;
+        }
+        else
+        {
+            transform.position = stopPos;
+        }
+
+        if (lockY)
+        {
+            transform.position = new Vector3(transform.position.x, _fixedY, transform.position.z);
+        }
     }
 }
