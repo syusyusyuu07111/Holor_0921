@@ -22068,16 +22068,16 @@ MonoBehaviour:
   _rayOrigin: {fileID: 1302683134}
   _detectMask:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 0
   _chairTag: Chair
   _pushDistance: 0.8
   _pushSpeed: 1.5
   _pushActionRef: {fileID: -1546430092605635705, guid: 052faaac586de48259a63d0c4782560b, type: 3}
-  _playerController: {fileID: 956023713}
+  _playerController: {fileID: 0}
   _pushSweepSkin: 0.01
   _pushMinMoveDistance: 0.001
-  _playerAnimator: {fileID: 956023716}
-  _raiseTarget: {fileID: 956023712}
+  _playerAnimator: {fileID: 0}
+  _raiseTarget: {fileID: 0}
   _climbBoolName: IsClimbing
   _climbTag: Climb
   _climbStateName: Climb
@@ -22088,12 +22088,12 @@ MonoBehaviour:
   _chairTopOffset: 0.25
   _yRaiseTime: 0.6
   _yRaiseAdd: 0.5
-  _climbLocalOffset: {x: 0, y: 0, z: -30}
+  _climbLocalOffset: {x: 0, y: 0, z: -0.5}
   _climbYawOffsetDeg: 0
   _holdAfterClimbSec: 2
   _useRootMotionForClimb: 1
   _pushTextMeshPro: {fileID: 1432533245}
-  _fbsRef: {fileID: 1294814945}
+  _fbsRef: {fileID: 0}
   _debugLogging: 1
   _logMinimal: 1
   traceAfterDescendFrames: 3
@@ -22110,7 +22110,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5cc4a1c96caeddb4687fc98ee57211ff, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _itemPickupRange: 1.35
+  _itemPickupRange: 1
   _itemTag: Item
   _panelTag: ItemPanel
   _checkInterval: 0.5
@@ -29456,7 +29456,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   includeChildren: 1
   root: {fileID: 1294814944}
-  animatorOverride: {fileID: 956023716}
+  animatorOverride: {fileID: 0}
   allowYStateTag: Climb
   allowYBoolParam: IsClimbing
   layerIndex: 0
@@ -29476,8 +29476,8 @@ MonoBehaviour:
   logOnValidate: 1
   drawGizmos: 1
   forceClimbOverride: 0
-  rebaseOnClimbEnd: 1
-  bypassFramesAfterRebase: 2
+  rebaseOnClimbEnd: 0
+  bypassFramesAfterRebase: 0
   lockFramesAfterExternalSnap: 2
 --- !u!1001 &1296302405
 PrefabInstance:
