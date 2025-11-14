@@ -9,6 +9,8 @@ public class ItemDetailUManager : MonoBehaviour
     [SerializeField] private Image _icon;                // アイコン画像
     [SerializeField] private TMP_Text _nameText;         // アイテム名
     [SerializeField] private TMP_Text _explanatoryText;  // アイテム説明
+    [SerializeField] private TMP_Text _exitText;  // アイテム説明
+
 
     private bool _isOpen = false;                        // 現在ウィンドウが開いているか
 
