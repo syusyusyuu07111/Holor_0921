@@ -149,6 +149,22 @@ public class Tutorial : MonoBehaviour
         if (BottomText) BottomText.gameObject.SetActive(false);
     }
 
+    /// <summary>
+    /// 外部（2部屋目など）から「とにかく幽霊スポーンだけ始めたい」ときに呼ぶ
+    /// </summary>
+    public void ForceStartSpawners()
+    {
+        if (Spawners == null) return;
+
+        for (int i = 0; i < Spawners.Count; i++)
+        {
+            if (Spawners[i] != null)
+            {
+                Spawners[i].BeginSpawning();
+            }
+        }
+    }
+
     public void ReapplyDoorByCurrentProgress()
     {
         ApplyDoorEnableByProgress(HintRef ? HintRef.ProgressStage : 0);
@@ -161,6 +177,53 @@ public class Tutorial : MonoBehaviour
         int progressForDoor = HintRef ? HintRef.ProgressStage : 0;
         if (progressForDoor < MinProgressToEnableDoor) progressForDoor = MinProgressToEnableDoor;
         ApplyDoorEnableByProgress(progressForDoor);
+    }
+
+    /// <summary>
+    /// 2つ目の部屋に入ったなどのタイミングで、
+    /// このチュートリアルの動きを止める（UIコンポーネント自体は残す）
+    /// </summary>
+    public void StopTutorialForSecondRoom()
+    {
+        // コルーチン停止
+        if (_typing != null) { StopCoroutine(_typing); _typing = null; }
+        if (_typingMission != null) { StopCoroutine(_typingMission); _typingMission = null; }
+        if (_basicCo != null) { StopCoroutine(_basicCo); _basicCo = null; }
+
+        // 以降、前段チュートリアルやイベントが動かないようにする
+        EnableBasicTutorial = false;
+        _basicRunning = false;
+        _basicDone = true;
+
+        _pauseGate = true;                // 新しいパネルなども出さない
+        _queuedHintTutorials.Clear();     // キューされているヒント演出も破棄
+
+        // テキストの中身だけクリア（UIオブジェクトは残す）
+        if (BottomText != null)
+        {
+            BottomText.text = "";
+            BottomText.gameObject.SetActive(false);
+        }
+        if (MissionText != null)
+        {
+            MissionText.text = "";
+            MissionText.gameObject.SetActive(false);
+        }
+        if (TutoriaSkipText != null)
+        {
+            TutoriaSkipText.text = "";
+            TutoriaSkipText.gameObject.SetActive(false);
+        }
+
+        // パネル類も閉じる
+        if (Step4Panel_StateAny) Step4Panel_StateAny.SetActive(false);
+        if (Step5Panel_State2) Step5Panel_State2.SetActive(false);
+        if (HidePanel) HidePanel.SetActive(false);
+
+        // このコンポーネント自体を止める（Update / イベント処理も停止）
+        enabled = false;
+
+        Debug.Log("Tutorial: StopTutorialForSecondRoom 実行、ロジック停止＆テキストクリア");
     }
 
     // ========== ライフサイクル ==========
