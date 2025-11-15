@@ -38,6 +38,9 @@ public class ItemPickupController2 : MonoBehaviour
     private Coroutine _checkRoutine;
     private bool _isLookingAtPanel;
 
+    //いままでに取ったアイテムの数//取得したアイテムの合計数取得したかったので追加しました。
+    public int CollectedCount { get; private set; }
+
     [Header("Input System")]
     [SerializeField] private InputActionReference _pickupActionRef; // 既存：アイテム拾い
     [SerializeField] private InputActionReference _cancelActionRef; // 既存：UI閉じ
@@ -212,6 +215,9 @@ public class ItemPickupController2 : MonoBehaviour
     private void PickupItem(GameObject item)
     {
         _inventory.Add(item);
+
+        // 取得したアイテム数をここでカウントを1つ増やす
+        CollectedCount++;
 
         // アイコン連携
         ItemDate data = item.GetComponent<ItemDate>();
