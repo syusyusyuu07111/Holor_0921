@@ -26,9 +26,7 @@ public class IconDisplay : MonoBehaviour
 
         if (_iconMap.TryGetValue(key, out GameObject existingIcon))
         {
-            Debug.Log("Existing icon found, increment count");
             // ä˘ë∂ÉAÉCÉRÉìÇÃå¬êîÇëùÇ‚Ç∑
-            //var countText = existingIcon.GetComponentInChildren<TextMeshProUGUI>();
             var countText = existingIcon.transform.Find("CountText")?.GetComponent<TextMeshProUGUI>();
             if (countText != null)
             {
@@ -37,16 +35,7 @@ public class IconDisplay : MonoBehaviour
                 if (int.TryParse(countText.text, out int count))
                 {
                     countText.text = (count + 1).ToString();
-                    Debug.Log($"Count updated to {count + 1}");
                 }
-                else
-                {
-                    Debug.LogError($"Count text is not a number: {countText.text}");
-                }
-            }
-            else
-            {
-                Debug.LogError("TextMeshProUGUI not found in existingIcon!");
             }
             return;
         }
