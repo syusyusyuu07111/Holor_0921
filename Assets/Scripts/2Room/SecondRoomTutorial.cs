@@ -90,7 +90,7 @@ public class SecondRoomTutorial : MonoBehaviour
 
     /// <summary>
     /// チュートリアル1を開始する
-    /// ・一つ目の部屋のチュートリアルを完全に止める（テキストも全部消す）
+    /// ・一つ目の部屋のチュートリアル UI / ロジックを止める（幽霊スポーンだけ生かす）
     /// ・2つ目の部屋に入ったときのつぶやきセリフを Saytext に順番に表示
     /// ・ミッションテキストに「本を調べて情報を集めよう」を表示
     /// </summary>
@@ -107,39 +107,16 @@ public class SecondRoomTutorial : MonoBehaviour
             Time.timeScale = 1f;
         }
 
-        // ★ 一つ目の部屋のチュートリアルを完全に止める（コルーチンも止める & 使っていたテキストは全部消す）
+        // ★ 一つ目の部屋のチュートリアル側を処理
         if (firstRoomTutorial != null)
         {
-            Debug.Log("[SecondRoomTutorial] firstRoomTutorial のコルーチンを停止して無効化します");
+            Debug.Log("[SecondRoomTutorial] firstRoomTutorial にスポーン開始＋停止指示を送ります");
 
-            // 1部屋目のチュートリアル内のすべてのコルーチン停止
-            firstRoomTutorial.StopAllCoroutines();
+            // 幽霊スポーンだけは先に開始させておく
+            firstRoomTutorial.ForceStartSpawners();
 
-            // メインテキスト（BottomText）
-            if (firstRoomTutorial.BottomText != null)
-            {
-                firstRoomTutorial.BottomText.text = "";
-                firstRoomTutorial.BottomText.gameObject.SetActive(false);
-            }
-
-            // ミッション用テキスト（MissionText）
-            if (firstRoomTutorial.MissionText != null)
-            {
-                firstRoomTutorial.MissionText.text = "";
-                firstRoomTutorial.MissionText.gameObject.SetActive(false);
-            }
-
-            // スキップ案内テキスト（TutoriaSkipText）
-            if (firstRoomTutorial.TutoriaSkipText != null)
-            {
-                firstRoomTutorial.TutoriaSkipText.text = "";
-                firstRoomTutorial.TutoriaSkipText.gameObject.SetActive(false);
-            }
-
-            // 他にも 1部屋目でテキストを表示する UI があれば、ここで同じように消してOK
-
-            // 最後にスクリプト自体を無効化して、これ以上書き換えが走らないようにする
-            firstRoomTutorial.enabled = false;
+            // その上で、1部屋目のチュートリアル UI / ロジックを止める
+            firstRoomTutorial.StopTutorialForSecondRoom();
         }
         else
         {
@@ -312,8 +289,6 @@ public class SecondRoomTutorial : MonoBehaviour
         yield return new WaitForSecondsRealtime(sayLineInterval);
 
         target.text = "";              // テキストを消す
-        // 必要なら UI ごと消したい場合は↓もアリ
-        // target.gameObject.SetActive(false);
 
         Debug.Log("[SecondRoomTutorial] TypeLines 完了。テキストをクリアしました");
     }

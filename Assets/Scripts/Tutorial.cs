@@ -149,6 +149,22 @@ public class Tutorial : MonoBehaviour
         if (BottomText) BottomText.gameObject.SetActive(false);
     }
 
+    /// <summary>
+    /// 外部（2部屋目など）から「とにかく幽霊スポーンだけ始めたい」ときに呼ぶ
+    /// </summary>
+    public void ForceStartSpawners()
+    {
+        if (Spawners == null) return;
+
+        for (int i = 0; i < Spawners.Count; i++)
+        {
+            if (Spawners[i] != null)
+            {
+                Spawners[i].BeginSpawning();
+            }
+        }
+    }
+
     public void ReapplyDoorByCurrentProgress()
     {
         ApplyDoorEnableByProgress(HintRef ? HintRef.ProgressStage : 0);
@@ -169,7 +185,7 @@ public class Tutorial : MonoBehaviour
     /// </summary>
     public void StopTutorialForSecondRoom()
     {
-        // 走っているコルーチンを止める
+        // コルーチン停止
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
         if (_typingMission != null) { StopCoroutine(_typingMission); _typingMission = null; }
         if (_basicCo != null) { StopCoroutine(_basicCo); _basicCo = null; }
@@ -182,27 +198,27 @@ public class Tutorial : MonoBehaviour
         _pauseGate = true;                // 新しいパネルなども出さない
         _queuedHintTutorials.Clear();     // キューされているヒント演出も破棄
 
-        // ★★ テキストの中身だけクリア（UIオブジェクトは残す）★★
+        // テキストの中身だけクリア（UIオブジェクトは残す）
         if (BottomText != null)
         {
             BottomText.text = "";
+            BottomText.gameObject.SetActive(false);
         }
         if (MissionText != null)
         {
             MissionText.text = "";
+            MissionText.gameObject.SetActive(false);
+        }
+        if (TutoriaSkipText != null)
+        {
+            TutoriaSkipText.text = "";
+            TutoriaSkipText.gameObject.SetActive(false);
         }
 
-        // 必要に応じてパネル類は閉じておく（2つ目の部屋では使わない前提なら）
+        // パネル類も閉じる
         if (Step4Panel_StateAny) Step4Panel_StateAny.SetActive(false);
         if (Step5Panel_State2) Step5Panel_State2.SetActive(false);
         if (HidePanel) HidePanel.SetActive(false);
-
-        // ライトは好みで：ここでは何もしない（必要ならコメントアウト解除）
-        // if (LightsToToggle != null)
-        // {
-        //     for (int i = 0; i < LightsToToggle.Count; i++)
-        //         if (LightsToToggle[i]) LightsToToggle[i].SetActive(false);
-        // }
 
         // このコンポーネント自体を止める（Update / イベント処理も停止）
         enabled = false;
@@ -234,7 +250,7 @@ public class Tutorial : MonoBehaviour
         if (HintRef)
         {
             HintRef.OnFirstGhostSeen.AddListener(Step4_ShowPanel);
-            HintRef.OnFirstState2Seen.AddListener(Sep5_ShowPanel);
+            HintRef.OnFirstState2Seen.AddListener(Step5_ShowPanel);
             HintRef.OnProgressChanged.AddListener(OnProgressChanged);
             HintRef.OnLineFullyRevealed.AddListener(OnHintAllRevealed);
             HintRef.OnHintTutorialLinesRequested.AddListener(OnHintTutorialLinesRequested);
@@ -262,7 +278,7 @@ public class Tutorial : MonoBehaviour
         if (HintRef)
         {
             HintRef.OnFirstGhostSeen.RemoveListener(Step4_ShowPanel);
-            HintRef.OnFirstState2Seen.RemoveListener(Sep5_ShowPanel);
+            HintRef.OnFirstState2Seen.RemoveListener(Step5_ShowPanel);
             HintRef.OnProgressChanged.RemoveListener(OnProgressChanged);
             HintRef.OnLineFullyRevealed.RemoveListener(OnHintAllRevealed);
             HintRef.OnHintTutorialLinesRequested.RemoveListener(OnHintTutorialLinesRequested);
@@ -537,7 +553,7 @@ public class Tutorial : MonoBehaviour
             AdvanceDoorMissionTo(DoorMissionStage.HearVoiceGoNext);
     }
 
-    public void Sep5_ShowPanel()
+    public void Step5_ShowPanel()
     {
         if (!IsEventAllowed() || _didStep5 || _pauseGate) return;
         _didStep5 = true;
