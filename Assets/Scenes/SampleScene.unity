@@ -22105,7 +22105,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5cc4a1c96caeddb4687fc98ee57211ff, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _itemPickupRange: 1.45
+  _itemPickupRange: 1.43
   _itemTag: Item
   _panelTag: ItemPanel
   _checkInterval: 0.5
@@ -43625,7 +43625,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 37fb1335e95c54845b648a4c6e00cabd, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -2.616
+      value: -2.91
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 37fb1335e95c54845b648a4c6e00cabd, type: 3}
       propertyPath: m_LocalRotation.w
