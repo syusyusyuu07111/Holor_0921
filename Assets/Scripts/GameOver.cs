@@ -788,30 +788,25 @@ public class GameOver : MonoBehaviour
         }
     }
 
-    // プレイヤーを消す（Renderer.enabled=false）
+    // プレイヤーを消す（Player の子を全部非アクティブにする）
     private void HidePlayerVisualsIfNeeded()
     {
         if (!HidePlayerOnGameOver) return;
         if (_playerHidden) return;
         if (Player == null) return;
 
-        if (_cachedPlayerRenderers == null || _cachedPlayerRenderers.Length == 0)
+        // Player 自身は残しつつ、その子孫をすべて非表示にする
+        Transform[] allChildren = Player.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < allChildren.Length; i++)
         {
-            _cachedPlayerRenderers = Player.GetComponentsInChildren<Renderer>(true);
-        }
+            Transform t = allChildren[i];
+            if (t == Player) continue; // 自分自身は残す
 
-        if (_cachedPlayerRenderers != null)
-        {
-            for (int i = 0; i < _cachedPlayerRenderers.Length; i++)
-            {
-                Renderer r = _cachedPlayerRenderers[i];
-                if (!r) continue;
-                r.enabled = false;
-            }
+            t.gameObject.SetActive(false);
         }
 
         _playerHidden = true;
-        Debug.Log("[GameOver] プレイヤー見た目を非表示にしました。");
+        Debug.Log("[GameOver] Player の子オブジェクトを全て非表示にしました。");
     }
 
     // === 追加: 現在の「近接警告ビネット」ブレンド量(0..1)を外部へ渡す ===
