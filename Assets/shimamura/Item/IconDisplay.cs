@@ -11,7 +11,7 @@ public class IconDisplay : MonoBehaviour
     [SerializeField] private float _iconSpacing = 70f;   // アイコン間の間隔（ピクセル）
 
     private readonly List<GameObject> _spawnedIcons = new(); // 表示中のアイコン一覧
-    private readonly Dictionary<string, GameObject> _iconMap = new();
+    private readonly Dictionary<string, GameObject> _iconMap = new();//所持してるアイテムを保存
 
 
     // <summary>
