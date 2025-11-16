@@ -1,4 +1,5 @@
 using TMPro;
+using UnityEditor.Rendering;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -9,6 +10,8 @@ public class ItemDetailUManager : MonoBehaviour
     [SerializeField] private Image _icon;                // アイコン画像
     [SerializeField] private TMP_Text _nameText;         // アイテム名
     [SerializeField] private TMP_Text _explanatoryText;  // アイテム説明
+    [SerializeField] private TMP_Text _exitText;  // アイテム説明
+
 
     private bool _isOpen = false;                        // 現在ウィンドウが開いているか
 
@@ -37,26 +40,20 @@ public class ItemDetailUManager : MonoBehaviour
     /// </summary>
     public void ShowItem(GameObject itemObject)
     {
+
         if (itemObject == null) return;
 
-        var data = itemObject.GetComponent<ItemDate>();
-        if (data == null)
-        {
-            return;
-        }
+        ItemDate data = itemObject.GetComponent<ItemDate>();
+        if (data == null) return;
 
-        // --- UIに反映 ---
-        if (_icon != null) _icon.sprite = data.icon;//アイコン画像の表示
-        if (_nameText != null) _nameText.text = data.itemName;//アイテム名
-        if (_explanatoryText != null) _explanatoryText.text = data.explanatoryText;//アイテムテキスト
+        if (_icon != null) _icon.sprite = data.icon;
+        if (_nameText != null) _nameText.text = data.itemName;
+        if (_explanatoryText != null) _explanatoryText.text = data.explanatoryText;
 
-        // --- パネル表示 ---
         _panel.SetActive(true);
         _isOpen = true;
-        Debug.Log(_isOpen);
 
-        //タイムスケール停止
-        // Time.timeScale = 0;
+
     }
 
     /// <summary>
@@ -66,8 +63,6 @@ public class ItemDetailUManager : MonoBehaviour
     {
         if (_panel != null)
             _panel.SetActive(false);
-
-        //Time.timeScale = 1.0f;//タイムスケール再開
 
         _isOpen = false;
     }

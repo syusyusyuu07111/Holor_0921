@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -10,33 +11,54 @@ public class IconDisplay : MonoBehaviour
     [SerializeField] private float _iconSpacing = 70f;   // アイコン間の間隔（ピクセル）
 
     private readonly List<GameObject> _spawnedIcons = new(); // 表示中のアイコン一覧
+    private readonly Dictionary<string, GameObject> _iconMap = new();
 
-    /// <summary>
-    /// アイテム取得時に呼び出してアイコンを追加
-    /// </summary>
+
+    // <summary>
+    // アイテム取得時に呼び出してアイコンを追加
+    // </summary>
     public void AddItemIcon(ItemDate itemDate)
     {
-        if (itemDate == null)
-        {
+        if (itemDate == null || _iconParent == null || _iconPrefab == null)
             return;
-        }
-        if (_iconParent == null || _iconPrefab == null)
+
+        string key = itemDate.itemNameOrigin;
+
+        if (_iconMap.TryGetValue(key, out GameObject existingIcon))
         {
+            // 既存アイコンの個数を増やす
+            var countText = existingIcon.transform.Find("CountText")?.GetComponent<TextMeshProUGUI>();
+            if (countText != null)
+            {
+                if (int.TryParse(countText.text, out int count))
+                {
+                    countText.text = (count + 1).ToString();
+                }
+            }
             return;
         }
 
-        // --- 新しいアイコンを生成 ---
+        // 新しいアイコンを生成
         GameObject newIcon = Instantiate(_iconPrefab, _iconParent);
-        // --- イメージを設定 ---
-        var image = newIcon.GetComponent<Image>();
-        if (image != null)
-            image.sprite = itemDate.icon;
+        Debug.Log(newIcon.name);
 
+        // アイコン画像設定
+        var image = newIcon.transform.Find("IconImage")?.GetComponent<Image>();
+        if (image != null) image.sprite = itemDate.icon;
+
+        // 個数表示初期化
+        var countTextInit = newIcon.GetComponentInChildren<TextMeshProUGUI>();
+        if (countTextInit != null)
+            countTextInit.text = "1";
+
+        // 管理リストに追加
         _spawnedIcons.Add(newIcon);
+        _iconMap[key] = newIcon;
 
-        // --- 位置調整 ---
+        // アイコン位置を並べ直す
         UpdateIconPositions();
-    }
+    
+}
 
     /// <summary>
     /// アイコンを並べ直す（右→左に）

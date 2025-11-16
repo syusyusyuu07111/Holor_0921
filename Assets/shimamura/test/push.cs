@@ -191,6 +191,8 @@ public class push : MonoBehaviour
         {
             _inventory.Add(nearestItem.gameObject);//ƒCƒ“ƒxƒ“ƒgƒŠ’Ç‰Á
 
+                ItemDate data = nearestItem.GetComponent<ItemDate>();
+
             if (_itemDetailUIManager != null)
             {
                 _itemDetailUIManager.ToggleItem(nearestItem.gameObject);

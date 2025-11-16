@@ -13,16 +13,21 @@ using UnityEngine.Events;
 public class ItemPickupController2 : MonoBehaviour
 {
     [Header("Item Pickup Settings")]
-    [SerializeField] private float _itemPickupRange = 1.5f; // アイテム拾取距離
+    [SerializeField] private float _defaultPickupRange; //アイテムの取得範囲
+    [SerializeField] private float _itemPickupRange = 1.5f; // アイテム拾取距離（地面）
+    [SerializeField] private float _itemPickupRangeOnChair = 2f;
     [SerializeField] private string _itemTag = "Item";      // アイテムのタグ
     [SerializeField] private string _panelTag = "ItemPanel"; // 探索条件のパネル
     [SerializeField] private float _checkInterval = 0.5f;   // 探索間隔
     [SerializeField] private float _rayDistance = 1f;       // パネルを検知するレイ距離
     [SerializeField] private LayerMask _panelLayer;         // パネル用レイヤー
     [SerializeField] private IconDisplay _iconDisplay;
+    [SerializeField] private Transform _upRayOrigin;
+    private bool _isOnChair = false;   // 椅子上にいる間は true
+
 
     [Header("Chair Climb Timing (Detect Only)")]
-    [SerializeField] private string _chairTag = "Chair";    // 椅子タグ
+    [SerializeField] private string _chairTag = "Chair";    // 椅子タグ PickupItemByChairでも使用
     [SerializeField] private float _chairCheckRange = 0.9f; // 「上れる」と見なす距離
     [Tooltip("上れるタイミングを見つけたら発火（ここでは移動しない）。Args: (chairTransform, chairTopY)")]
     public UnityEvent<Transform, float> OnChairClimbRequested;
@@ -93,10 +98,15 @@ public class ItemPickupController2 : MonoBehaviour
         if (_itemText != null) _itemText.SetActive(false);
     }
 
+    private void Start()
+    {
+        _defaultPickupRange = _itemPickupRange;
+    }
+
     void Update()
     {
         // パネルを見ているか（足元にパネルを想定）
-        bool lookingNow = CheckLookingAtPanel();
+        bool lookingNow = _isOnChair || CheckLookingAtPanel();
 
         // 状態変化でコルーチン起動/停止
         if (lookingNow != _isLookingAtPanel)
@@ -117,7 +127,7 @@ public class ItemPickupController2 : MonoBehaviour
                 if (_itemText) _itemText.SetActive(false);
             }
         }
-
+        PickupItemByChair();
         // ここでは「上れるタイミング」を距離だけで検出し、イベント通知だけ行う
         DetectChairClimbTiming();
     }
@@ -234,6 +244,36 @@ public class ItemPickupController2 : MonoBehaviour
 
         _nearestItem = null;
         if (_itemText) _itemText.SetActive(false);
+    }
+
+    private void PickupItemByChair()
+    {
+        if (_rayOrigin == null) return;
+
+        Ray ray = new Ray(_upRayOrigin.position, Vector3.down);
+
+        if (Physics.Raycast(ray, out RaycastHit hit, _rayDistance, _panelLayer))
+        {
+            Debug.Log("Ray hit tag: " + hit.collider.tag);
+            // 足元が椅子なら拾取範囲を広げる
+            if (hit.collider.CompareTag(_chairTag))
+            {
+                _itemPickupRange = _itemPickupRangeOnChair; // ← 好きな距離に変更！
+                _isOnChair = true;
+                return;
+            }
+            else
+            {
+                // パネルには当たったけど椅子ではない（例：ItemPanel）
+                _itemPickupRange = _defaultPickupRange;
+                _isOnChair = false;
+                return;
+            }
+        }
+
+        // 椅子じゃない → 元に戻す
+        _itemPickupRange = _defaultPickupRange;
+        _isOnChair = false;
     }
 
     /// <summary>プレイヤーが特定のパネルを見ているかチェック</summary>

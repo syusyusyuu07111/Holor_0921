@@ -68,7 +68,7 @@ public class ItemPickupController : MonoBehaviour
 
             if (_itemDetailUIManager != null)
             {
-                _itemDetailUIManager.ToggleItem(nearestItem.gameObject);
+               // _itemDetailUIManager.ToggleItem(nearestItem.gameObject);
             }
 
             Destroy(nearestItem.gameObject); // •K—v‚È‚çíœ
