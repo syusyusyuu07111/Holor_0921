@@ -22,7 +22,7 @@ public class IconDisplay : MonoBehaviour
         if (itemDate == null || _iconParent == null || _iconPrefab == null)
             return;
 
-        string key = itemDate.itemName;
+        string key = itemDate.itemNameOrigin;
 
         if (_iconMap.TryGetValue(key, out GameObject existingIcon))
         {
@@ -30,8 +30,6 @@ public class IconDisplay : MonoBehaviour
             var countText = existingIcon.transform.Find("CountText")?.GetComponent<TextMeshProUGUI>();
             if (countText != null)
             {
-                //int count = int.Parse(countText.text);
-                //countText.text = (count + 1).ToString();
                 if (int.TryParse(countText.text, out int count))
                 {
                     countText.text = (count + 1).ToString();
