@@ -17,6 +17,9 @@ public class SecondRoomTutorial : MonoBehaviour
     // チュートリアルを出せる状態かどうか（フラグ）
     private bool canShowTutorial = false;
 
+    // 「プレイヤーが2つ目の部屋にいるかどうか」を外から見れるようにするフラグ
+    public bool IsPlayerInSecondRoom { get; private set; } = false;
+
     // 今どのチュートリアルステップか
     // 0 = まだ何も、
     // 1 = チュートリアル1（部屋に入ったときのつぶやき＋本を調べよう）、
@@ -69,11 +72,15 @@ public class SecondRoomTutorial : MonoBehaviour
             return;
         }
 
+        float px = Player.transform.position.x;
+
         // プレイヤーの X 座標が triggerPosX を超えたら（一回だけ）発火
-        if (!canShowTutorial && Player.transform.position.x > triggerPosX)
+        if (!canShowTutorial && px > triggerPosX)
         {
             canShowTutorial = true;
-            Debug.Log($"[SecondRoomTutorial] トリガー通過 PlayerX={Player.transform.position.x} / triggerPosX={triggerPosX}");
+            IsPlayerInSecondRoom = true;  // ★ここで「2部屋目に入った」扱いにする
+
+            Debug.Log($"[SecondRoomTutorial] トリガー通過 PlayerX={px} / triggerPosX={triggerPosX} → 2部屋目フラグON");
             StartTutorial1();
         }
 

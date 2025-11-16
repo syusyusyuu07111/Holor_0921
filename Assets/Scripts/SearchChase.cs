@@ -160,8 +160,47 @@ public class SearchChase : MonoBehaviour
             if (surface && enableRuntimeNavmeshUpdate)
                 surface.UpdateNavMesh(surface.navMeshData);
 
-            if (!isLooking)
-                ChaseMove();
+            // NavMesh上にいるときだけ経路関連の処理を行う
+            if (agent && agent.isOnNavMesh)
+            {
+                // プレイヤー未発見時のパトロール／最後に見た位置まで追う処理
+                if (!isDiscovery && !isLooking)
+                {
+                    // 「最後に見た位置(lostposition)」に向かっている場合
+                    if (target == lostposition && lostposition)
+                    {
+                        // そこにほぼ到達したらパトロール復帰
+                        if (!agent.pathPending && agent.remainingDistance <= StopDistance)
+                        {
+                            agent.isStopped = true;
+                            TargetChange(); // 到達可能なパトロールポイントへ
+                        }
+                    }
+                    // パトロール中（targetlistのいずれかを追っている）場合
+                    else if (targetlist.Count > 0)
+                    {
+                        // 現在のターゲットが行けない場所になっていたら次を探す
+                        if (!target || !IsReachable(target.position))
+                        {
+                            agent.isStopped = true;
+                            TargetChange();
+                        }
+                        else
+                        {
+                            // 現在ターゲットに到達したら次のパトロールポイントへ
+                            if (!agent.pathPending && agent.remainingDistance <= StopDistance)
+                            {
+                                agent.isStopped = true;
+                                TargetChange();
+                            }
+                        }
+                    }
+                }
+
+                // 実際の移動（追跡／パトロール共通）
+                if (!isLooking)
+                    ChaseMove();
+            }
         }
 
         // 5) NavMesh 安全化
@@ -197,13 +236,43 @@ public class SearchChase : MonoBehaviour
     {
         if (!agent) return;
         if (!agent.isStopped) return;
+        if (targetlist.Count == 0) return;
 
-        CurrenTtargetNum++;
-        if (targetlist.Count <= CurrenTtargetNum) CurrenTtargetNum = 0;
-        if (targetlist.Count > 0) target = targetlist[CurrenTtargetNum];
+        int tries = 0;
+        int idx = CurrenTtargetNum;
 
-        agent.isStopped = false;
-        ChaseMove();
+        // 現状到達可能なポイントのみを採用してループ
+        while (tries < targetlist.Count)
+        {
+            idx = (idx + 1) % targetlist.Count;
+            Transform cand = targetlist[idx];
+
+            if (cand && IsReachable(cand.position))
+            {
+                CurrenTtargetNum = idx;
+                target = cand;
+                agent.isStopped = false;
+                ChaseMove();
+                return;
+            }
+
+            tries++;
+        }
+
+        // どこにも行けない場合はその場に留まる
+        Debug.Log("[SearchChase] 到達可能なパトロールポイントがありません");
+    }
+
+    // ========== 現在位置から目的地まで到達可能かチェック ==========
+    bool IsReachable(Vector3 dest)
+    {
+        if (!agent || !agent.isOnNavMesh) return false;
+
+        var path = new NavMeshPath();
+        if (!agent.CalculatePath(dest, path))
+            return false;
+
+        return path.status == NavMeshPathStatus.PathComplete;
     }
 
     // ========== 発見ロジック（LoS＋隠れ例外） ==========
