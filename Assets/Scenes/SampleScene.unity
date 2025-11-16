@@ -6086,7 +6086,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &285738713
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -22275,7 +22275,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5cc4a1c96caeddb4687fc98ee57211ff, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _itemPickupRange: 1.35
+  _defaultPickupRange: 0
+  _itemPickupRange: 1.3
+  _itemPickupRangeOnChair: 1.6
   _itemTag: Item
   _panelTag: ItemPanel
   _checkInterval: 0.5
@@ -22284,6 +22286,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 16384
   _iconDisplay: {fileID: 1762575682}
+  _upRayOrigin: {fileID: 2005710328}
   _chairTag: Chair
   _chairCheckRange: 0.9
   OnChairClimbRequested:
@@ -30086,7 +30089,7 @@ Transform:
   m_GameObject: {fileID: 1304231491}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.134, z: 0}
+  m_LocalPosition: {x: 0, y: 0.155, z: -0.041}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -51132,7 +51135,7 @@ Transform:
   m_GameObject: {fileID: 2005710327}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.604, z: 0}
+  m_LocalPosition: {x: 0, y: 0.604, z: 0.142}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
