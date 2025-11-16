@@ -1,8 +1,8 @@
 ﻿using System.Collections;
 using UnityEngine;
 using UnityEngine.Events;
-using UnityEngine.Rendering;                 // ★追加
-using UnityEngine.Rendering.Universal;       // ★追加
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 public class EnemyAI : MonoBehaviour
 {
@@ -18,6 +18,17 @@ public class EnemyAI : MonoBehaviour
     [Header("スポーン範囲（XZ矩形）")]
     public float MinX, MaxX, MinZ, MaxZ;
     public float SpawnYOffset = 0f;
+
+    // ★ 2つ目の部屋にいるときのスポーン制限用
+    [Header("2つ目の部屋用スポーン制限")]
+    [Tooltip("プレイヤーが2部屋目に入ったかを教えてくれるスクリプト")]
+    public SecondRoomTutorial secondRoomTutorial;
+
+    [Tooltip("2部屋目の入口ドア（X座標を境界として使う）")]
+    public Transform doorBorderX;
+
+    [Tooltip("2部屋目にいるとき、ドアのX座標からどれだけ右側に寄せて湧かせるか")]
+    public float secondRoomDoorOffsetX = 0.5f;
 
     // ====== 距離/試行 ======
     [Header("距離/試行")]
@@ -40,13 +51,13 @@ public class EnemyAI : MonoBehaviour
     // ====== 出現エフェクト ======
     [Header("出現エフェクト")]
     [Tooltip("ゴースト出現時に同じ場所で生成するVFXプレハブ")]
-    public GameObject SpawnEffectPrefab;   // ★追加: 出現エフェクト
+    public GameObject SpawnEffectPrefab;
 
     [Tooltip("trueならエフェクトをゴーストの子にする（追従させたい時）")]
-    public bool AttachEffectToGhost = true; // ★追加
+    public bool AttachEffectToGhost = true;
 
     [Tooltip("エフェクトを自動で消す秒数。0以下なら放置")]
-    public float EffectAutoDestroy = 2f;    // ★追加
+    public float EffectAutoDestroy = 2f;
 
     // ====== イベント：湧いた瞬間 ======
     [Header("イベント")]
@@ -68,7 +79,7 @@ public class EnemyAI : MonoBehaviour
     public bool GuaranteeFirstRoll = true;
     private bool _firstRollDone = false;
 
-    // ---- 小さな保険（Editorでミュートされがちな時用） ----
+    // ---- 小さな保険（Editorでミュートされがちな時用）----
     [Header("デバッグ/保険")]
     [Tooltip("Start時に AudioListener.pause を解除する")]
     public bool ForceUnpauseAudioListener = true;
@@ -76,25 +87,27 @@ public class EnemyAI : MonoBehaviour
     // ====== 画面演出（青化） ======
     [Header("画面演出（青化）")]
     [Tooltip("ColorAdjustments入りのVolume（URP）")]
-    public Volume PostVolume;                     // ★追加
+    public Volume PostVolume;
 
     [Range(0f, 1f)]
-    public float BlueTintStrength = 0.6f;         // ★追加: どれだけ青くするか
+    public float BlueTintStrength = 0.6f;
+
     [Tooltip("青化の目標色（白→この色へ補間）")]
-    public Color BlueTintColor = new Color(0.70f, 0.85f, 1.0f, 1.0f); // ★追加
+    public Color BlueTintColor = new Color(0.70f, 0.85f, 1.0f, 1.0f);   // ★ 4引数に修正済み
 
     [Tooltip("フェード時間（出現→青化）")]
-    public float BlueFadeIn = 0.20f;              // ★追加
+    public float BlueFadeIn = 0.20f;
+
     [Tooltip("フェード時間（消滅→元に戻す）")]
-    public float BlueFadeOut = 0.25f;             // ★追加
+    public float BlueFadeOut = 0.25f;
 
     [Tooltip("近接警告（GameOver）の危険度を参照して青演出を抑制する")]
-    public GameOver DangerRef;                    // ★追加
+    public GameOver DangerRef;
 
-    private ColorAdjustments _ca;                 // ★追加（内部参照）
-    private Color _baseFilter = Color.white;      // ★追加（開始時のColorFilterを記録）
-    private float _blueLerp = 0f;                 // ★追加（0..1）
-    private float _baseVolumeWeight = 1f;         // ★追加
+    private ColorAdjustments _ca;
+    private Color _baseFilter = Color.white;
+    private float _blueLerp = 0f;
+    private float _baseVolumeWeight = 1f;
 
     // =================サイクル =================
 
@@ -109,7 +122,7 @@ public class EnemyAI : MonoBehaviour
 #else
         var listeners = Object.FindObjectsOfType<AudioListener>();
 #endif
-        Debug.Log($"[EnemyAI] Listeners={(listeners?.Length ?? 0)}, " +
+        Debug.Log($"[EnemyAI] Start. Listeners={(listeners?.Length ?? 0)}, " +
                   $"Listener.pause={AudioListener.pause}, " +
                   $"AudioMgr={(AudioMgr ? "OK" : "null")}");
 
@@ -118,13 +131,11 @@ public class EnemyAI : MonoBehaviour
         {
             PostVolume.profile.TryGet(out _ca);
             if (_ca != null) _baseFilter = _ca.colorFilter.value;
-            _baseVolumeWeight = PostVolume.weight;  // 元のWeightを記録
+            _baseVolumeWeight = PostVolume.weight;
         }
 
         if (AutoStart) _spawnLoop = StartCoroutine(SpawnLoop());
     }
-
-
 
     void Update()
     {
@@ -133,21 +144,18 @@ public class EnemyAI : MonoBehaviour
         // 出現している間だけ青化（フェードでON/OFF）
         if (_ca != null)
         {
-            bool present = (CurrentGhost != null);                   // いま出現中？
+            bool present = (CurrentGhost != null);
             float target = present ? 1f : 0f;
             float speed = present ? (1f / Mathf.Max(0.01f, BlueFadeIn))
                                    : (1f / Mathf.Max(0.01f, BlueFadeOut));
             _blueLerp = Mathf.MoveTowards(_blueLerp, target, Time.deltaTime * speed);
 
-            // 近接警告が強いほど青を抑える（優先度：警告ビネット）
-            float danger = (DangerRef != null) ? DangerRef.GetDangerBlend01() : 0f;   // 0..1
-            float blueWeight = _blueLerp * (1f - danger); // 危険時ほど小さく
+            float danger = (DangerRef != null) ? DangerRef.GetDangerBlend01() : 0f;
+            float blueWeight = _blueLerp * (1f - danger);
 
-            // ベース→青色へ。BlueTintStrengthで上限、blueWeightで在位＋優先度を適用
             Color goal = Color.Lerp(_baseFilter, BlueTintColor, Mathf.Clamp01(BlueTintStrength));
             _ca.colorFilter.value = Color.Lerp(_baseFilter, goal, blueWeight);
 
-            // Volume自体のWeight
             if (PostVolume)
             {
                 PostVolume.weight = Mathf.Lerp(_baseVolumeWeight, 1f, blueWeight);
@@ -177,37 +185,32 @@ public class EnemyAI : MonoBehaviour
 
     // ================= スポーン処理 =================
 
-    // 即時に1体だけ確定スポーン
     public bool SpawnOnceImmediate()
     {
         if (CurrentGhost || _cooldown || !Ghost) return false;
 
         var pos = PickSpawnPointInRect();
+        LogSpawnPosition("[EnemyAI] SpawnOnceImmediate", pos);
 
-        // ゴースト本体生成
         CurrentGhost = Instantiate(Ghost, pos, Quaternion.identity);
-
-        // 生成エフェクト
         SpawnGhostEffect(pos, CurrentGhost);
 
         ForceFirstTwoStates(CurrentGhost);
         OnGhostSpawned?.Invoke();
 
-        TryPlaySpawnSE();    // SE鳴らす
+        TryPlaySpawnSE();
 
         StartCoroutine(GhostLifecycle(CurrentGhost));
         _firstRollDone = true;
         return true;
     }
 
-    // 抽選ループ
     IEnumerator SpawnLoop()
     {
         while (true)
         {
             if (CurrentGhost || _cooldown)
             {
-                // すでに誰かいる間は短いポーリング
                 yield return new WaitForSeconds(RetryIntervalWhileAlive);
                 continue;
             }
@@ -225,10 +228,9 @@ public class EnemyAI : MonoBehaviour
                 }
 
                 var pos0 = PickSpawnPointInRect();
+                LogSpawnPosition("[EnemyAI] FirstRoll Spawn", pos0);
 
                 CurrentGhost = Instantiate(Ghost, pos0, Quaternion.identity);
-
-                // 生成エフェクト
                 SpawnGhostEffect(pos0, CurrentGhost);
 
                 ForceFirstTwoStates(CurrentGhost);
@@ -256,10 +258,9 @@ public class EnemyAI : MonoBehaviour
                 }
 
                 var pos = PickSpawnPointInRect();
+                LogSpawnPosition("[EnemyAI] Random Spawn", pos);
 
                 CurrentGhost = Instantiate(Ghost, pos, Quaternion.identity);
-
-                // 生成エフェクト
                 SpawnGhostEffect(pos, CurrentGhost);
 
                 ForceFirstTwoStates(CurrentGhost);
@@ -274,35 +275,43 @@ public class EnemyAI : MonoBehaviour
         }
     }
 
+    private void LogSpawnPosition(string prefix, Vector3 pos)
+    {
+        bool inSecond = (secondRoomTutorial != null && secondRoomTutorial.IsPlayerInSecondRoom);
+        float doorX = (doorBorderX != null) ? doorBorderX.position.x : 0f;
+        float playerX = Player ? Player.position.x : 0f;
+
+        string doorInfo = doorBorderX
+            ? $"doorX={doorX:F2}"
+            : "doorX=(未設定)";
+
+        Debug.Log($"{prefix}: spawnPos=({pos.x:F2},{pos.y:F2},{pos.z:F2}), " +
+                  $"playerX={playerX:F2}, secondRoom={inSecond}, {doorInfo}");
+    }
+
     private IEnumerator GhostLifecycle(GameObject ghost)
     {
-        // 一定時間生きる
         yield return new WaitForSeconds(GhostLifetime);
 
-        // 消す
         if (ghost) Destroy(ghost);
         if (CurrentGhost == ghost) CurrentGhost = null;
 
-        // クールダウンを挟んで再抽選許可
         _cooldown = true;
         yield return new WaitForSeconds(RespawnDelayAfterDespawn);
         _cooldown = false;
     }
 
     // ================= 出現エフェクト生成 =================
-    // ゴースト生成直後に呼ばれる
     private void SpawnGhostEffect(Vector3 spawnPos, GameObject ghostInstance)
     {
-        if (!SpawnEffectPrefab) return; // エフェクト未指定なら何もしない
+        if (!SpawnEffectPrefab) return;
 
-        // どの親につける？
         Transform parent = null;
         if (AttachEffectToGhost && ghostInstance)
         {
             parent = ghostInstance.transform;
         }
 
-        // 生成
         GameObject fx = Instantiate(
             SpawnEffectPrefab,
             spawnPos,
@@ -310,10 +319,6 @@ public class EnemyAI : MonoBehaviour
             parent
         );
 
-        // 子にした場合、足元にピタッと置きたいとかあればここでローカル補正もできる
-        // いまはそのまま。
-
-        // 一定時間後に消す
         if (EffectAutoDestroy > 0f)
         {
             Destroy(fx, EffectAutoDestroy);
@@ -350,7 +355,6 @@ public class EnemyAI : MonoBehaviour
     // ================= SE再生（CRI版） =================
     private void TryPlaySpawnSE()
     {
-        // 他所でポーズされてても鳴るよう一応解除（任意）
         if (ForceUnpauseAudioListener && AudioListener.pause)
             AudioListener.pause = false;
 
@@ -371,7 +375,6 @@ public class EnemyAI : MonoBehaviour
     {
         if (!Player)
         {
-            // プレイヤー不明なら矩形の中心あたり
             return new Vector3(
                 Mathf.Lerp(MinX, MaxX, 0.5f),
                 SpawnYOffset,
@@ -386,12 +389,48 @@ public class EnemyAI : MonoBehaviour
         float z0 = Mathf.Min(MinZ, MaxZ);
         float z1 = Mathf.Max(MinZ, MaxZ);
 
-        // 一定距離以上離れた点をランダムに試す
+        bool inSecond = (secondRoomTutorial != null && secondRoomTutorial.IsPlayerInSecondRoom);
+
+        if (inSecond && doorBorderX)
+        {
+            float doorX = doorBorderX.position.x;
+            float beforeX0 = x0;
+            float beforeX1 = x1;
+
+            // X 下限は "ドア位置" でクランプ
+            x0 = Mathf.Max(x0, doorX);
+
+            if (x0 > x1)
+            {
+                x1 = x0;
+                Debug.LogWarning(
+                    $"[EnemyAI] ドアX={doorX:F2} がスポーン範囲外。X範囲 ({beforeX0:F2},{beforeX1:F2}) → ({x0:F2},{x1:F2}) に補正"
+                );
+            }
+            else
+            {
+                Debug.Log(
+                    $"[EnemyAI] 2部屋目スポーン調整: doorX={doorX:F2}, X範囲=({beforeX0:F2},{beforeX1:F2})→({x0:F2},{x1:F2})"
+                );
+            }
+        }
+
         for (int i = 0; i < MaxPickTrials; i++)
         {
             float x = Random.Range(x0, x1);
             float z = Random.Range(z0, z1);
             pick = new Vector3(x, Player.position.y + SpawnYOffset, z);
+
+            // ★ 2部屋目にいるときは「ドア＋オフセット」より右側に必ず寄せる
+            if (inSecond && doorBorderX)
+            {
+                float doorX = doorBorderX.position.x;
+                float minXFromDoor = doorX + secondRoomDoorOffsetX;
+                if (pick.x < minXFromDoor)
+                {
+                    pick.x = minXFromDoor;
+                }
+            }
 
             Vector2 d2 = new Vector2(
                 pick.x - Player.position.x,
@@ -399,15 +438,24 @@ public class EnemyAI : MonoBehaviour
             );
             if (d2.sqrMagnitude >= MinSpawnDistance * MinSpawnDistance)
             {
-                return pick; // 採用
+                return pick;
             }
         }
 
-        // どうしても取れなかったら、矩形の四隅のうち一番遠いところ
+        // どうしても条件に合わない時は矩形内の一番遠い隅
         Vector3 far = FarthestPointFromPlayerInRect(
             new Vector2(x0, z0),
             new Vector2(x1, z1)
         );
+
+        if (inSecond && doorBorderX)
+        {
+            float doorX = doorBorderX.position.x;
+            float minXFromDoor = doorX + secondRoomDoorOffsetX;
+            if (far.x < minXFromDoor)
+                far.x = minXFromDoor;
+        }
+
         return new Vector3(far.x, Player.position.y + SpawnYOffset, far.z);
     }
 
