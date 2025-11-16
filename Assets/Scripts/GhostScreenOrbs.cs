@@ -1,137 +1,121 @@
-using System.Collections.Generic;
+ï»¿using System.Collections.Generic;
 using UnityEngine;
 
 [DefaultExecutionOrder(10)]
 public class GhostScreenOrbs : MonoBehaviour
 {
-    // ===== QÆ =====
-    [Header("QÆ")]
-    public EnemyAI Enemy;              // oŒ»”»’è•ÅŠñ‚èƒS[ƒXƒg
-    public Camera Cam;                 // –¢İ’è‚È‚ç©“®‚ÅCamera.main
-    public GameObject OrbPrefab;       // È—ª‰Âi–¢İ’è‚È‚ç©“®¶¬j
+    // ===== å‚ç…§ =====
+    [Header("å‚ç…§")]
+    [Tooltip("å¹½éœŠãŒå‡ºã¦ã„ã‚‹ã‹ã‚’è¦‹ã‚‹ EnemyAIï¼ˆCurrentGhost ã‚’å‚ç…§ï¼‰")]
+    public EnemyAI Enemy;
 
-    // Ú‹ß“x‚ğ“Ç‚Ş
-    [Tooltip("Ú‹ß“x(GetDangerBlend01)‚ğ“Ç‚ŞQÆB–¢İ’è‚Å‚àOK")]
+    [Tooltip("ã‚¨ãƒ•ã‚§ã‚¯ãƒˆã‚’å‡ºã™ã‚«ãƒ¡ãƒ©ã€‚æœªè¨­å®šãªã‚‰ Camera.main")]
+    public Camera Cam;
+
+    [Tooltip("ã‚«ãƒ¡ãƒ©å‰ã«å‡ºã—ãŸã„â€œã‚†ã‚‰ã‚†ã‚‰ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«â€ã®Prefab")]
+    public GameObject OrbPrefab;
+
+    [Tooltip("æ¥è¿‘åº¦(GetDangerBlend01)ã‚’èª­ã‚€å‚ç…§ã€‚ãªãã¦ã‚‚OK")]
     public GameOver DangerRef;
 
-    // ===== ƒXƒ|[ƒ“İ’è =====
-    [Header("ƒXƒ|[ƒ“")]
-    public float SpawnPerSecond = 6f;  // oŒ»’†‚Ì–ˆ•bƒXƒ|[ƒ“”
-    public float SpawnJitter = 0.35f;  // ŠÔ‚Î‚ç‚Â‚«i0..1j
-    public Vector2 ViewportMargin = new Vector2(0.12f, 0.18f); // ‰æ–Ê’[‚©‚ç“à‘¤‚É
+    // ===== ã‚¹ãƒãƒ¼ãƒ³é »åº¦ =====
+    [Header("ã‚¹ãƒãƒ¼ãƒ³è¨­å®š")]
+    [Tooltip("ã‚´ãƒ¼ã‚¹ãƒˆå‡ºç¾ä¸­ã® 1ç§’ã‚ãŸã‚Šã®ã‚¹ãƒãƒ¼ãƒ³æ•°ã®åŸºæº–")]
+    public float SpawnPerSecond = 15f;   // â˜…ã€Œã‚‚ã£ã¨ãŸãã•ã‚“ã€ãªã‚‰ã“ã“ã‚’ä¸Šã’ã‚‹
 
-    // ===== ˆÊ’u/ƒTƒCƒY/‘¬“x =====
-    [Header("‹——£/ƒTƒCƒY/‘¬“x")]
-    public float PlaneDistance = 0.45f;           // ƒJƒƒ‰‘O‚Ì‹——£imj
-    public Vector2 StartSize = new Vector2(0.06f, 0.12f);
-    public Vector2 Speed = new Vector2(0.35f, 0.65f);          // m/s
-    public float DriftNoise = 0.25f;                           // ‰¡ƒYƒŒ
+    [Tooltip("ã‚¹ãƒãƒ¼ãƒ³é–“éš”ã®ãƒãƒ©ã¤ãï¼ˆ1ã«è¿‘ã„ã»ã©ãƒ©ãƒ³ãƒ€ãƒ ï¼‰")]
+    [Range(0f, 1f)]
+    public float SpawnJitter = 0.3f;
 
-    // ===== is•ûŒü =====
-    [Header("is•ûŒü")]
-    [Tooltip("true‚È‚ç‰æ–Ê‚ÌY(ã‰º)‚É‚¾‚¯—¬‚ê‚éBfalse‚È‚ç]—ˆ‹““®")]
-    public bool MoveAlongScreenY = true;   // ã‰º‚¾‚¯
-    [Tooltip("true‚È‚çã‰º‚Ç‚¿‚ç‚É‚à”ò‚ÔBfalse‚È‚çã•ûŒü‚Ì‚İ")]
-    public bool RandomizeUpDown = false;   // ã‰ºƒ‰ƒ“ƒ_ƒ€
-    [Tooltip("true‚È‚çƒ[ƒ‹ƒh‚ÌY(ã)‚É‚¾‚¯—¬‚·iScreenY‚æ‚è—Dæj")]
-    public bool MoveAlongWorldY = false;   // ¢ŠEY—Dæ
-    [Tooltip("ƒS[ƒXƒg•ûŒü‚Ö‚Ìˆø—Íi]—ˆ‹““®‚Ì‚İ—LŒøj")]
-    public float GravityTowardGhost = 0.6f;
+    // ===== ä½ç½® =====
+    [Header("ä½ç½®")]
+    [Tooltip("ã‚«ãƒ¡ãƒ©ã‹ã‚‰ã©ã‚Œã ã‘å‰ã«å‡ºã™ã‹ï¼ˆmï¼‰")]
+    public float PlaneDistance = 0.5f;
 
-    // ===== õ–½/Œ©‚½–Ú =====
-    [Header("õ–½/“§–¾“x")]
-    public Vector2 Lifetime = new Vector2(0.9f, 1.6f);
-    public AnimationCurve AlphaOverLife = AnimationCurve.EaseInOut(0, 0, 1, 0); // ’[‚©‚ç’[‚Ü‚ÅƒtƒF[ƒh
-    public AnimationCurve ScaleOverLife = AnimationCurve.EaseInOut(0, 1, 1, 0.6f);
+    // ===== å¯¿å‘½/ã‚¹ã‚±ãƒ¼ãƒ« =====
+    [Header("å¯¿å‘½/ã‚¹ã‚±ãƒ¼ãƒ«")]
+    [Tooltip("ã‚ªãƒ¼ãƒ–1ã¤ã®å¯¿å‘½ç¯„å›²ï¼ˆç§’ï¼‰")]
+    public Vector2 Lifetime = new Vector2(0.8f, 1.4f);
 
-    // ===== ‹­“xi‹——£‚Å‘Œ¸j =====
-    [Header("oŒ»’†‚Ì‹­“x")]
-    [Range(0, 1)] public float MinPresence = 0.25f; // oŒ»’†‚ÍÅ’á‚±‚ê‚¾‚¯o‚·
-    public float DistanceBoostRadius = 10f;        // ‹ß‚¢‚Ù‚Ç‘‚¦‚é”¼Œa
+    [Tooltip("å¯¿å‘½ã«å¿œã˜ãŸã‚¹ã‚±ãƒ¼ãƒ«å¤‰åŒ–ï¼ˆ0=ç”Ÿã¾ã‚ŒãŸç¬é–“,1=æ¶ˆãˆã‚‹ç›´å‰ï¼‰")]
+    public AnimationCurve ScaleOverLife = AnimationCurve.EaseInOut(0, 1, 1, 0.7f);
 
-    //Ú‹ß‚ÌŒ©‚¦•ûƒu[ƒXƒg
-    [Header("Ú‹ßƒu[ƒXƒg")]
-    [Tooltip("Ú‹ß‚ÉƒXƒ|[ƒ“ƒŒ[ƒg‚Ö‘«‚·”{—¦i—á 0.75 ¨ +75%j")]
-    public float DangerSpawnBoost = 0.75f;         // š’Ç‰Á
-    [Tooltip("Ú‹ß‚ÌƒXƒP[ƒ‹æZi—á 1.15 ¨ +15%j")]
-    public float ScaleByDanger = 1.15f;            // š’Ç‰Á
+    [Tooltip("æ¥è¿‘æ™‚ã«ã‚¹ã‚±ãƒ¼ãƒ«ã¸ã‹ã‹ã‚‹å€ç‡ï¼ˆ1.15 ãªã‚‰ +15%ï¼‰")]
+    public float ScaleByDanger = 1.15f;
 
-    // ===== ƒfƒvƒXŒÅ’è =====
-    [Header("[“xƒƒbƒN")]
-    [Tooltip("true‚È‚çƒJƒƒ‰‚ª“®‚¢‚Ä‚à‰œs‚«‚ğí‚É PlaneDistance ‚ÉŒÅ’è‚·‚é")]
-    public bool KeepDepthLocked = true;            // š’Ç‰ÁFƒfƒtƒHƒ‹ƒgON
+    // ===== å¼·åº¦ï¼ˆè·é›¢/æ¥è¿‘ï¼‰ =====
+    [Header("å‡ºç¾ä¸­ã®å¼·åº¦")]
+    [Tooltip("ã‚´ãƒ¼ã‚¹ãƒˆãŒå‡ºã¦ã„ã‚‹ã¨ãã®æœ€ä½å‡ºç¾å¼·åº¦ï¼ˆ0ã€œ1ï¼‰")]
+    [Range(0, 1)]
+    public float MinPresence = 0.6f;
 
-    // ===== ƒv[ƒ‹ =====
-    [Header("ƒv[ƒ‹")]
-    public int PoolSize = 32;
+    [Tooltip("ã“ã®åŠå¾„ä»¥å†…ã§è¿‘ã„ã»ã©å‡ºç¾é‡ãŒå¢—ãˆã‚‹")]
+    public float DistanceBoostRadius = 8f;
 
-    //ƒŒƒCƒ„§Œäiƒv[ƒ‹‚Íí‚É”ñ•\¦ƒŒƒCƒ„j
-    [Header("ƒŒƒCƒ„")]
-    [Tooltip("ƒv[ƒ‹’†‚Ég‚¤‰B‚µƒŒƒCƒ„–¼i‚±‚ÌƒŒƒCƒ„‚ÍƒJƒƒ‰‚ÌCulling Mask‚©‚çœŠO‚µ‚Ä‚¨‚­j")]
-    public string HiddenLayerName = "PooledHidden";
-    [Tooltip("•\¦‚É–ß‚·ƒŒƒCƒ„–¼")]
-    public string VisibleLayerName = "Default";
+    [Header("æ¥è¿‘ãƒ–ãƒ¼ã‚¹ãƒˆ")]
+    [Tooltip("æ¥è¿‘åº¦ã«ã‚ˆã£ã¦ã‚¹ãƒãƒ¼ãƒ³ãƒ¬ãƒ¼ãƒˆã«è¶³ã™å€ç‡ï¼ˆ1.0 â†’ +100%ï¼‰")]
+    public float DangerSpawnBoost = 1.0f;
 
-    //Œ©‚½–Ú
-    [Header("Œ©‚½–Ú")]
-    [Tooltip("true‚È‚çg–{‘ÌƒƒbƒVƒ…i‹…‘Ìjh‚Íí‚É”ñ•\¦BƒgƒŒƒCƒ‹‚Ì‚İ•\¦")]
-    public bool HideCoreMesh = true;                   //–{‘Ì‚ğÁ‚·
+    // ===== æ·±åº¦ãƒ­ãƒƒã‚¯ =====
+    [Header("æ·±åº¦ãƒ­ãƒƒã‚¯")]
+    [Tooltip("trueãªã‚‰å¸¸ã«ã‚«ãƒ¡ãƒ©å‰ PlaneDistance ã®ä½ç½®ã«ãƒ­ãƒƒã‚¯ã™ã‚‹")]
+    public bool KeepInFrontOfCamera = true;
 
-    // ---- “à•” ----
+    // ===== ãƒ—ãƒ¼ãƒ« =====
+    [Header("ãƒ—ãƒ¼ãƒ«")]
+    [Tooltip("åŒæ™‚ã«å­˜åœ¨ã—ã†ã‚‹ã‚ªãƒ¼ãƒ–ã®æœ€å¤§æ•°")]
+    public int PoolSize = 48;
+
+    // ---- å†…éƒ¨ ----
     private float _accum;
     private readonly List<Orb> _pool = new List<Orb>();
-    private Transform _ghostT;         // ’¼‹ß‚ÌƒS[ƒXƒg
-    private Transform _poolRoot;       // ƒv[ƒ‹eiƒqƒGƒ‰”ñ•\¦j
-    private bool _initialized = false; // —H—ì‚ªo‚é‚Ü‚Å¶¬‚µ‚È‚¢„Start‚Å¶¬‚É•ÏX
-    private int _hiddenLayer = -1;
-    private int _visibleLayer = -1;
+    private Transform _poolRoot;
+    private Transform _ghostT;
+    private bool _initialized = false;
 
-    // “à•”: Ú‹ß“xƒLƒƒƒbƒVƒ…i0..1j
-    private float _danger01 = 0f;
+    [HideInInspector] public float _danger01 = 0f;
+
+    // ================= ãƒ©ã‚¤ãƒ•ã‚µã‚¤ã‚¯ãƒ« =================
 
     void Awake()
     {
         if (!Cam) Cam = Camera.main;
-        // ¦Awake‚Å‚Í‰½‚à¶¬‚µ‚È‚¢i’x‰„‰Šú‰»j
     }
 
-    // ‹N“®‚É•K‚¸ƒv[ƒ‹‚¾‚¯‚Íì‚éi•`‰æ‚ÍOFF&‰B‚µƒŒƒCƒ„j
     void Start()
     {
-        _hiddenLayer = LayerMask.NameToLayer(HiddenLayerName);
-        _visibleLayer = LayerMask.NameToLayer(VisibleLayerName);
-
-        if (!_initialized)
+        if (!OrbPrefab)
         {
-            EnsurePrefab();
-            BuildPool();
-            _initialized = true;
+            Debug.LogWarning("[GhostScreenOrbs] OrbPrefab ãŒè¨­å®šã•ã‚Œã¦ã„ã¾ã›ã‚“ã€‚");
+            return;
         }
+
+        BuildPool();
+        _initialized = true;
     }
 
-    //Ä—LŒø‰»‚à•ÛŒ¯‚Åƒv[ƒ‹‚ğŒ©‚¦‚È‚­‚·‚é
     void OnEnable()
     {
-        if (_pool != null)
+        // å†æœ‰åŠ¹åŒ–æ™‚ã¯ãƒ—ãƒ¼ãƒ«ã‚’å…¨éƒ¨ãƒªã‚»ãƒƒãƒˆ
+        for (int i = 0; i < _pool.Count; i++)
         {
-            for (int i = 0; i < _pool.Count; i++)
-                if (_pool[i] != null && _pool[i].host)
-                    SetRenderable(_pool[i].host, false);
+            if (_pool[i] != null && _pool[i].host)
+            {
+                _pool[i].host.SetActive(false);
+                _pool[i].alive = false;
+            }
         }
     }
 
     void Update()
     {
-        if (!Enemy || !Cam) return;
+        if (!_initialized || !Cam || !Enemy) return;
 
-        // ‚¢‚ÜoŒ»’†H
+        // ã‚´ãƒ¼ã‚¹ãƒˆãŒå‡ºã¦ã„ã‚‹ã‹
         bool present = (Enemy.CurrentGhost != null);
         _ghostT = present ? Enemy.CurrentGhost.transform : null;
 
-        // Start‚Å‰Šú‰»‚·‚é‚Ì‚Å‚±‚±‚Å‚Í•s—v‚¾‚ªA•ÛŒ¯
-        if (!_initialized) return; // ‚Ü‚¾ˆê“x‚ào‚Ä‚È‚¢
-
-        // oŒ»’†‚Ì–Ú•W”­¶ƒŒ[ƒgi‹——£‚Å‹­ãj
+        // å‡ºç¾ä¸­ã®å¼·åº¦ï¼ˆè·é›¢ã§å¢—æ¸›ï¼‰
         float presence = present ? 1f : 0f;
         if (presence > 0f && _ghostT)
         {
@@ -140,13 +124,13 @@ public class GhostScreenOrbs : MonoBehaviour
             presence = Mathf.Max(MinPresence, w);
         }
 
-        // Ú‹ß“xi0..1j
-        _danger01 = (DangerRef ? Mathf.Clamp01(DangerRef.GetDangerBlend01()) : 0f); // š’Ç‰Á
+        // æ¥è¿‘åº¦ï¼ˆ0..1ï¼‰
+        _danger01 = (DangerRef ? Mathf.Clamp01(DangerRef.GetDangerBlend01()) : 0f);
 
-        // ƒXƒ|[ƒ“ƒŒ[ƒgF‘¶İ~i1 + Ú‹ßƒu[ƒXƒgj
+        // ã‚¹ãƒãƒ¼ãƒ³ãƒ¬ãƒ¼ãƒˆï¼šå­˜åœ¨Ã—ï¼ˆ1 + æ¥è¿‘ãƒ–ãƒ¼ã‚¹ãƒˆï¼‰
         float rate = SpawnPerSecond * presence * Mathf.Lerp(1f, 1f + DangerSpawnBoost, _danger01);
 
-        // ŠÔˆø‚«ƒ^ƒCƒ}[ipresent=0‚È‚ç©‘R’â~j
+        // é–“å¼•ãã‚¿ã‚¤ãƒãƒ¼
         _accum += rate * Time.deltaTime;
         while (_accum >= 1f)
         {
@@ -154,64 +138,19 @@ public class GhostScreenOrbs : MonoBehaviour
             _accum -= Mathf.Lerp(1f - SpawnJitter, 1f + SpawnJitter, Random.value);
         }
 
-        // ƒI[ƒuXVipresent=0‚Å‚àõ–½‚ÅÁ‚¦‚éj
+        // ã‚ªãƒ¼ãƒ–æ›´æ–°
         float dt = Time.deltaTime;
         for (int i = 0; i < _pool.Count; i++)
         {
-            if (_pool[i].alive) _pool[i].Tick(dt, Cam, _ghostT, this);
+            if (_pool[i].alive) _pool[i].Tick(dt, Cam, this);
         }
     }
 
-    // ====== ¶¬/ƒv[ƒ‹ ======
-    void EnsurePrefab()
-    {
-        if (OrbPrefab) return;
-
-        // ©“®¶¬F”’‚¢‹…{ƒgƒŒƒCƒ‹i‰ÁZUnlitj
-        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        go.name = "AutoScreenOrbPrefab";
-        Object.Destroy(go.GetComponent<Collider>());
-
-        // ƒgƒŒƒCƒ‹‚ÍgÁ‚¦‚È‚¢hSprites/Default‚É‚·‚é
-        var trail = go.AddComponent<TrailRenderer>();
-        trail.time = 0.25f;
-        trail.widthCurve = AnimationCurve.EaseInOut(0, 0.06f, 1, 0f);
-        var trailMat = new Material(Shader.Find("Sprites/Default"));
-        trailMat.SetColor("_Color", new Color(1, 1, 1, 0.5f));
-        trail.sharedMaterial = trailMat;
-        trail.emitting = true;
-        trail.minVertexDistance = 0.02f;
-
-        // –{‘ÌƒƒbƒVƒ…
-        var mr = go.GetComponent<MeshRenderer>();
-        if (mr)
-        {
-            var coreMat = new Material(Shader.Find("Sprites/Default"));
-            coreMat.SetColor("_Color", Color.white);
-            mr.sharedMaterial = coreMat;
-        }
-
-        // –{‘ÌƒƒbƒVƒ…‚ğ•¨—“I‚ÉŠO‚·
-        if (HideCoreMesh)
-        {
-            var mf = go.GetComponent<MeshFilter>();
-            var mrComp = go.GetComponent<MeshRenderer>();
-            if (mf) Destroy(mf);
-            if (mrComp) Destroy(mrComp);
-        }
-
-        // ƒeƒ“ƒvƒŒ‚Í”ñ•\¦E”ñ•Û‘¶E‚±‚ÌƒRƒ“ƒ|[ƒlƒ“ƒg‚Ìq‚É’u‚­
-        go.SetActive(false);
-        go.hideFlags = HideFlags.HideAndDontSave;
-        go.transform.SetParent(transform, false);
-
-        OrbPrefab = go;
-    }
+    // ================= ãƒ—ãƒ¼ãƒ« =================
 
     void BuildPool()
     {
-        // ƒv[ƒ‹eiƒqƒGƒ‰ƒ‹ƒL[”ñ•\¦j
-        if (_poolRoot == null)
+        if (!_poolRoot)
         {
             var root = new GameObject("ScreenOrbPool");
             root.transform.SetParent(transform, false);
@@ -225,229 +164,107 @@ public class GhostScreenOrbs : MonoBehaviour
             var o = new Orb();
             o.host = Instantiate(OrbPrefab, _poolRoot);
             o.host.SetActive(false);
-            SetRenderable(o.host, false); // ¶¬’¼Œã‚ÍŠmÀ‚É”ñ•\¦
-
-            // ‰B‚µƒŒƒCƒ„‚É“ü‚ê‚Äâ‘Î‰f‚³‚È‚¢
-            if (_hiddenLayer >= 0) SetLayerRecursively(o.host, _hiddenLayer);
-
+            o.alive = false;
             _pool.Add(o);
         }
     }
 
+    // ================= ã‚¹ãƒãƒ¼ãƒ³ =================
+
     void SpawnOne()
     {
-        // ‹ó‚«ƒXƒƒbƒg
+        // ç©ºãã‚¹ãƒ­ãƒƒãƒˆã‚’æ¢ã™
         Orb o = null;
         for (int i = 0; i < _pool.Count; i++)
         {
-            if (!_pool[i].alive) { o = _pool[i]; break; }
-        }
-        if (o == null) return; // ‘S•”‰Ò“­’†‚È‚çƒXƒLƒbƒv
-
-        // ‰æ–Ê“àƒ‰ƒ“ƒ_ƒ€i’[‚·‚¬‚È‚¢j
-        float u = Mathf.Lerp(ViewportMargin.x, 1f - ViewportMargin.x, Random.value);
-        float v = Mathf.Lerp(ViewportMargin.y, 1f - ViewportMargin.y, Random.value);
-
-        Vector3 wp = Cam.ViewportToWorldPoint(new Vector3(u, v, PlaneDistance));
-
-        // ---- is•ûŒüi‰œs‚«‚ğE‚µ‚ÄY‚Ö—¬‚·ƒIƒvƒVƒ‡ƒ“‘Î‰j ----
-        Vector3 right = Cam.transform.right;
-        Vector3 up = Cam.transform.up;
-        Vector3 dir;
-
-        if (MoveAlongWorldY)
-        {
-            float sign = RandomizeUpDown ? (Random.value < 0.5f ? -1f : 1f) : 1f;
-            dir = Vector3.up * sign;                 // ¢ŠEY
-        }
-        else if (MoveAlongScreenY)
-        {
-            float sign = RandomizeUpDown ? (Random.value < 0.5f ? -1f : 1f) : 1f;
-            dir = up * sign;                          // ‰æ–Ê‚Ìã‰º‚¾‚¯
-        }
-        else
-        {
-            // ]—ˆ‹““®FƒS[ƒXƒg•ûŒü‚ÉŒy‚­—¬‚·
-            Vector3 forward = Cam.transform.forward;
-            dir = forward;
-            if (_ghostT)
+            if (!_pool[i].alive)
             {
-                Vector3 toG = (_ghostT.position - Cam.transform.position).normalized;
-                Vector3 toGFlat = Vector3.ProjectOnPlane(toG, forward).normalized;
-                dir = Vector3.Lerp(forward, toGFlat, GravityTowardGhost);
+                o = _pool[i];
+                break;
             }
         }
+        if (o == null) return; // å…¨éƒ¨ä½¿ç”¨ä¸­ãªã‚‰ã‚¹ã‚­ãƒƒãƒ—
 
-        // ‰¡ƒYƒŒƒmƒCƒYi‰œs‚«‚Í“ü‚ê‚È‚¢j
-        dir += right * (Random.value * 2f - 1f) * DriftNoise;
-        if (MoveAlongScreenY || MoveAlongWorldY)
-        {
-            dir += up * Random.Range(-0.2f, 0.2f) * DriftNoise;
-        }
+        if (!Cam) return;
 
-        // ‰æ–ÊYˆÚ“®‚Í‰œs‚«¬•ª‚ğŠ®‘Sœ‹
-        if (MoveAlongScreenY && !MoveAlongWorldY)
-        {
-            Vector3 forward = Cam.transform.forward;
-            dir = Vector3.ProjectOnPlane(dir, forward);
-        }
-        dir.Normalize();
-        // ---- ‚±‚±‚Ü‚Åis•ûŒü ----
+        // â˜… ã‚«ãƒ¡ãƒ©ã®æ­£é¢ & ä¸­å¿ƒã«å‡ºã™
+        //   ã‚«ãƒ¡ãƒ©ä½ç½® + forward * PlaneDistance
+        Vector3 spawnPos = Cam.transform.position + Cam.transform.forward * PlaneDistance;
 
-        float spd = Random.Range(Speed.x, Speed.y);
         float life = Random.Range(Lifetime.x, Lifetime.y);
-        float size = Random.Range(StartSize.x, StartSize.y);
+        float size = 1f;    // è¦‹ãŸç›®ã®ã‚µã‚¤ã‚ºã¯ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«Prefabå´ã«ä»»ã›ã‚‹
 
-        o.Spawn(wp, dir * spd, life, size, this);
+        o.Spawn(spawnPos, life, size, this, Cam);
     }
 
     void OnDestroy()
     {
-        // ƒv[ƒ‹e‚ğ‘|œiƒ†[ƒU[’ñ‹ŸPrefab‚ÍG‚ç‚È‚¢j
         if (_poolRoot) Destroy(_poolRoot.gameObject);
-
-        // ©“®¶¬ƒeƒ“ƒvƒŒ‚¾‚¯–¾¦”jŠü
-        if (OrbPrefab && OrbPrefab.hideFlags.HasFlag(HideFlags.HideAndDontSave))
-        {
-            Destroy(OrbPrefab);
-        }
     }
 
-    // •`‰æOn/Off‚ğ‚Ü‚Æ‚ß‚ÄØ‚éiƒv[ƒ‹‚ÌŠ®‘SOFF—pj
-    static void SetRenderable(GameObject go, bool enable)
-    {
-        if (!go) return;
+    // ================= å†…éƒ¨ã‚¯ãƒ©ã‚¹ï¼šã‚ªãƒ¼ãƒ– =================
 
-        var renderers = go.GetComponentsInChildren<Renderer>(true);
-        for (int i = 0; i < renderers.Length; i++)
-        {
-            renderers[i].enabled = enable;
-        }
-
-        // TrailRenderer ‚Ì”­¶‚à~‚ß‚½‚¢ê‡iRenderer Œp³‚¾‚ª”O‚Ì‚½‚ßj
-        var trails = go.GetComponentsInChildren<TrailRenderer>(true);
-        for (int i = 0; i < trails.Length; i++)
-        {
-            trails[i].emitting = enable;
-        }
-    }
-
-    // Spawnê—pi–{‘ÌƒƒbƒVƒ…‚Íí‚É”ñ•\¦AƒgƒŒƒCƒ‹‚¾‚¯—LŒø‰»j
-    void SetRenderableForSpawn(GameObject go, bool enable)
-    {
-        if (!go) return;
-
-        // MeshRendereric‚Á‚Ä‚¢‚éê‡‚Ì‚İjBHideCoreMesh‚È‚ç–³Œø or ‚»‚à‚»‚à‘¶İ‚µ‚È‚¢
-        var meshRenderers = go.GetComponentsInChildren<MeshRenderer>(true);
-        for (int i = 0; i < meshRenderers.Length; i++)
-            meshRenderers[i].enabled = enable && !HideCoreMesh;
-
-        // Trail ‚Í•\¦E”ñ•\¦‚ğ§Œä
-        var trails = go.GetComponentsInChildren<TrailRenderer>(true);
-        for (int i = 0; i < trails.Length; i++)
-        {
-            trails[i].enabled = enable;  // ”O‚Ì‚½‚ß
-            trails[i].emitting = enable;
-        }
-    }
-
-    //ƒŒƒCƒ„Ä‹Aİ’è
-    static void SetLayerRecursively(GameObject go, int layer)
-    {
-        if (!go) return;
-        go.layer = layer;
-        var t = go.transform;
-        for (int i = 0; i < t.childCount; i++)
-            SetLayerRecursively(t.GetChild(i).gameObject, layer);
-    }
-
-    // ====== “à•”ƒI[ƒu ======
     class Orb
     {
         public GameObject host;
         public bool alive;
         float life, maxLife;
-        Vector3 vel;
         Vector3 startScale;
 
-        MeshRenderer mr;
-
-        public void Spawn(Vector3 pos, Vector3 velocity, float lifetime, float size, GhostScreenOrbs cfg)
+        public void Spawn(Vector3 pos, float lifetime, float size, GhostScreenOrbs cfg, Camera cam)
         {
             alive = true;
-            if (!mr) mr = host.GetComponent<MeshRenderer>();
+
+            if (!host) return;
+
+            // ç”Ÿæˆä½ç½®ï¼šã‚«ãƒ¡ãƒ©ã®æ­£é¢
             host.transform.position = pos;
-            host.transform.rotation = Quaternion.identity;
-            startScale = Vector3.one * size;
-            host.transform.localScale = startScale;
-            vel = velocity;
-            life = maxLife = Mathf.Max(0.05f, lifetime);
-
-            // •\¦ŠJnFƒgƒŒƒCƒ‹‚Ì‚İ—LŒø‰»i–{‘ÌƒƒbƒVƒ…‚Í”ñ•\¦‚Ì‚Ü‚Üj
-            cfg.SetRenderableForSpawn(host, true);
-            host.SetActive(true);
-            if (cfg._visibleLayer >= 0) GhostScreenOrbs.SetLayerRecursively(host, cfg._visibleLayer);
-        }
-
-        public void Tick(float dt, Camera cam, Transform ghost, GhostScreenOrbs cfg)
-        {
-            if (!alive) return;
-
-            // i‚Ş
-            host.transform.position += vel * dt;
-
-            // í‚ÉƒJƒƒ‰‘OPlaneDistance‚Ì•½–Ê‚ÖƒƒbƒNi‰œs‚«ˆê’èj
-            if (cfg.KeepDepthLocked && cam)
-            {
-                host.transform.position = LockToCameraPlane(cam, host.transform.position, cfg.PlaneDistance);
-            }
-
-            // ƒJƒƒ‰‚Öƒrƒ‹ƒ{[ƒh
             host.transform.rotation = Quaternion.LookRotation(cam.transform.forward);
 
-            // Œo‰ß
+            startScale = Vector3.one * size;
+            host.transform.localScale = startScale;
+
+            life = maxLife = Mathf.Max(0.05f, lifetime);
+
+            // æœ‰åŠ¹åŒ–
+            host.SetActive(true);
+
+            // ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«ã‚’ãƒªã‚¹ã‚¿ãƒ¼ãƒˆï¼ˆæºã‚Œãªã©ã¯Prefabã«ä»»ã›ã‚‹ï¼‰
+            var particles = host.GetComponentsInChildren<ParticleSystem>(true);
+            for (int i = 0; i < particles.Length; i++)
+            {
+                particles[i].Clear(true);
+                particles[i].Play(true);
+            }
+        }
+
+        public void Tick(float dt, Camera cam, GhostScreenOrbs cfg)
+        {
+            if (!alive || !host) return;
+
+            // ã‚«ãƒ¡ãƒ©ã®å‰ã«ãƒ­ãƒƒã‚¯ã—ã¦ãŠããŸã„å ´åˆ
+            if (cfg.KeepInFrontOfCamera && cam)
+            {
+                Vector3 centerPos = cam.transform.position + cam.transform.forward * cfg.PlaneDistance;
+                host.transform.position = centerPos;
+                host.transform.rotation = Quaternion.LookRotation(cam.transform.forward);
+            }
+
+            // å¯¿å‘½é€²è¡Œ
             life -= dt;
             float t = 1f - Mathf.Clamp01(life / Mathf.Max(0.0001f, maxLife));
 
-            // ƒXƒP[ƒ‹/ƒAƒ‹ƒtƒ@i–{‘ÌƒƒbƒVƒ…‚Í”ñ•\¦‚È‚Ì‚Åå‚ÉƒgƒŒƒCƒ‹Œ©‚¦•ûj
+            // ã‚¹ã‚±ãƒ¼ãƒ«å¤‰åŒ–ï¼ˆå¿…è¦ãªã‘ã‚Œã° ScaleOverLife ã‚’ãƒ•ãƒ©ãƒƒãƒˆã«ã™ã‚‹ã ã‘ã§OKï¼‰
             float sMul = cfg.ScaleOverLife.Evaluate(t);
-            sMul *= Mathf.Lerp(1f, cfg.ScaleByDanger, cfg._danger01); // š’Ç‰Á
+            sMul *= Mathf.Lerp(1f, cfg.ScaleByDanger, cfg._danger01);
             host.transform.localScale = startScale * sMul;
 
-            // –{‘ÌƒƒbƒVƒ…—p‚ÉF‚ğG‚éˆ—‚Íc‚·i‘¶İ‚·‚ê‚Î”½‰f‚³‚ê‚éj
-            float a = Mathf.Clamp01(cfg.AlphaOverLife.Evaluate(t));
-            a = Mathf.Clamp01(a * (0.95f + 0.05f * cfg._danger01));   // š’Ç‰Á
-
-            if (!mr) mr = host.GetComponent<MeshRenderer>();
-            if (mr && mr.material && mr.material.HasProperty("_Color"))
-            {
-                var c = mr.material.color;
-                c.a = a;
-                mr.material.color = c;
-            }
-
+            // å¯¿å‘½åˆ‡ã‚Œã§æ¶ˆã™
             if (life <= 0f)
             {
-                // ”ñ•\¦‚É–ß‚·FŠ®‘SOFF + ‰B‚µƒŒƒCƒ„‚Ö
-                GhostScreenOrbs.SetRenderable(host, false);
                 host.SetActive(false);
-                if (cfg._hiddenLayer >= 0) GhostScreenOrbs.SetLayerRecursively(host, cfg._hiddenLayer);
                 alive = false;
             }
-        }
-
-        // ƒJƒƒ‰‘O‚Ìˆê’è‹——£‚Ìg•½–Êh‚ÖÄ“Š‰e
-        static Vector3 LockToCameraPlane(Camera cam, Vector3 worldPos, float planeDist)
-        {
-            // •½–Ê‚ÌŠî€“_iƒJƒƒ‰ˆÊ’u + forward * planeDistj
-            Vector3 planeOrigin = cam.transform.position + cam.transform.forward * planeDist;
-            Vector3 planeNormal = cam.transform.forward; // –@ü
-
-            // Œ»İˆÊ’u‚ğ‚»‚Ì•½–Ê‚É³Ë‰e
-            Vector3 v = worldPos - planeOrigin;
-            Vector3 onPlane = v - Vector3.Dot(v, planeNormal) * planeNormal;
-
-            return planeOrigin + onPlane;
         }
     }
 }
