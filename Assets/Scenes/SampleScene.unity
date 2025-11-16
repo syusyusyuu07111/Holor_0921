@@ -977,6 +977,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _candleID: paintings_sunflower
   _candleEfect: {fileID: 1230858164}
+  _isCorrectCandle: 1
 --- !u!4 &39215981 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 24dceb7e6d533da479971361b5f780c0, type: 3}
@@ -3924,6 +3925,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _candleID: paintings_swing
   _candleEfect: {fileID: 669937581}
+  _isCorrectCandle: 1
 --- !u!4 &219690072 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 24dceb7e6d533da479971361b5f780c0, type: 3}
@@ -12946,6 +12948,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _candleID: paintings_sea
   _candleEfect: {fileID: 658828201}
+  _isCorrectCandle: 1
 --- !u!1001 &532027558
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -48509,7 +48512,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: dede65e42a603054e8f8dc15af9d5db9, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 19.288
+      value: 19.08
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: dede65e42a603054e8f8dc15af9d5db9, type: 3}
       propertyPath: m_LocalPosition.y
@@ -48609,7 +48612,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1900655870}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 95829b1c955b94c42a66203df1fa8208, type: 3}
   m_Name: 
