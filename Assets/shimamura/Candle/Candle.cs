@@ -30,7 +30,7 @@ public class Candle : MonoBehaviour
         }
     }
 
-    // 別スクリプトから参照したい場合用
+    // 別スクリプトから参照したい場合
     public bool IsPutOut { get { return _isPutOut; } }
     public bool IsCorrectCandle { get { return _isCorrectCandle; } }
 }

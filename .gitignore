@@ -20,3 +20,5 @@ UserSettings/
 *.unitypackage
 Assets/StreamingAssets/CueSheet_0.acb
 Build_Windows (3).zip
+connectwebgl.zip
+WebGL Builds/StreamingAssets/CueSheet_0.acb
