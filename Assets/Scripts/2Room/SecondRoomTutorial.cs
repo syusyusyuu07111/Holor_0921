@@ -26,9 +26,8 @@ public class SecondRoomTutorial : MonoBehaviour
     // 今どのチュートリアルステップか
     // 0 = まだ何も、
     // 1 = チュートリアル1（部屋に入ったときのつぶやき＋本を調べよう）、
-    // 2 = チュートリアル2 へ進んだ（本アイテム・ヒントを集める）、
-    // 3 = チュートリアル3（幽霊が好きな絵を集めるミッション）、
-    // 4 = チュートリアル4（正解の絵を集め終わって、幽霊に絵を渡すミッション）
+    // 2 = チュートリアル2（本を集め終わったあと、幽霊が好きな絵を集めるミッション）、
+    // 3 = チュートリアル3（正解の絵を集め終わったあと、幽霊に絵を渡すミッション）
     private int tutorialStep = 0;
 
     // （必要なら）本を調べたかどうか（他のスクリプトから true にしてもらう想定）
@@ -101,8 +100,11 @@ public class SecondRoomTutorial : MonoBehaviour
         }
         */
 
-        // ★ チュートリアル3中に、絵パズル側で「正解の絵2枚」がそろったら次のミッションへ進む
-        if (tutorialStep == 3 && paintingPuzzleManager != null && paintingPuzzleManager.AllCorrectPickedUp)
+        // ★ チュートリアル2（絵を集めるミッション）中に、
+        //    絵パズル側で「正解の絵2枚」がそろったら次のミッションへ進む
+        if (tutorialStep == 2 &&
+            paintingPuzzleManager != null &&
+            paintingPuzzleManager.AllCorrectPickedUp)
         {
             Debug.Log("[SecondRoomTutorial] 絵パズルが完成したため、次のミッションへ進みます");
             GoToNextMissionAfterPictures();
@@ -171,11 +173,15 @@ public class SecondRoomTutorial : MonoBehaviour
     }
 
     /// <summary>
-    /// チュートリアル2へ進む（ItemCountMissionText などから呼ばせる）
-    /// 例：アイテムを5/5個集めたタイミングでこの関数を呼ぶ
+    /// チュートリアル2へ進む（本アイテムを集め終わったタイミングで呼ばせる想定）
+    /// 本から分かった情報をもとに、幽霊が好きな絵を集めるミッションに切り替える
     /// </summary>
     public void GoToTutorial2()
     {
+        // まだチュートリアル1に入っていない場合は何もしない
+        if (tutorialStep < 1) return;
+
+        // すでにチュートリアル2以降に進んでいる場合は二重実行しない
         if (tutorialStep >= 2) return;
 
         tutorialStep = 2;
@@ -188,7 +194,7 @@ public class SecondRoomTutorial : MonoBehaviour
         {
             Debug.Log("[SecondRoomTutorial] チュートリアル2 セリフ表示開始");
             sayCoroutine = StartCoroutine(
-                TypeText(Saytext, "本からいくつかのヒントを得た。")
+                TypeText(Saytext, "集めた本のヒントから、幽霊の好みが少し分かってきた。")
             );
         }
 
@@ -196,60 +202,26 @@ public class SecondRoomTutorial : MonoBehaviour
         {
             Debug.Log("[SecondRoomTutorial] チュートリアル2 ミッションテキスト表示開始");
             missionCoroutine = StartCoroutine(
-                TypeText(missiontext, "ミッション：アイテムを集めて、さらに情報をあつめよう。")
-            );
-        }
-
-        Debug.Log("【チュートリアル2（二つ目の部屋）】次のチュートリアルへ進みました");
-    }
-
-    /// <summary>
-    /// チュートリアル3へ進む（本アイテム・ヒント集めが終わったタイミングで呼ぶ想定）
-    /// ミッション：幽霊が好きな絵を集めよう に切り替える
-    /// </summary>
-    public void GoToCollectGhostPaintings()
-    {
-        // まだチュートリアル2（本アイテム・ヒント集め）に到達していない場合は何もしない
-        if (tutorialStep < 2) return;
-
-        // すでにチュートリアル3以降に進んでいる場合は二重実行しない
-        if (tutorialStep >= 3) return;
-
-        tutorialStep = 3;
-
-        Debug.Log($"[SecondRoomTutorial] GoToCollectGhostPaintings 呼び出し。Time.timeScale={Time.timeScale}");
-
-        ResetAllTextAndCoroutines();
-
-        if (Saytext != null)
-        {
-            Debug.Log("[SecondRoomTutorial] チュートリアル3 セリフ表示開始");
-            sayCoroutine = StartCoroutine(
-                TypeText(Saytext, "集めたアイテムから、幽霊の好みが少し分かってきた。")
-            );
-        }
-
-        if (missiontext != null)
-        {
-            Debug.Log("[SecondRoomTutorial] チュートリアル3 ミッションテキスト表示開始");
-            missionCoroutine = StartCoroutine(
                 TypeText(missiontext, "ミッション：幽霊が好きな絵を集めよう。")
             );
         }
 
-        Debug.Log("【チュートリアル3（二つ目の部屋）】幽霊が好きな絵を集めよう ミッション開始");
+        Debug.Log("【チュートリアル2（二つ目の部屋）】幽霊が好きな絵を集めよう ミッション開始");
     }
 
     /// <summary>
     /// 正解の絵を集め終わったあとの「幽霊に絵を渡そう」ミッションへ進む
-    /// （PaintingPuzzleManager からの条件をみて自動的に呼ばれる想定）
+    /// （Update 内で絵パズルの状態を見て自動的に呼ばれる想定）
     /// </summary>
     public void GoToNextMissionAfterPictures()
     {
-        // すでにこのフェーズ以降に進んでいる場合は二重実行しない
-        if (tutorialStep >= 4) return;
+        // まだ絵を集めるフェーズに入っていない場合は何もしない
+        if (tutorialStep < 2) return;
 
-        tutorialStep = 4;
+        // すでにこのフェーズ以降に進んでいる場合は二重実行しない
+        if (tutorialStep >= 3) return;
+
+        tutorialStep = 3;
 
         Debug.Log($"[SecondRoomTutorial] GoToNextMissionAfterPictures 呼び出し。Time.timeScale={Time.timeScale}");
 
@@ -257,7 +229,7 @@ public class SecondRoomTutorial : MonoBehaviour
 
         if (Saytext != null)
         {
-            Debug.Log("[SecondRoomTutorial] チュートリアル4 セリフ表示開始");
+            Debug.Log("[SecondRoomTutorial] チュートリアル3 セリフ表示開始");
             sayCoroutine = StartCoroutine(
                 TypeText(Saytext, "これだけ集めれば、幽霊もきっと喜んでくれるはずだ。")
             );
@@ -265,13 +237,13 @@ public class SecondRoomTutorial : MonoBehaviour
 
         if (missiontext != null)
         {
-            Debug.Log("[SecondRoomTutorial] チュートリアル4 ミッションテキスト表示開始");
+            Debug.Log("[SecondRoomTutorial] チュートリアル3 ミッションテキスト表示開始");
             missionCoroutine = StartCoroutine(
                 TypeText(missiontext, "ミッション：幽霊に絵を渡そう。")
             );
         }
 
-        Debug.Log("【チュートリアル4（二つ目の部屋）】幽霊に絵を渡そう ミッション開始");
+        Debug.Log("【チュートリアル3（二つ目の部屋）】幽霊に絵を渡そう ミッション開始");
     }
 
     /// <summary>
