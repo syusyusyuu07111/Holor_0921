@@ -140,8 +140,11 @@ public class Tutorial : MonoBehaviour
     public bool HideLightsUntilMission3 = true;
     private bool _lightsActivatedAfterM3 = false;
 
+    // ===== 2部屋目以降の停止フラグ =====
+    private bool _stoppedForSecondRoom = false;
+
     // ===== 共通ゲート =====
-    private bool IsEventAllowed() => !EnableBasicTutorial || _basicDone;
+    private bool IsEventAllowed() => !_stoppedForSecondRoom && (!EnableBasicTutorial || _basicDone);
 
     private void SkipCurrentTyping()
     {
@@ -185,10 +188,16 @@ public class Tutorial : MonoBehaviour
     /// </summary>
     public void StopTutorialForSecondRoom()
     {
-        // コルーチン停止
-        if (_typing != null) { StopCoroutine(_typing); _typing = null; }
-        if (_typingMission != null) { StopCoroutine(_typingMission); _typingMission = null; }
-        if (_basicCo != null) { StopCoroutine(_basicCo); _basicCo = null; }
+        // 2部屋目以降はこのチュートリアルを完全停止扱いにする
+        _stoppedForSecondRoom = true;
+
+        // 念のため、このコンポーネント内の全コルーチンを止める
+        StopAllCoroutines();
+
+        // 参照をクリア（個別 StopCoroutine は StopAllCoroutines 済みなので null だけ）
+        _typing = null;
+        _typingMission = null;
+        _basicCo = null;
 
         // 以降、前段チュートリアルやイベントが動かないようにする
         EnableBasicTutorial = false;
@@ -447,6 +456,7 @@ public class Tutorial : MonoBehaviour
     // ========== Step1/2/3 ==========
     public void Step1()
     {
+        if (_stoppedForSecondRoom) return;
         if (!BottomText) return;
         if (_typing != null) StopCoroutine(_typing);
         BottomText.gameObject.SetActive(true);
@@ -675,6 +685,7 @@ public class Tutorial : MonoBehaviour
 
     private void ShowHintTutorialLinesNow(string[] lines)
     {
+        if (_stoppedForSecondRoom) return;
         if (!BottomText) return;
         var copy = DuplicateLines(lines);
         if (_typing != null) StopCoroutine(_typing);
@@ -728,6 +739,7 @@ public class Tutorial : MonoBehaviour
 
     private void ShowMissionText(string line)
     {
+        if (_stoppedForSecondRoom) return;
         if (!MissionText || string.IsNullOrEmpty(line)) return;
         if (_typingMission != null) { StopCoroutine(_typingMission); _typingMission = null; }
         MissionText.gameObject.SetActive(true);
@@ -802,6 +814,7 @@ public class Tutorial : MonoBehaviour
     // ========== テキスト演出 ==========
     public void ShowOneShot(string line)
     {
+        if (_stoppedForSecondRoom) return;
         if (!BottomText || string.IsNullOrEmpty(line)) return;
         if (_typing != null) StopCoroutine(_typing);
         BottomText.gameObject.SetActive(true);

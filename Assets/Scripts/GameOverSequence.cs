@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine.UI;
 using UnityEngine;
-
 using System.Collections;
 
 public class GameOverSequence : MonoBehaviour
@@ -18,7 +17,7 @@ public class GameOverSequence : MonoBehaviour
         BottomToTop,        // 下→上にニョキッと出る
         DiagonalTLBR,       // 左上→右下っぽく同時に広がる
         ThrownIn,           // 画面外からぶん投げられてドンッと当たる
-        Hide                // ★追加：このステップの番で消す（フェードアウト）
+        Hide                // ★このステップの番で消す（フェードアウト）
     }
 
     // ------------------------------------------------
@@ -37,7 +36,6 @@ public class GameOverSequence : MonoBehaviour
         public bool playWithPrevious = false;
         // false: このステップは単独の開始タイミングを持つ
         // true : このステップは「直前のステップ」と同じタイミングで同時に開始する
-        //        (delayはこのステップ側も適用されるので、同時にしたいもの同士はdelayを合わせるのがわかりやすい)
 
         [Header("演出タイプ")]
         public RevealMode mode = RevealMode.FadeIn;
@@ -58,8 +56,6 @@ public class GameOverSequence : MonoBehaviour
 
     // ------------------------------------------------
     // 再生順リスト
-    // 上から順番に処理するけど、playWithPrevious=true のものは
-    // 直前のステップと同フレで同時に再生する
     // ------------------------------------------------
     [Header("順番に(あるいは同時に)出すリスト")]
     public ShowStep[] steps;
@@ -72,16 +68,12 @@ public class GameOverSequence : MonoBehaviour
 
     // ------------------------------------------------
     // 内部: もとの描画順(兄弟インデックス)保持用
-    // wrapper作成で親の子順がズレると前後関係が変わってしまうので、
-    // ここでsiblingIndexを記録して復元する
     // ------------------------------------------------
-    private Dictionary<RectTransform, int> _originalSiblingIndex = new Dictionary<RectTransform, int>();
+    private Dictionary<RectTransform, int> _originalSiblingIndex =
+        new Dictionary<RectTransform, int>();
 
     //==================================================
     // Start
-    // 1) runtimeTarget の用意 (RectMask2D付きwrapperの作成など)
-    // 2) hideAllOnStart なら全部隠す
-    // 3) playOnStart なら即シーケンス開始
     //==================================================
     void Start()
     {
@@ -115,13 +107,9 @@ public class GameOverSequence : MonoBehaviour
 
     //==================================================
     // PrepareRuntimeTargets
-    // ターゲットごとに、マスク演出に必要なら wrapper を作る
-    // wrapperには RectMask2D と CanvasGroup を付与
-    //    - wrapperはtargetの親の子として差し込み、targetをその子に付け替える
-    //    - siblingIndexを維持して描画順を崩さない
-    // すでにマスク親がある場合はそれをそのまま使う
-    // FadeIn / ThrownIn などマスク不要の演出はCanvasGroupだけでもOKだが
-    // ここでは全ステップで runtimeTarget を統一する扱いにしておく
+    //
+    // ・マスク演出が必要なモードだけ wrapper + RectMask2D を作る
+    // ・Fade / ThrownIn / Hide は target そのものを使う（wrapper 生成しない）
     //==================================================
     private void PrepareRuntimeTargets()
     {
@@ -136,11 +124,37 @@ public class GameOverSequence : MonoBehaviour
                 continue;
             }
 
+            bool needMask =
+                (s.mode == RevealMode.LeftToRight) ||
+                (s.mode == RevealMode.RightToLeft) ||
+                (s.mode == RevealMode.TopToBottom) ||
+                (s.mode == RevealMode.BottomToTop) ||
+                (s.mode == RevealMode.DiagonalTLBR);
+
+            // マスク不要ならそのまま使う
+            if (!needMask)
+            {
+                s.runtimeTarget = s.target;
+
+                // フェード用に CanvasGroup だけ用意
+                var cg = s.runtimeTarget.GetComponent<CanvasGroup>();
+                if (!cg) cg = s.runtimeTarget.AddComponent<CanvasGroup>();
+
+                CacheSiblingIndex(s.runtimeTarget);
+                continue;
+            }
+
+            // ここから先はマスク演出ありのケース
+
             // すでに RectMask2D を持つ親/自分があるならそれを使う
             if (HasRectMaskSelfOrParent(s.target, out GameObject maskRoot))
             {
                 s.runtimeTarget = maskRoot;
                 CacheSiblingIndex(s.runtimeTarget);
+
+                var cg = s.runtimeTarget.GetComponent<CanvasGroup>();
+                if (!cg) cg = s.runtimeTarget.AddComponent<CanvasGroup>();
+
                 continue;
             }
 
@@ -149,6 +163,11 @@ public class GameOverSequence : MonoBehaviour
             if (!rt)
             {
                 s.runtimeTarget = s.target;
+                CacheSiblingIndex(s.runtimeTarget);
+
+                var cg = s.runtimeTarget.GetComponent<CanvasGroup>();
+                if (!cg) cg = s.runtimeTarget.AddComponent<CanvasGroup>();
+
                 continue;
             }
 
@@ -168,8 +187,8 @@ public class GameOverSequence : MonoBehaviour
 
             // wrapper 側にRectMask2DとCanvasGroup
             var mask = wrapper.AddComponent<RectMask2D>();
-            var cg = wrapper.AddComponent<CanvasGroup>();
-            cg.alpha = 1f; // 初期は1。HideInstant側で0にする
+            var cgWrapper = wrapper.AddComponent<CanvasGroup>();
+            cgWrapper.alpha = 1f; // 初期は1。HideInstant側で0にする
 
             // target を wrapper の子に
             rt.SetParent(wrapperRT, worldPositionStays: false);
@@ -225,7 +244,6 @@ public class GameOverSequence : MonoBehaviour
 
     //==================================================
     // 親か自分に RectMask2D があるかチェック
-    // あればそのGameObjectをmaskRootに返す
     //==================================================
     private bool HasRectMaskSelfOrParent(GameObject go, out GameObject maskRoot)
     {
@@ -247,21 +265,6 @@ public class GameOverSequence : MonoBehaviour
 
     //==================================================
     // シーケンス再生
-    //
-    // steps[]を頭から走査するけど、
-    // playWithPrevious = true のものは直前のステップと同タイミングで並列再生する。
-    //
-    // 具体例:
-    //   step0(playWithPrevious=false)
-    //   step1(playWithPrevious=true)
-    //   step2(playWithPrevious=true)
-    //   step3(playWithPrevious=false)
-    //
-    // → まず step0/1/2 を同時に再生(一塊バッチ)
-    // → バッチが終わったら step3 の処理…みたいになる
-    //
-    // delayBeforeShow は各ステップ単位で効くので、
-    // 同時に出したいもの同士は delayBeforeShow を同じにすると「同フレ感」が出る
     //==================================================
     private IEnumerator PlaySequence()
     {
@@ -294,7 +297,6 @@ public class GameOverSequence : MonoBehaviour
     {
         if (batch == null || batch.Count == 0) yield break;
 
-        // まず全員分のコルーチンを投げて、その完了待ち
         List<Coroutine> running = new List<Coroutine>();
 
         for (int k = 0; k < batch.Count; k++)
@@ -304,10 +306,8 @@ public class GameOverSequence : MonoBehaviour
             running.Add(co);
         }
 
-        // ここでは全員終わるのを待つ
         foreach (var c in running)
         {
-            // nullチェックしとく
             if (c != null)
                 yield return c;
         }
@@ -320,11 +320,11 @@ public class GameOverSequence : MonoBehaviour
     {
         if (!s.target && !s.runtimeTarget) yield break;
 
-        // 開始前の待ち
+        // 開始前の待ち（Unscaled）
         if (s.delayBeforeShow > 0f)
-            yield return new WaitForSeconds(s.delayBeforeShow);
+            yield return new WaitForSecondsRealtime(s.delayBeforeShow);
 
-        // 実際の表示演出（Hide の場合はここで消す）
+        // 実際の表示演出
         yield return StartCoroutine(PlayStepReveal(s));
     }
 
@@ -336,7 +336,6 @@ public class GameOverSequence : MonoBehaviour
         var go = s.runtimeTarget ? s.runtimeTarget : s.target;
         if (!go) yield break;
 
-        // 念のため描画順を復元（wrapper経由で順番ズレてる場合の保険）
         RestoreSiblingOrderIfRecorded(go);
 
         switch (s.mode)
@@ -390,7 +389,6 @@ public class GameOverSequence : MonoBehaviour
                 break;
 
             case RevealMode.Hide:
-                // ★追加：今見えているものをフェードアウトで消す
                 yield return StartCoroutine(FadeOutObject(go, s.duration));
                 break;
         }
@@ -398,8 +396,6 @@ public class GameOverSequence : MonoBehaviour
 
     //==================================================
     // 最初に一瞬で隠す
-    // - αを0にしておく
-    // - マスク系はサイズ0スタートをReveal時にやるのでここではいじらない
     //==================================================
     private void HideInstant(ShowStep s)
     {
@@ -414,7 +410,7 @@ public class GameOverSequence : MonoBehaviour
     }
 
     //==================================================
-    // 単純フェードイン
+    // 単純フェードイン（UnscaledTime）
     //==================================================
     private IEnumerator FadeInObject(GameObject go, float duration)
     {
@@ -438,7 +434,7 @@ public class GameOverSequence : MonoBehaviour
 
         while (t < duration)
         {
-            t += Time.deltaTime;
+            t += Time.unscaledDeltaTime;
             float lerp = Mathf.Clamp01(t / duration);
             cg.alpha = Mathf.Lerp(startA, endA, lerp);
             yield return null;
@@ -447,7 +443,7 @@ public class GameOverSequence : MonoBehaviour
     }
 
     //==================================================
-    // ★単純フェードアウト（Hide 用）
+    // 単純フェードアウト（Hide 用）
     //==================================================
     private IEnumerator FadeOutObject(GameObject go, float duration)
     {
@@ -459,7 +455,7 @@ public class GameOverSequence : MonoBehaviour
         go.SetActive(true);
 
         float t = 0f;
-        float startA = cg.alpha;   // 今のαから0に落としていく
+        float startA = cg.alpha;
         float endA = 0f;
 
         if (duration <= 0f)
@@ -470,7 +466,7 @@ public class GameOverSequence : MonoBehaviour
 
         while (t < duration)
         {
-            t += Time.deltaTime;
+            t += Time.unscaledDeltaTime;
             float lerp = Mathf.Clamp01(t / duration);
             cg.alpha = Mathf.Lerp(startA, endA, lerp);
             yield return null;
@@ -480,13 +476,6 @@ public class GameOverSequence : MonoBehaviour
 
     //==================================================
     // マスクを使って横/縦/斜めに露出させる
-    //
-    // verticalMode      : trueなら上下方向優先
-    // growFromStartEdge : trueならpivot側から伸びるイメージ
-    // diagonal          : trueなら横縦同時(左上→右下っぽい)
-    //
-    // ※ pivot と anchor の置き方で「どっちから伸びるか」のニュアンスが決まる
-    //   (左から入りたいなら pivot.x を0寄りにしておくと素直)
     //==================================================
     private IEnumerator RevealMask_Grow(
         GameObject wrapper,
@@ -501,7 +490,6 @@ public class GameOverSequence : MonoBehaviour
         var mask = wrapper.GetComponent<RectMask2D>();
         if (!mask)
         {
-            // 念のための保険。通常はPrepareRuntimeTargetsで付いてる想定
             mask = wrapper.AddComponent<RectMask2D>();
         }
 
@@ -513,16 +501,11 @@ public class GameOverSequence : MonoBehaviour
 
         wrapper.SetActive(true);
 
-        // 最終サイズ
         float fullW = wrapperRT.rect.size.x;
         float fullH = wrapperRT.rect.size.y;
         if (fullW < 0.0001f) fullW = 0.0001f;
         if (fullH < 0.0001f) fullH = 0.0001f;
 
-        // 開始サイズ
-        // diagonalなら両方0から
-        // 縦モードなら縦0 / 横フル
-        // 横モードなら横0 / 縦フル
         float startW = (diagonal || !verticalMode) ? 0f : fullW;
         float startH = (diagonal || verticalMode) ? 0f : fullH;
 
@@ -534,12 +517,11 @@ public class GameOverSequence : MonoBehaviour
         if (duration <= 0f) duration = 0.0001f;
         float t = 0f;
 
-        // pivot はそのまま（growFromStartEdgeは、基本pivotを寄せておく想定）
         Vector2 savedPivot = wrapperRT.pivot;
 
         while (t < duration)
         {
-            t += Time.deltaTime;
+            t += Time.unscaledDeltaTime;
             float lerp = Mathf.Clamp01(t / duration);
 
             float w = Mathf.Lerp(startW, endW, lerp);
@@ -549,12 +531,10 @@ public class GameOverSequence : MonoBehaviour
             {
                 if (verticalMode)
                 {
-                    // 上下系: 横は常にフル
                     w = endW;
                 }
                 else
                 {
-                    // 左右系: 縦は常にフル
                     h = endH;
                 }
             }
@@ -567,7 +547,6 @@ public class GameOverSequence : MonoBehaviour
             yield return null;
         }
 
-        // 終端
         wrapperRT.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, endW);
         wrapperRT.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, endH);
         cg.alpha = 1f;
@@ -576,9 +555,6 @@ public class GameOverSequence : MonoBehaviour
 
     //==================================================
     // ThrownInObject
-    // 画面外(オフセット)からブン投げられて
-    // 回転しながらドンッと止まる。
-    // 最後にHitImpactJiggle()で「ぶつかった感」を足す
     //==================================================
     private IEnumerator ThrownInObject(GameObject go, float duration, Vector2 startOffset, float spinDegrees)
     {
@@ -597,12 +573,10 @@ public class GameOverSequence : MonoBehaviour
 
         go.SetActive(true);
 
-        // ベース位置・回転
         Vector2 basePos = rt.anchoredPosition;
         Quaternion baseRot = rt.localRotation;
         Vector3 baseScale = rt.localScale;
 
-        // スタート位置と回転をオフにしておく
         Vector2 startPos = basePos + startOffset;
         Quaternion startRot = Quaternion.Euler(0f, 0f, baseRot.eulerAngles.z + spinDegrees);
 
@@ -617,36 +591,26 @@ public class GameOverSequence : MonoBehaviour
 
         while (t < duration)
         {
-            t += Time.deltaTime;
+            t += Time.unscaledDeltaTime;
             float lerp = Mathf.Clamp01(t / duration);
 
-            // 位置はLerpで直線的に
             rt.anchoredPosition = Vector2.Lerp(startPos, basePos, lerp);
-
-            // 回転はSlerpで戻す
             rt.localRotation = Quaternion.Slerp(startRot, baseRot, lerp);
-
-            // フェードも同時に
             cg.alpha = lerp;
 
             yield return null;
         }
 
-        // 最終状態そろえる
         rt.anchoredPosition = basePos;
         rt.localRotation = baseRot;
         rt.localScale = baseScale;
         cg.alpha = 1f;
 
-        // 叩きつけの衝撃感
         yield return StartCoroutine(HitImpactJiggle(rt));
     }
 
     //==================================================
     // HitImpactJiggle
-    // 「投げつけて当たった」感じを強くするための着地エフェクト
-    // 1) 一瞬ベチャッと潰れる(squash)
-    // 2) プルプル揺れながら戻る(shake)
     //==================================================
     private IEnumerator HitImpactJiggle(RectTransform rt)
     {
@@ -661,10 +625,9 @@ public class GameOverSequence : MonoBehaviour
         float t = 0f;
         while (t < squashTime)
         {
-            t += Time.deltaTime;
+            t += Time.unscaledDeltaTime;
             float k = Mathf.Clamp01(t / squashTime);
 
-            // 横がちょい広がって縦がちょい潰れる
             float sx = Mathf.Lerp(1f, 1.1f, k);
             float sy = Mathf.Lerp(1f, 0.85f, k);
             rt.localScale = new Vector3(sx, sy, 1f);
@@ -679,7 +642,7 @@ public class GameOverSequence : MonoBehaviour
         t = 0f;
         while (t < shakeDuration)
         {
-            t += Time.deltaTime;
+            t += Time.unscaledDeltaTime;
             float k = 1f - (t / shakeDuration); // だんだん0に近づく
 
             float offX = Random.Range(-1f, 1f) * shakePos * k;
@@ -698,7 +661,6 @@ public class GameOverSequence : MonoBehaviour
             yield return null;
         }
 
-        // 最後に正しい値に戻しておく
         rt.anchoredPosition = basePos;
         rt.localRotation = baseRot;
         rt.localScale = baseScale;

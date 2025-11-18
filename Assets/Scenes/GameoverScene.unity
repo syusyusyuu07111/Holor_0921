@@ -826,14 +826,14 @@ MonoBehaviour:
     delayBeforeShow: 0.5
     playWithPrevious: 0
     mode: 6
-    duration: 1.5
+    duration: 0.5
     thrownStartOffset: {x: -300, y: 200}
     thrownSpinDegrees: 540
   - target: {fileID: 1847906347}
     delayBeforeShow: 0.5
     playWithPrevious: 1
     mode: 6
-    duration: 1.5
+    duration: 0.5
     thrownStartOffset: {x: -300, y: 200}
     thrownSpinDegrees: 540
   - target: {fileID: 1023257659}
