@@ -71,6 +71,13 @@ public class CandleInteraction : MonoBehaviour
                 Candle candle = hit.collider.GetComponentInParent<Candle>();
                 if (candle != null)
                 {
+                    if (candle.IsPutOut)
+                    {
+                        HideAllUI();
+                        _currentCandle = null;
+                        return;
+                    }
+
                     _currentCandle = candle;
 
                     // UIÇï\é¶
@@ -93,7 +100,12 @@ public class CandleInteraction : MonoBehaviour
         }
 
         // Ç±Ç±Ç…óàÇΩÇÁòXêCÇ…ìñÇΩÇ¡ÇƒÇ¢Ç»Ç¢
+        HideAllUI();
         _currentCandle = null;
+    }
+
+    private void HideAllUI()
+    {
         if (_interactionText != null && _interactionText.activeSelf)
             _interactionText.SetActive(false);
 
