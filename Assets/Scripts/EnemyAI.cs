@@ -69,7 +69,7 @@ public class EnemyAI : MonoBehaviour
     private Coroutine _spawnLoop;
     public bool IsSpawning => _spawnLoop != null;
 
-    // ====== 1回目=STATE1 / 2回目=STATE2 を保証 ======
+    // ====== 1回目=STATE1 / 2回目=STATE2 を保証 + 3体目以降ランダム ======
     private static int s_GlobalSpawnCount = 0;
     [Tooltip("Play開始時に1→2カウンタをリセット（通常はtrue）")]
     public bool ResetCounterOnStart = true;
@@ -93,7 +93,7 @@ public class EnemyAI : MonoBehaviour
     public float BlueTintStrength = 0.6f;
 
     [Tooltip("青化の目標色（白→この色へ補間）")]
-    public Color BlueTintColor = new Color(0.70f, 0.85f, 1.0f, 1.0f);   // ★ 4引数に修正済み
+    public Color BlueTintColor = new Color(0.70f, 0.85f, 1.0f, 1.0f);
 
     [Tooltip("フェード時間（出現→青化）")]
     public float BlueFadeIn = 0.20f;
@@ -209,21 +209,29 @@ public class EnemyAI : MonoBehaviour
     {
         while (true)
         {
+            // すでに存在している or クールダウン中なら少し待って再チェック
             if (CurrentGhost || _cooldown)
             {
                 yield return new WaitForSeconds(RetryIntervalWhileAlive);
                 continue;
             }
 
-            // 最初の抽選は必ずスポーン
-            if (GuaranteeFirstRoll && !_firstRollDone)
+            // いまプレイヤーが2部屋目にいるかどうか
+            bool inSecond =
+                (secondRoomTutorial != null && secondRoomTutorial.IsPlayerInSecondRoom);
+
+            // 抽選間隔
+            float rollInterval = 5f;
+
+            // ★ 最初の1回保証は「2部屋目では無効」
+            if (GuaranteeFirstRoll && !_firstRollDone && !inSecond)
             {
                 _firstRollDone = true;
 
                 if (!Ghost)
                 {
                     Debug.LogWarning("[EnemyAI] Ghost prefab 未設定。");
-                    yield return new WaitForSeconds(5f);
+                    yield return new WaitForSeconds(rollInterval);
                     continue;
                 }
 
@@ -239,39 +247,77 @@ public class EnemyAI : MonoBehaviour
                 TryPlaySpawnSE();
 
                 StartCoroutine(GhostLifecycle(CurrentGhost));
-                yield return new WaitForSeconds(5f);
+                yield return new WaitForSeconds(rollInterval);
                 continue;
             }
 
-            // 通常抽選
-            GhostEncountChance = Random.Range(0, 50);
-            bool spawn = (GhostEncountChance > 30);
+            // 通常抽選に入ったら、とにかく「1回目扱い」は消費
             _firstRollDone = true;
 
-            if (spawn && !CurrentGhost)
+            // ==== 通常抽選 ====
+            if (inSecond)
             {
-                if (!Ghost)
+                // ★ 2部屋目：
+                //    5秒ごとに 0〜99 の乱数
+                //    >90 だけヒット → 約9% → 平均約55秒に1回
+                GhostEncountChance = Random.Range(0, 100); // 0〜99
+                bool spawn = (GhostEncountChance > 90);
+
+                if (spawn && !CurrentGhost)
                 {
-                    Debug.LogWarning("[EnemyAI] Ghost prefab 未設定。");
-                    yield return new WaitForSeconds(5f);
-                    continue;
+                    if (!Ghost)
+                    {
+                        Debug.LogWarning("[EnemyAI] Ghost prefab 未設定。");
+                        yield return new WaitForSeconds(rollInterval);
+                        continue;
+                    }
+
+                    var pos = PickSpawnPointInRect();
+                    LogSpawnPosition("[EnemyAI] Random Spawn (SecondRoom)", pos);
+
+                    CurrentGhost = Instantiate(Ghost, pos, Quaternion.identity);
+                    SpawnGhostEffect(pos, CurrentGhost);
+
+                    ForceFirstTwoStates(CurrentGhost);
+                    OnGhostSpawned?.Invoke();
+
+                    TryPlaySpawnSE();
+
+                    StartCoroutine(GhostLifecycle(CurrentGhost));
                 }
+            }
+            else
+            {
+                // ★ 1部屋目：従来の確率ロジックそのまま
+                GhostEncountChance = Random.Range(0, 50);
+                bool spawn = (GhostEncountChance > 30); // 約38%
 
-                var pos = PickSpawnPointInRect();
-                LogSpawnPosition("[EnemyAI] Random Spawn", pos);
+                if (spawn && !CurrentGhost)
+                {
+                    if (!Ghost)
+                    {
+                        Debug.LogWarning("[EnemyAI] Ghost prefab 未設定。");
+                        yield return new WaitForSeconds(rollInterval);
+                        continue;
+                    }
 
-                CurrentGhost = Instantiate(Ghost, pos, Quaternion.identity);
-                SpawnGhostEffect(pos, CurrentGhost);
+                    var pos = PickSpawnPointInRect();
+                    LogSpawnPosition("[EnemyAI] Random Spawn", pos);
 
-                ForceFirstTwoStates(CurrentGhost);
-                OnGhostSpawned?.Invoke();
+                    CurrentGhost = Instantiate(Ghost, pos, Quaternion.identity);
+                    SpawnGhostEffect(pos, CurrentGhost);
 
-                TryPlaySpawnSE();
+                    ForceFirstTwoStates(CurrentGhost);
+                    OnGhostSpawned?.Invoke();
 
-                StartCoroutine(GhostLifecycle(CurrentGhost));
+                    TryPlaySpawnSE();
+
+                    StartCoroutine(GhostLifecycle(CurrentGhost));
+                }
             }
 
-            yield return new WaitForSeconds(5f);
+            // 次の抽選まで待つ
+            yield return new WaitForSeconds(rollInterval);
         }
     }
 
@@ -325,7 +371,7 @@ public class EnemyAI : MonoBehaviour
         }
     }
 
-    // ================= STATE固定（1回目=1、2回目=2） =================
+    // ================= STATE固定（1体目=1、2体目=2、3体目以降ランダム） =================
     private void ForceFirstTwoStates(GameObject ghostRoot)
     {
         if (!ghostRoot) return;
@@ -337,18 +383,31 @@ public class EnemyAI : MonoBehaviour
             return;
         }
 
-        int forced =
-            (s_GlobalSpawnCount == 0) ? 1 :
-            (s_GlobalSpawnCount == 1) ? 2 : 0;
+        int forced;
 
-        if (forced != 0)
+        // 1体目は必ず STATE1
+        if (s_GlobalSpawnCount == 0)
         {
-            foreach (var sc in chasers)
-            {
-                sc.ForceState(forced);
-            }
+            forced = 1;
+        }
+        // 2体目は必ず STATE2
+        else if (s_GlobalSpawnCount == 1)
+        {
+            forced = 2;
+        }
+        // 3体目以降は 1 or 2 をランダム
+        else
+        {
+            // int版 Random.Range(min, max) は max が含まれないので (1,3) → {1,2}
+            forced = Random.Range(1, 3);
         }
 
+        foreach (var sc in chasers)
+        {
+            sc.ForceState(forced);
+        }
+
+        Debug.Log($"[EnemyAI] ForceFirstTwoStates: globalSpawn={s_GlobalSpawnCount}, forcedState={forced}");
         s_GlobalSpawnCount++;
     }
 
@@ -421,7 +480,7 @@ public class EnemyAI : MonoBehaviour
             float z = Random.Range(z0, z1);
             pick = new Vector3(x, Player.position.y + SpawnYOffset, z);
 
-            // ★ 2部屋目にいるときは「ドア＋オフセット」より右側に必ず寄せる
+            // 2部屋目にいるときは「ドア＋オフセット」より右側に必ず寄せる
             if (inSecond && doorBorderX)
             {
                 float doorX = doorBorderX.position.x;

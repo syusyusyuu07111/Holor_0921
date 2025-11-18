@@ -15,6 +15,10 @@ public class PaintingText : MonoBehaviour
     [Header("Target Tags")]
     [SerializeField] private List<string> _targetTags = new List<string> { "Picture", "Item" };
 
+    // 各タグごとのメッセージを設定するリスト（_targetTags と同じ順番で並べる）
+    [Header("Tag Messages (Target Tags と同じ順番で設定)")]
+    [SerializeField] private List<string> _tagMessages = new List<string>();
+
     private void Start()
     {
         if (_text != null)
@@ -32,9 +36,26 @@ public class PaintingText : MonoBehaviour
 
         if (Physics.Raycast(ray, out RaycastHit hit, _rayDistance))
         {
-            if (_targetTags.Contains(hit.collider.tag))
+            string hitTag = hit.collider.tag;
+
+            if (_targetTags.Contains(hitTag))
             {
-                _text.text = _hitMessage;
+                // タグのインデックスを取得
+                int index = _targetTags.IndexOf(hitTag);
+
+                // 対応するメッセージがあればそれを使う。なければ従来の _hitMessage を使う
+                string messageToShow = _hitMessage;
+
+                if (index >= 0 && index < _tagMessages.Count)
+                {
+                    string msg = _tagMessages[index];
+                    if (!string.IsNullOrEmpty(msg))
+                    {
+                        messageToShow = msg;
+                    }
+                }
+
+                _text.text = messageToShow;
                 _text.gameObject.SetActive(true);
             }
             else

@@ -402,7 +402,7 @@ public class PushController : MonoBehaviour
 
                     float usedDist = dist;
 
-                    // ★ Rigidbody.SweepTest で「進んでよい距離」を事前にチェック
+                    // Rigidbody.SweepTest で「進んでよい距離」を事前にチェック
                     if (_pushingRb != null && dist > 0f)
                     {
                         float sweepDist = dist + _pushSweepSkin;
@@ -466,7 +466,7 @@ public class PushController : MonoBehaviour
                 {
                     Transform chairRoot = ResolveChairRoot(hitInfo);
                     nextText = (chairRoot != null)
-                        ? "左クリック:押す / 右クリック or DoorOpen:乗る"
+                        ? "左クリック長押し:押す / 右クリック or Q：上る"
                         : "";
                 }
                 else
@@ -913,7 +913,7 @@ public class PushController : MonoBehaviour
     private void LogTrace(string msg) => Log("TRACE " + msg);
 
     // ========================
-    // 補助メソッド
+    // 補助
     // ========================
     private void AlignForClimb(Transform chairRoot)
     {

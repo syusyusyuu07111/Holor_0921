@@ -11,6 +11,9 @@ public class HintText : MonoBehaviour
     public SearchChase ChaseRef;
     public HideCroset HideRef;
 
+    [Header("2つ目の部屋フラグ参照")]
+    public SecondRoomTutorial SecondRoomRef;   // ★追加：2部屋目かどうかを見る
+
     [Header("初見イベント")]
     public UnityEvent OnFirstGhostSeen;
     public UnityEvent OnFirstState2Seen;
@@ -49,17 +52,21 @@ public class HintText : MonoBehaviour
     [System.Serializable]
     public class HintSet
     {
-        [Header("State 1")]
+        [Header("State 1（1部屋目: 幽霊state1用）")]
         [TextArea] public string[] State1 = new string[5];
         public Color[] State1Colors = new Color[5] { Color.white, Color.white, Color.white, Color.white, Color.white };
 
-        [Header("State 2")]
+        [Header("State 2（1部屋目: 幽霊state2用）")]
         [TextArea] public string[] State2 = new string[5];
         public Color[] State2Colors = new Color[5] { Color.white, Color.white, Color.white, Color.white, Color.white };
 
-        [Header("State 3（任意）")]
+        [Header("State 3（2部屋目: 幽霊state1用）")]
         [TextArea] public string[] State3 = new string[5];
         public Color[] State3Colors = new Color[5] { Color.white, Color.white, Color.white, Color.white, Color.white };
+
+        [Header("State 4（2部屋目: 幽霊state2用）")]
+        [TextArea] public string[] State4 = new string[5];
+        public Color[] State4Colors = new Color[5] { Color.white, Color.white, Color.white, Color.white, Color.white };
 
         [Header("全文開示時に送る台詞（任意）")]
         [TextArea] public string[] TutorialLinesOnFullyRevealed = new string[0];
@@ -69,7 +76,9 @@ public class HintText : MonoBehaviour
     public List<HintSet> Stages = new List<HintSet>();
     public int ProgressStage = 0;
 
-    [System.Serializable] public class HintTutorialLinesEvent : UnityEvent<string[]> { }
+    [System.Serializable]
+    public class HintTutorialLinesEvent : UnityEvent<string[]> { }
+
     [Header("チュートリアル連携")]
     public HintTutorialLinesEvent OnHintTutorialLinesRequested = new HintTutorialLinesEvent();
 
@@ -109,7 +118,7 @@ public class HintText : MonoBehaviour
     public float CameraEyeHeight = 0.0f;
 
     [Header("クローゼット中の特別表示")]
-    public bool ForceVisibleWhileHiding = true;   // ← クローゼット中は必ず表示（ただし全文開示はしない）
+    public bool ForceVisibleWhileHiding = true;   // クローゼット中は必ず表示（ただし全文開示はしない）
 
     // ---- 内部 ----
     private string[] activeLines = new string[5];
@@ -145,7 +154,7 @@ public class HintText : MonoBehaviour
 
     void Update()
     {
-        // 追尾（ゴースト差し替え時は状態を初期化）
+        // ゴースト追尾（ゴースト差し替え時は状態を初期化）
         if (AutoTrackNearestGhost)
         {
             _retargetTimer -= Time.deltaTime;
@@ -176,7 +185,11 @@ public class HintText : MonoBehaviour
             _visiblePrev = false;
 
             if (_foundOverrideActive) ClearFoundOverride();
-            if (_foundPrev) { _foundPrev = false; ApplyTextColorsProfile(false); }
+            if (_foundPrev)
+            {
+                _foundPrev = false;
+                ApplyTextColorsProfile(false);
+            }
             return;
         }
 
@@ -189,21 +202,30 @@ public class HintText : MonoBehaviour
         bool visible = visibleByDistance && onScreen;
         bool show = visible || (isHiding && ForceVisibleWhileHiding);
 
-        // 初見イベント（クローゼット中は発火しない仕様のまま）
+        // 初見イベント（クローゼット中は発火しない仕様）
         if (visible && !_visiblePrev && !isHiding)
         {
-            if (!_seenAnyOnce) { _seenAnyOnce = true; OnFirstGhostSeen?.Invoke(); }
+            if (!_seenAnyOnce)
+            {
+                _seenAnyOnce = true;
+                OnFirstGhostSeen?.Invoke();
+            }
+
             int st0 = (ChaseRef ? ChaseRef.GetState() : 1);
-            if (st0 == 2 && !_seenState2Once) { _seenState2Once = true; OnFirstState2Seen?.Invoke(); }
+            if (st0 == 2 && !_seenState2Once)
+            {
+                _seenState2Once = true;
+                OnFirstState2Seen?.Invoke();
+            }
         }
         _visiblePrev = visible;
 
-        // 文言選択
+        // ステージ進行＆文言選択
         CheckAndMaybeAdvanceProgress();
         SelectLinesByStageAndState();
 
         // ---- 発見状態の“表示用”扱い（クローゼット中は発見扱いにしない）----
-        bool actuallyFound = (ChaseRef && ChaseRef.isDiscovery);  // 実際のゲームロジック上の発見
+        bool actuallyFound = (ChaseRef && ChaseRef.isDiscovery);  // ゲームロジック上の発見
         bool treatAsFoundForDisplay = EnableFoundOverride && actuallyFound && !isHiding;
 
         // 見つかった上書き（ただしクローゼット中は抑止）
@@ -226,19 +248,18 @@ public class HintText : MonoBehaviour
             if (HintLabels[i]) HintLabels[i].gameObject.SetActive(show);
         if (!show) return;
 
-        // レイアウト
+        // レイアウト（リング状に回す）
         AnimateRingLayout();
 
-        // 表示更新
+        // 発見上書き中はそのテキストを出す
         if (_foundOverrideActive)
         {
-            // 発見上書き中はそのテキストを出す
             for (int i = 0; i < 5; i++)
                 if (HintLabels[i]) HintLabels[i].text = activeLines[i];
             return;
         }
 
-        // 通常の文字開示（※クローゼット中でも全文開示にはしない）
+        // 通常の文字開示（クローゼット中でも全文開示にはしない）
         if (dist <= RevealDistance && currentIndex < 5)
         {
             if (waitingCooldown)
@@ -254,7 +275,7 @@ public class HintText : MonoBehaviour
                 if (IsFullyRevealed(activeLines[currentIndex], revealProgressChars))
                 {
                     // ★行単位イベント
-                    int stateNow = (ChaseRef ? ChaseRef.GetState() : 1);
+                    int stateNow = (ChaseRef ? ChaseRef.GetState() : 1); // id は幽霊stateベースのまま
                     string id = MakeId(stateNow, currentIndex);
                     if (_lineRevealedIds.Add(id))
                     {
@@ -275,14 +296,19 @@ public class HintText : MonoBehaviour
         {
             if (!HintLabels[i]) continue;
 
-            if (i < currentIndex) HintLabels[i].text = activeLines[i];  // 完全開示
+            if (i < currentIndex)
+            {
+                // 完全開示済み
+                HintLabels[i].text = activeLines[i];
+            }
             else if (i == currentIndex && !waitingCooldown)
             {
-                // 進行中は UpdateMaskedLine が反映済み
+                // 進行中は UpdateMaskedLine が既にテキスト反映
             }
             else
             {
-                HintLabels[i].text = MaskAll(activeLines[i]);            // 未着手 or CT中
+                // 未着手 or クールタイム中
+                HintLabels[i].text = MaskAll(activeLines[i]);
             }
         }
     }
@@ -314,8 +340,10 @@ public class HintText : MonoBehaviour
     {
         Camera cam = Camera.main;
         if (!cam) return true;
+
         Vector3 worldPos = Ghost.position + Vector3.up * HeightOffset;
         Vector3 vp = cam.WorldToViewportPoint(worldPos);
+
         if (vp.z <= 0f) return false;
         if (vp.x < -OnScreenMargin || vp.x > 1f + OnScreenMargin) return false;
         if (vp.y < -OnScreenMargin || vp.y > 1f + OnScreenMargin) return false;
@@ -323,16 +351,46 @@ public class HintText : MonoBehaviour
         if (CheckOcclusion)
         {
             Vector3 camEye = cam.transform.position + Vector3.up * CameraEyeHeight;
-            if (Physics.Linecast(camEye, worldPos, out RaycastHit hit, Occluders)) return false;
+            if (Physics.Linecast(camEye, worldPos, out RaycastHit hit, Occluders))
+                return false;
         }
+
         return true;
     }
 
     // ====== ステージ＆状態で文言 + 色選択 ======
     private void SelectLinesByStageAndState()
     {
-        int state = (ChaseRef ? ChaseRef.GetState() : 1);
-        if (Stages == null || Stages.Count == 0) { EnsureActiveEmpty(); _activeStateColors = null; return; }
+        // まず「ゴースト側の state」を取得（1 or 2）
+        int ghostState = (ChaseRef ? ChaseRef.GetState() : 1);
+
+        // プレイヤーが2部屋目にいるかどうか
+        bool inSecondRoom =
+            (SecondRoomRef != null && SecondRoomRef.IsPlayerInSecondRoom);
+
+        // ---- ここで「ヒント上の state番号(1〜4)」に変換する ----
+        // 1部屋目:  ghost 1 → hint 1,  ghost 2 → hint 2
+        // 2部屋目:  ghost 1 → hint 3,  ghost 2 → hint 4
+        int hintState;
+        if (!inSecondRoom)
+        {
+            // 1部屋目 → そのまま
+            hintState = ghostState;
+        }
+        else
+        {
+            // 2部屋目 → mapping を変更
+            if (ghostState == 1) hintState = 3;
+            else if (ghostState == 2) hintState = 4;
+            else hintState = ghostState; // 保険
+        }
+
+        if (Stages == null || Stages.Count == 0)
+        {
+            EnsureActiveEmpty();
+            _activeStateColors = null;
+            return;
+        }
 
         int stage = Mathf.Clamp(ProgressStage, 0, Stages.Count - 1);
         var set = Stages[stage];
@@ -342,37 +400,62 @@ public class HintText : MonoBehaviour
             EnsureColorArraySize(ref set.State1Colors, 5, Color.white);
             EnsureColorArraySize(ref set.State2Colors, 5, Color.white);
             EnsureColorArraySize(ref set.State3Colors, 5, Color.white);
+            EnsureColorArraySize(ref set.State4Colors, 5, Color.white);
         }
 
         string[] source = null;
         Color[] stateColors = null;
 
-        switch (state)
+        switch (hintState)
         {
-            case 1: source = set.State1; stateColors = set.State1Colors; break;
-            case 2: source = set.State2; stateColors = set.State2Colors; break;
+            case 1:
+                source = set.State1;
+                stateColors = set.State1Colors;
+                break;
+
+            case 2:
+                source = set.State2;
+                stateColors = set.State2Colors;
+                break;
+
             case 3:
-                source = (set.State3 != null && set.State3.Length > 0) ? set.State3
-                       : (set.State2 != null && set.State2.Length > 0) ? set.State2
-                       : set.State1;
+                source = set.State3;
                 stateColors = set.State3Colors;
                 break;
-            default: source = set.State1; stateColors = set.State1Colors; break;
+
+            case 4:
+                source = set.State4;
+                stateColors = set.State4Colors;
+                break;
+
+            default:
+                // 想定外の状態のときは State1 にフォールバック
+                source = set.State1;
+                stateColors = set.State1Colors;
+                break;
         }
 
+        // 発見上書き中は activeLines を触らない
         if (!_foundOverrideActive)
         {
-            if (cachedState == state && cachedStage == stage && IsSameLines(activeLines, source)) return;
+            // 同じステージ＋同じ状態＋同じ内容なら何もしない
+            if (cachedState == hintState && cachedStage == stage && IsSameLines(activeLines, source))
+                return;
 
             for (int i = 0; i < 5; i++)
-                activeLines[i] = (source != null && i < source.Length && !string.IsNullOrEmpty(source[i])) ? source[i] : "";
+            {
+                activeLines[i] =
+                    (source != null && i < source.Length && !string.IsNullOrEmpty(source[i]))
+                    ? source[i]
+                    : "";
+            }
 
             _activeStateColors = stateColors;
 
             ResetRevealProgress();
             ApplyMaskedAll();
 
-            cachedState = state;
+            cachedState = hintState;
             cachedStage = stage;
 
             ApplyTextColorsProfile(_foundPrev);
@@ -391,7 +474,10 @@ public class HintText : MonoBehaviour
         return true;
     }
 
-    private void EnsureActiveEmpty() { for (int i = 0; i < 5; i++) activeLines[i] = ""; }
+    private void EnsureActiveEmpty()
+    {
+        for (int i = 0; i < 5; i++) activeLines[i] = "";
+    }
 
     // ====== 進行（自動） ======
     private void CheckAndMaybeAdvanceProgress()
@@ -401,10 +487,22 @@ public class HintText : MonoBehaviour
         bool allRevealed = AllFiveRevealed();
         if (allRevealed) TrySendTutorialLinesForStage();
 
-        if (!AutoAdvanceWhenAllRevealed) return;
-        if (!allRevealed) { _autoAdvanceTimer = -1f; return; }
+        if (!AutoAdvanceWhenAllRevealed)
+        {
+            _autoAdvanceTimer = -1f;
+            return;
+        }
 
-        if (_autoAdvanceTimer < 0f) _autoAdvanceTimer = AutoAdvanceDelay;
+        if (!allRevealed)
+        {
+            _autoAdvanceTimer = -1f;
+            return;
+        }
+
+        if (_autoAdvanceTimer < 0f)
+        {
+            _autoAdvanceTimer = AutoAdvanceDelay;
+        }
         else
         {
             _autoAdvanceTimer -= Time.deltaTime;
@@ -416,12 +514,16 @@ public class HintText : MonoBehaviour
         }
     }
 
-    public void AdvanceProgress() { SetProgress(ProgressStage + 1); }
+    public void AdvanceProgress()
+    {
+        SetProgress(ProgressStage + 1);
+    }
 
     public void SetProgress(int next)
     {
         int clamped = Mathf.Clamp(next, 0, Mathf.Max(0, (Stages?.Count ?? 1) - 1));
         if (clamped == ProgressStage) return;
+
         ProgressStage = clamped;
 
         ResetRevealProgress();
@@ -433,24 +535,41 @@ public class HintText : MonoBehaviour
     private void ApplyMaskedAll()
     {
         for (int i = 0; i < HintLabels.Length; i++)
-            if (HintLabels[i]) HintLabels[i].text = MaskAll(i < activeLines.Length ? activeLines[i] : "");
+        {
+            if (!HintLabels[i]) continue;
+
+            string src = (i < activeLines.Length) ? activeLines[i] : "";
+            HintLabels[i].text = MaskAll(src);
+        }
     }
+
     private void UpdateMaskedLine(int index, float revealedChars)
     {
         if (index < 0 || index >= activeLines.Length) return;
         if (!HintLabels[index]) return;
+
         string src = activeLines[index];
         int count = Mathf.Clamp(Mathf.FloorToInt(revealedChars), 0, src.Length);
         HintLabels[index].text = RevealLeftToRight(src, count);
     }
-    private string MaskAll(string s) { return string.IsNullOrEmpty(s) ? "" : new string(MaskChar, s.Length); }
+
+    private string MaskAll(string s)
+    {
+        return string.IsNullOrEmpty(s) ? "" : new string(MaskChar, s.Length);
+    }
+
     private string RevealLeftToRight(string s, int n)
     {
         if (string.IsNullOrEmpty(s)) return "";
         n = Mathf.Clamp(n, 0, s.Length);
         return s.Substring(0, n) + new string(MaskChar, s.Length - n);
     }
-    private bool IsFullyRevealed(string s, float revealedChars) { return Mathf.FloorToInt(revealedChars) >= (s?.Length ?? 0); }
+
+    private bool IsFullyRevealed(string s, float revealedChars)
+    {
+        return Mathf.FloorToInt(revealedChars) >= (s?.Length ?? 0);
+    }
+
     private bool AllFiveRevealed()
     {
         if (currentIndex < 4) return false;
@@ -469,7 +588,11 @@ public class HintText : MonoBehaviour
         bool hasContent = false;
         for (int i = 0; i < set.TutorialLinesOnFullyRevealed.Length; i++)
         {
-            if (!string.IsNullOrWhiteSpace(set.TutorialLinesOnFullyRevealed[i])) { hasContent = true; break; }
+            if (!string.IsNullOrWhiteSpace(set.TutorialLinesOnFullyRevealed[i]))
+            {
+                hasContent = true;
+                break;
+            }
         }
         if (!hasContent) return;
 
@@ -502,7 +625,8 @@ public class HintText : MonoBehaviour
             else
             {
                 label.transform.position = worldPos;
-                if (cam) label.transform.rotation = Quaternion.LookRotation(label.transform.position - cam.transform.position);
+                if (cam)
+                    label.transform.rotation = Quaternion.LookRotation(label.transform.position - cam.transform.position);
             }
         }
     }
@@ -510,8 +634,12 @@ public class HintText : MonoBehaviour
     private void OnDrawGizmosSelected()
     {
         if (!Ghost) return;
-        Gizmos.color = Color.white; Gizmos.DrawWireSphere(Ghost.position, VisibleDistance);
-        Gizmos.color = Color.green; Gizmos.DrawWireSphere(Ghost.position, RevealDistance);
+
+        Gizmos.color = Color.white;
+        Gizmos.DrawWireSphere(Ghost.position, VisibleDistance);
+
+        Gizmos.color = Color.green;
+        Gizmos.DrawWireSphere(Ghost.position, RevealDistance);
     }
 
     // ===== 上書き制御 =====
