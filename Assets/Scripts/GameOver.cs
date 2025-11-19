@@ -5,6 +5,7 @@ using UnityEngine.AI;
 using UnityEngine.Rendering;                 // URP Volume
 using UnityEngine.Rendering.Universal;      // URP Vignette
 using TMPro;                                // TMPテキスト表示用
+using CriWare;                              // CRI Atom 用（環境によっては不要なら外してOK）
 
 public class GameOver : MonoBehaviour
 {
@@ -27,7 +28,7 @@ public class GameOver : MonoBehaviour
     [Header("ポストプロセス（警告ビネット）")]
     public Volume PostVolume;                   // URP Volume（Vignetteとか入ってるやつ）
     public Color EdgeColor = Color.red;         // 周辺の色
-    public float WarnDistance = 2.0f;           // この距離以内でビネットが濃くなる
+    public float WarnDistance = 2.0f;           // この距離以内でビネットが濃くなる & ピンチSE範囲
     [Range(0f, 1f)] public float MaxVignette = 0.45f;
     [Range(0.1f, 20f)] public float FadeSpeed = 6f;
     public bool AlsoShakeChromatic = false;     // 色収差も揺らしたいならON
@@ -46,6 +47,10 @@ public class GameOver : MonoBehaviour
     // ===== サウンド =====
     [Header("SE再生用")]
     public AudioManager AudioMgr;               // 捕まった時のSEを鳴らすための参照
+
+    [Header("ピンチSE（CRI Atom Loop BGM）")]
+    public CriAtomSource PinchSource;           // ピンチ時に鳴らすループBGM用 SOURCE（幽霊側に付けると3Dっぽくなる）
+    private bool _pinchPlaying = false;         // 再生中かどうか
 
     // ===== カメラ演出 =====
     [Header("ゲームオーバー演出カメラ")]
@@ -226,7 +231,18 @@ public class GameOver : MonoBehaviour
 
     void Update()
     {
-        // 毎フレーム：幽霊との距離からビネット濃度をじわっと更新
+        // ★ ゲームオーバー後は演出更新を止める & ピンチSEも必ずOFF
+        if (_gameOverFired)
+        {
+            if (PinchSource != null && _pinchPlaying)
+            {
+                PinchSource.Stop();
+                _pinchPlaying = false;
+            }
+            return;
+        }
+
+        // 毎フレーム：幽霊との距離からビネット濃度をじわっと更新 & ピンチSE制御
         UpdateDangerVignette();
     }
 
@@ -269,7 +285,7 @@ public class GameOver : MonoBehaviour
         }
     }
 
-    // 距離に応じた警告ビネット更新
+    // 距離に応じた警告ビネット更新 + ピンチSE制御
     private void UpdateDangerVignette()
     {
         if (!_hasVig || !Player) return;
@@ -277,8 +293,11 @@ public class GameOver : MonoBehaviour
         Transform nearGhost = GetNearestGhostToPlayer();
         if (!nearGhost) return;
 
+        float dist = Vector3.Distance(Player.position, nearGhost.position);
+        bool isSafe = ShouldSkipCatch(); // 隠れ＋state1なら安全
+
         // 隠れてて安全ならフェードアウト方向（= state1 かつ 隠れ中のみ）
-        if (ShouldSkipCatch())
+        if (isSafe)
         {
             _currIntensity = Mathf.MoveTowards(_currIntensity, 0f, FadeSpeed * Time.deltaTime);
             _vig.intensity.Override(_currIntensity);
@@ -287,12 +306,13 @@ public class GameOver : MonoBehaviour
             {
                 _ca.intensity.Override(_currIntensity * 0.55f);
             }
+
+            // 安全状態なのでピンチSEも止める
+            UpdatePinchSEByDistance(dist, true);
             return;
         }
 
         // プレイヤーと幽霊の距離が近いほど濃い
-        float dist = Vector3.Distance(Player.position, nearGhost.position);
-
         float t = 0f;
         if (dist <= WarnDistance)
         {
@@ -311,6 +331,9 @@ public class GameOver : MonoBehaviour
         {
             _ca.intensity.Override(_currIntensity * 0.55f);
         }
+
+        // WarnDistance を境にピンチSEをON/OFF
+        UpdatePinchSEByDistance(dist, false);
     }
 
     // ここで実際に「捕まった！」の処理
@@ -318,6 +341,13 @@ public class GameOver : MonoBehaviour
     {
         if (_gameOverFired) return;
         _gameOverFired = true;
+
+        // 捕まった瞬間にピンチBGMを必ず停止（念押し）
+        if (PinchSource != null && _pinchPlaying)
+        {
+            PinchSource.Stop();
+            _pinchPlaying = false;
+        }
 
         // 発火直前にも最寄り幽霊（とその状態）を再取得して整合
         Transform nearGhost = GetNearestGhostToPlayer();
@@ -809,7 +839,43 @@ public class GameOver : MonoBehaviour
         Debug.Log("[GameOver] Player の子オブジェクトを全て非表示にしました。");
     }
 
-    // === 追加: 現在の「近接警告ビネット」ブレンド量(0..1)を外部へ渡す ===
+    // === WarnDistance を境に、距離と安全状態でピンチBGMのON/OFFを制御 ===
+    private void UpdatePinchSEByDistance(float dist, bool isSafe)
+    {
+        if (PinchSource == null)
+            return;
+
+        // 隠れてて安全なときは、距離に関係なく止める
+        if (isSafe)
+        {
+            if (_pinchPlaying)
+            {
+                PinchSource.Stop();
+                _pinchPlaying = false;
+                Debug.Log("[PinchSE] STOP (safe hide)");
+            }
+            return;
+        }
+
+        bool inPinchRange = (dist <= WarnDistance);
+
+        // ピンチ距離内に入ったら再生
+        if (!_pinchPlaying && inPinchRange)
+        {
+            PinchSource.Play();
+            _pinchPlaying = true;
+            Debug.Log("[PinchSE] START  dist=" + dist.ToString("0.00"));
+        }
+        // ピンチ距離外に出たら停止
+        else if (_pinchPlaying && !inPinchRange)
+        {
+            PinchSource.Stop();
+            _pinchPlaying = false;
+            Debug.Log("[PinchSE] STOP   dist=" + dist.ToString("0.00"));
+        }
+    }
+
+    // === 現在の「近接警告ビネット」ブレンド量(0..1)を外部へ渡す（必要あれば） ===
     public float GetDangerBlend01()
     {
         if (!_hasVig || MaxVignette <= 0f) return 0f;

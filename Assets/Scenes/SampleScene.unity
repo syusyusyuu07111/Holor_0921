@@ -15116,6 +15116,7 @@ MonoBehaviour:
   FadeSpeed: 6
   AlsoShakeChromatic: 0
   AudioMgr: {fileID: 0}
+  PinchSource: {fileID: 0}
   MainCamera: {fileID: 0}
   KillCamera: {fileID: 0}
   KillCamNearClip: 0.01
@@ -20468,6 +20469,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       insertIndex: -1
       addedObject: {fileID: 956023729}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 956023731}
   m_SourcePrefab: {fileID: 100100000, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
 --- !u!1 &807589548
 GameObject:
@@ -23238,6 +23242,20 @@ MonoBehaviour:
     - 0
   _cueName: SE_walk
   _cueSheet: CueSheet_0
+--- !u!114 &956023731
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 956023711}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce7d42e042e4c9c4db4bde98b863e167, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  regionOnStart: {fileID: 0}
+  activateListenerOnEnable: 0
 --- !u!4 &957036294 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 7787048224407105938, guid: 3d21ab27376275d43b5bcc180968ceeb, type: 3}
@@ -25212,6 +25230,7 @@ MonoBehaviour:
   FadeSpeed: 6
   AlsoShakeChromatic: 0
   AudioMgr: {fileID: 0}
+  PinchSource: {fileID: 0}
   MainCamera: {fileID: 0}
   KillCamera: {fileID: 0}
   KillCamNearClip: 0.01
@@ -27016,6 +27035,7 @@ MonoBehaviour:
   FadeSpeed: 6
   AlsoShakeChromatic: 0
   AudioMgr: {fileID: 1012635561}
+  PinchSource: {fileID: 1088747870}
   MainCamera: {fileID: 330585545}
   KillCamera: {fileID: 1510880887}
   KillCamNearClip: 0.01
@@ -27057,6 +27077,39 @@ MonoBehaviour:
   interactDistance: 5
   interactMessageUI: {fileID: 39625658}
   nextSceneName: GameEnd
+--- !u!114 &1088747870
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1088747850}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1e631c3b9947b54c823c6853a05529c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _playOnStart: 0
+  _regionOnStart: {fileID: 0}
+  _listenerOnStart: {fileID: 956023731}
+  _use3dPositioning: 1
+  _freezeOrientation: 0
+  _loop: 0
+  _volume: 1
+  _pitch: 0
+  _androidUseLowLatencyVoicePool: 0
+  need_to_player_update_all: 1
+  _use3dRandomization: 0
+  _randomPositionListMaxLength: 0
+  randomize3dConfig:
+    followsOriginalSource: 0
+    calculationType: 0
+    calculationParameters:
+    - 0
+    - 0
+    - 0
+  _cueName: SE_gh_threat
+  _cueSheet: CueSheet_0
 --- !u!1001 &1092411333
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -58093,6 +58146,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 2672928710479239448, guid: 6c37b82c80289b94a82523e1b940c2e4, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1088747864}
+    - targetCorrespondingSourceObject: {fileID: 2672928710479239448, guid: 6c37b82c80289b94a82523e1b940c2e4, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1088747870}
   m_SourcePrefab: {fileID: 100100000, guid: 6c37b82c80289b94a82523e1b940c2e4, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
