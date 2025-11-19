@@ -1024,11 +1024,45 @@ MonoBehaviour:
   _candleID: paintings_sunflower
   _candleEfect: {fileID: 1230858164}
   _isCorrectCandle: 1
+  _putOutSeSource: {fileID: 39215982}
 --- !u!4 &39215981 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 24dceb7e6d533da479971361b5f780c0, type: 3}
   m_PrefabInstance: {fileID: 1548355658}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &39215982
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 39215978}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1e631c3b9947b54c823c6853a05529c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _playOnStart: 0
+  _regionOnStart: {fileID: 0}
+  _listenerOnStart: {fileID: 0}
+  _use3dPositioning: 1
+  _freezeOrientation: 0
+  _loop: 0
+  _volume: 1
+  _pitch: 0
+  _androidUseLowLatencyVoicePool: 0
+  need_to_player_update_all: 1
+  _use3dRandomization: 0
+  _randomPositionListMaxLength: 0
+  randomize3dConfig:
+    followsOriginalSource: 0
+    calculationType: 0
+    calculationParameters:
+    - 0
+    - 0
+    - 0
+  _cueName: SE_cn_out
+  _cueSheet: CueSheet_0
 --- !u!1 &39625658
 GameObject:
   m_ObjectHideFlags: 0
@@ -4279,11 +4313,45 @@ MonoBehaviour:
   _candleID: paintings_swing
   _candleEfect: {fileID: 669937581}
   _isCorrectCandle: 1
+  _putOutSeSource: {fileID: 219690073}
 --- !u!4 &219690072 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 24dceb7e6d533da479971361b5f780c0, type: 3}
   m_PrefabInstance: {fileID: 1223649372}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &219690073
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 219690069}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1e631c3b9947b54c823c6853a05529c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _playOnStart: 0
+  _regionOnStart: {fileID: 0}
+  _listenerOnStart: {fileID: 0}
+  _use3dPositioning: 1
+  _freezeOrientation: 0
+  _loop: 0
+  _volume: 1
+  _pitch: 0
+  _androidUseLowLatencyVoicePool: 0
+  need_to_player_update_all: 1
+  _use3dRandomization: 0
+  _randomPositionListMaxLength: 0
+  randomize3dConfig:
+    followsOriginalSource: 0
+    calculationType: 0
+    calculationParameters:
+    - 0
+    - 0
+    - 0
+  _cueName: SE_cn_out
+  _cueSheet: CueSheet_0
 --- !u!1 &222967913
 GameObject:
   m_ObjectHideFlags: 0
@@ -4778,6 +4846,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: dede65e42a603054e8f8dc15af9d5db9, type: 3}
       insertIndex: -1
       addedObject: {fileID: 233509061}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: dede65e42a603054e8f8dc15af9d5db9, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 233509063}
     - targetCorrespondingSourceObject: {fileID: 3919431373936683122, guid: dede65e42a603054e8f8dc15af9d5db9, type: 3}
       insertIndex: -1
       addedObject: {fileID: 475224382}
@@ -4823,6 +4894,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 95829b1c955b94c42a66203df1fa8208, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _landSeSource: {fileID: 233509063}
+  _floorTag: ItemPanel
 --- !u!54 &233509061
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -4850,6 +4923,39 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 122
   m_CollisionDetection: 0
+--- !u!114 &233509063
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 233509057}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1e631c3b9947b54c823c6853a05529c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _playOnStart: 0
+  _regionOnStart: {fileID: 0}
+  _listenerOnStart: {fileID: 0}
+  _use3dPositioning: 1
+  _freezeOrientation: 0
+  _loop: 0
+  _volume: 1
+  _pitch: 0
+  _androidUseLowLatencyVoicePool: 0
+  need_to_player_update_all: 1
+  _use3dRandomization: 0
+  _randomPositionListMaxLength: 0
+  randomize3dConfig:
+    followsOriginalSource: 0
+    calculationType: 0
+    calculationParameters:
+    - 0
+    - 0
+    - 0
+  _cueName: SE_pt_fall
+  _cueSheet: CueSheet_0
 --- !u!4 &234598971 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 11574d5107d8fe8419059a035e7f7a4b, type: 3}
@@ -13327,6 +13433,40 @@ MonoBehaviour:
   _candleID: paintings_sea
   _candleEfect: {fileID: 658828201}
   _isCorrectCandle: 0
+  _putOutSeSource: {fileID: 531810948}
+--- !u!114 &531810948
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 531810944}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1e631c3b9947b54c823c6853a05529c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _playOnStart: 0
+  _regionOnStart: {fileID: 0}
+  _listenerOnStart: {fileID: 0}
+  _use3dPositioning: 1
+  _freezeOrientation: 0
+  _loop: 0
+  _volume: 1
+  _pitch: 0
+  _androidUseLowLatencyVoicePool: 0
+  need_to_player_update_all: 1
+  _use3dRandomization: 0
+  _randomPositionListMaxLength: 0
+  randomize3dConfig:
+    followsOriginalSource: 0
+    calculationType: 0
+    calculationParameters:
+    - 0
+    - 0
+    - 0
+  _cueName: SE_cn_out
+  _cueSheet: CueSheet_0
 --- !u!1001 &532027558
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -16795,17 +16935,16 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 684908043}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 10, y: 10, z: 10}
   m_ConstrainProportionsScale: 1
-  m_Children:
-  - {fileID: 1339804889}
-  m_Father: {fileID: 1987832712}
+  m_Children: []
+  m_Father: {fileID: 1339804889}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 3.02}
+  m_AnchoredPosition: {x: -3718, y: 1288.0002}
   m_SizeDelta: {x: 1920, y: 1080}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &684908045
@@ -19976,7 +20115,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -6.06
+      value: 8.6
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       propertyPath: m_LocalPosition.y
@@ -19984,7 +20123,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -6.636
+      value: -6.02
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       propertyPath: m_LocalRotation.w
@@ -20323,6 +20462,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       insertIndex: -1
       addedObject: {fileID: 956023728}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 956023730}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 956023729}
   m_SourcePrefab: {fileID: 100100000, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
 --- !u!1 &807589548
 GameObject:
@@ -22632,7 +22777,8 @@ MonoBehaviour:
   Cam: {fileID: 330585546}
   animator: {fileID: 956023716}
   tpsCamera: {fileID: 330585548}
-  audioManager: {fileID: 1012635561}
+  walkLoopSource: {fileID: 956023730}
+  runLoopSource: {fileID: 956023729}
   MoveSpeed: 1
   DashSpeed: 1.5
   SlowSpeed: 2
@@ -23025,6 +23171,72 @@ MonoBehaviour:
     - 0
     - 0
   _cueName: SE_fu_move
+  _cueSheet: CueSheet_0
+--- !u!114 &956023729
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 956023711}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1e631c3b9947b54c823c6853a05529c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _playOnStart: 0
+  _regionOnStart: {fileID: 0}
+  _listenerOnStart: {fileID: 0}
+  _use3dPositioning: 1
+  _freezeOrientation: 0
+  _loop: 0
+  _volume: 1
+  _pitch: 0
+  _androidUseLowLatencyVoicePool: 0
+  need_to_player_update_all: 1
+  _use3dRandomization: 0
+  _randomPositionListMaxLength: 0
+  randomize3dConfig:
+    followsOriginalSource: 0
+    calculationType: 0
+    calculationParameters:
+    - 0
+    - 0
+    - 0
+  _cueName: SE_run
+  _cueSheet: CueSheet_0
+--- !u!114 &956023730
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 956023711}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1e631c3b9947b54c823c6853a05529c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _playOnStart: 0
+  _regionOnStart: {fileID: 0}
+  _listenerOnStart: {fileID: 0}
+  _use3dPositioning: 1
+  _freezeOrientation: 0
+  _loop: 0
+  _volume: 1
+  _pitch: 0
+  _androidUseLowLatencyVoicePool: 0
+  need_to_player_update_all: 1
+  _use3dRandomization: 0
+  _randomPositionListMaxLength: 0
+  randomize3dConfig:
+    followsOriginalSource: 0
+    calculationType: 0
+    calculationParameters:
+    - 0
+    - 0
+    - 0
+  _cueName: SE_walk
   _cueSheet: CueSheet_0
 --- !u!4 &957036294 stripped
 Transform:
@@ -29349,6 +29561,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 24dceb7e6d533da479971361b5f780c0, type: 3}
       insertIndex: -1
       addedObject: {fileID: 219690070}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 24dceb7e6d533da479971361b5f780c0, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 219690073}
   m_SourcePrefab: {fileID: 100100000, guid: 24dceb7e6d533da479971361b5f780c0, type: 3}
 --- !u!1 &1224889566
 GameObject:
@@ -30195,6 +30410,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 24dceb7e6d533da479971361b5f780c0, type: 3}
       insertIndex: -1
       addedObject: {fileID: 531810946}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 24dceb7e6d533da479971361b5f780c0, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 531810948}
   m_SourcePrefab: {fileID: 100100000, guid: 24dceb7e6d533da479971361b5f780c0, type: 3}
 --- !u!1 &1275794075 stripped
 GameObject:
@@ -31637,13 +31855,14 @@ RectTransform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 0.1, y: 0.1, z: 0.1}
   m_ConstrainProportionsScale: 1
-  m_Children: []
-  m_Father: {fileID: 684908044}
+  m_Children:
+  - {fileID: 684908044}
+  m_Father: {fileID: 1987832712}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 81.6, y: -129.81999}
-  m_SizeDelta: {x: 100, y: 100}
+  m_AnchoredPosition: {x: 369, y: -125.78001}
+  m_SizeDelta: {x: 5964.4, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1339804890
 MonoBehaviour:
@@ -31652,7 +31871,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1339804888}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
@@ -36149,6 +36368,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 24dceb7e6d533da479971361b5f780c0, type: 3}
       insertIndex: -1
       addedObject: {fileID: 39215979}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 24dceb7e6d533da479971361b5f780c0, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 39215982}
   m_SourcePrefab: {fileID: 100100000, guid: 24dceb7e6d533da479971361b5f780c0, type: 3}
 --- !u!1 &1554869097
 GameObject:
@@ -48584,6 +48806,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: dede65e42a603054e8f8dc15af9d5db9, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1864222741}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: dede65e42a603054e8f8dc15af9d5db9, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1864222743}
     - targetCorrespondingSourceObject: {fileID: -4233752517378693549, guid: dede65e42a603054e8f8dc15af9d5db9, type: 3}
       insertIndex: -1
       addedObject: {fileID: 28648896}
@@ -48629,6 +48854,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 95829b1c955b94c42a66203df1fa8208, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _landSeSource: {fileID: 1864222743}
+  _floorTag: ItemPanel
 --- !u!54 &1864222741
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -48656,6 +48883,39 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 122
   m_CollisionDetection: 0
+--- !u!114 &1864222743
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1864222737}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1e631c3b9947b54c823c6853a05529c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _playOnStart: 0
+  _regionOnStart: {fileID: 0}
+  _listenerOnStart: {fileID: 0}
+  _use3dPositioning: 1
+  _freezeOrientation: 0
+  _loop: 0
+  _volume: 1
+  _pitch: 0
+  _androidUseLowLatencyVoicePool: 0
+  need_to_player_update_all: 1
+  _use3dRandomization: 0
+  _randomPositionListMaxLength: 0
+  randomize3dConfig:
+    followsOriginalSource: 0
+    calculationType: 0
+    calculationParameters:
+    - 0
+    - 0
+    - 0
+  _cueName: SE_pt_fall
+  _cueSheet: CueSheet_0
 --- !u!1 &1866074286
 GameObject:
   m_ObjectHideFlags: 0
@@ -48792,12 +49052,11 @@ MonoBehaviour:
   FullScreen: 1
   CameraController: {fileID: 330585548}
   SensitivityStep: 0.1
-  SensitivityBarArea: {fileID: 1339804889}
   SensitivityHandle: {fileID: 684908044}
-  SensitivityLeftAnchor: {fileID: 707286327}
-  SensitivityRightAnchor: {fileID: 1347166707}
+  HandleMinX: -3718
+  HandleMaxX: 2081
+  HandleVisualOffsetX: -600
   SensitivityDragMaxDistanceY: 15
-  SensitivityDragExtraX: 10
   InvertX_OnImage: {fileID: 41411914}
   InvertX_OffImage: {fileID: 33059623}
   InvertY_OnImage: {fileID: 430591657}
@@ -49463,6 +49722,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: dede65e42a603054e8f8dc15af9d5db9, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1900655874}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: dede65e42a603054e8f8dc15af9d5db9, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1900655876}
   m_SourcePrefab: {fileID: 100100000, guid: dede65e42a603054e8f8dc15af9d5db9, type: 3}
 --- !u!1 &1900655870 stripped
 GameObject:
@@ -49481,6 +49743,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 95829b1c955b94c42a66203df1fa8208, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _landSeSource: {fileID: 1900655876}
+  _floorTag: ItemPanel
 --- !u!65 &1900655872
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -49549,6 +49813,39 @@ MonoBehaviour:
   _pickupText: {fileID: 0}
   _puzzleManager: {fileID: 1619055634}
   _debugLog: 1
+--- !u!114 &1900655876
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1900655870}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1e631c3b9947b54c823c6853a05529c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _playOnStart: 0
+  _regionOnStart: {fileID: 0}
+  _listenerOnStart: {fileID: 0}
+  _use3dPositioning: 1
+  _freezeOrientation: 0
+  _loop: 0
+  _volume: 1
+  _pitch: 0
+  _androidUseLowLatencyVoicePool: 0
+  need_to_player_update_all: 1
+  _use3dRandomization: 0
+  _randomPositionListMaxLength: 0
+  randomize3dConfig:
+    followsOriginalSource: 0
+    calculationType: 0
+    calculationParameters:
+    - 0
+    - 0
+    - 0
+  _cueName: SE_pt_fall
+  _cueSheet: CueSheet_0
 --- !u!1 &1907322493 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 7240111506297114771, guid: 4cdf3056d56bf394d9b101669a75ccce, type: 3}
@@ -51503,7 +51800,7 @@ RectTransform:
   - {fileID: 33059621}
   - {fileID: 104054459}
   - {fileID: 293788108}
-  - {fileID: 684908044}
+  - {fileID: 1339804889}
   - {fileID: 2072047522}
   - {fileID: 707286327}
   - {fileID: 1347166707}

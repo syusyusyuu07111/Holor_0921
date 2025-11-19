@@ -8,9 +8,8 @@ public class Option : MonoBehaviour
 {
     public InputSystem_Actions input;
 
-    // ===== このシーンはインゲーム扱い？ =====
     [Header("このシーンはインゲーム中として扱う？")]
-    public bool IsGameplayScene = true; // ★ここ重要
+    public bool IsGameplayScene = true;
 
     // ===== メニュー本体 =====
     public bool MenuOn = false;
@@ -38,34 +37,37 @@ public class Option : MonoBehaviour
     public float SensitivityStep = 0.05f;
 
     // ===== 感度バー関連 =====
-    public RectTransform SensitivityBarArea;       // バーの当たり判定用Rect
-    public RectTransform SensitivityHandle;        // ポチ
-    public RectTransform SensitivityLeftAnchor;    // 左端
-    public RectTransform SensitivityRightAnchor;   // 右端
+    [Header("感度バー関連（Xの範囲を数値で指定）")]
+    public RectTransform SensitivityHandle;    // ハンドル
 
+    // ハンドルの「見た目上」のX範囲（親の anchoredPosition.x）
+    public float HandleMinX = -100f;
+    public float HandleMaxX = 100f;
+
+    // マウス位置からハンドルを置くときの補正
+    // （「少し右にずれる」を打ち消す値。右にずれるならマイナス値）
+    public float HandleVisualOffsetX = 0f;
+
+    private RectTransform _handleParent;
     private float _handleBaseY;
     private bool _isDraggingSensitivity = false;
 
-    [Header("Drag Hit Settings")]
-    public float SensitivityDragMaxDistanceY = 15f; // ※今は未使用（Y無視仕様）
-    public float SensitivityDragExtraX = 10f;
+    [Header("Drag Settings")]
+    public float SensitivityDragMaxDistanceY = 999f;
 
     // ===== 表示画像（赤/白切り替えする画像）=====
     [Header("Toggle Display Images")]
-    public Image InvertX_OnImage;        // On
-    public Image InvertX_OffImage;       // off1
-    public Image InvertY_OnImage;        // On 2
-    public Image InvertY_OffImage;       // off2
-    public Image FullScreen_OnImage;     // On3
-    public Image FullScreen_OffImage;    // off3
+    public Image InvertX_OnImage;
+    public Image InvertX_OffImage;
+    public Image InvertY_OnImage;
+    public Image InvertY_OffImage;
+    public Image FullScreen_OnImage;
+    public Image FullScreen_OffImage;
 
-    // 「ゲーム終了」のテキスト画像
     public Image GameEndImage;
-
     public Color ActiveColor = Color.red;
     public Color InactiveColor = Color.white;
 
-    // ===== クリック当たり判定に使うRectTransform =====
     [Header("Toggle Hit Rects (Click Areas)")]
     public RectTransform InvertX_OnHit;
     public RectTransform InvertX_OffHit;
@@ -74,26 +76,16 @@ public class Option : MonoBehaviour
     public RectTransform FullScreen_OnHit;
     public RectTransform FullScreen_OffHit;
 
-    // 「ゲーム終了」用のヒット領域
     public RectTransform GameEndHit;
-
-    // hover状態
     private bool _gameEndHover = false;
 
-    // ===== ESCヒント表示用 =====
     [Header("ESCヒント用テキスト (TMP)")]
     public TMP_Text EscHintText;
 
-    // ===== フォーカス行（ゲームパッド/キーボード用）=====
-    // 0 = 左右反転
-    // 1 = 上下反転
-    // 2 = スクリーンモード
-    // 3 = マウス感度
+    // 0 = 左右反転 / 1 = 上下反転 / 2 = スクリーンモード / 3 = マウス感度
     private int currentIndex = 0;
-
     private bool _didMoveRight, _didMoveLeft, _didMoveUp, _didMoveDown;
 
-    // ===== UI用 Canvas / Camera =====
     private Canvas _canvas;
     private Camera _uiCamera;
 
@@ -101,13 +93,13 @@ public class Option : MonoBehaviour
     {
         input = new InputSystem_Actions();
 
-        // ===== Canvas / UIカメラ取得 =====
+        // Canvas / UIカメラ
         _canvas = GetComponentInParent<Canvas>();
         if (_canvas != null)
         {
             if (_canvas.renderMode == RenderMode.ScreenSpaceOverlay)
             {
-                _uiCamera = null; // Overlay のときは null でOK
+                _uiCamera = null;
             }
             else
             {
@@ -121,36 +113,25 @@ public class Option : MonoBehaviour
             _uiCamera = Camera.main;
         }
 
-        // 最初は閉じておく
         MenuOn = false;
         if (MenuWindow)
-        {
             MenuWindow.SetActive(false);
-        }
 
-        // カメラ・画面モードの状態を取り込む
         SyncFromCamera();
-
-        // 感度をカメラから読み取る
         SyncSensitivityFromCamera();
 
-        // ハンドルの基準Yを覚える
+        // ハンドル親＆基準Y取得
         if (SensitivityHandle)
         {
+            _handleParent = SensitivityHandle.parent as RectTransform;
             _handleBaseY = SensitivityHandle.anchoredPosition.y;
         }
 
-        // ハンドル位置反映
         UpdateSensitivityHandlePosition();
 
-        // 色更新
         RefreshColors();
         RefreshGameEndColor();
-
-        // ESCヒント初期化
         RefreshEscHint();
-
-        // 起動時のマウス表示状態
         ApplyCursorStateInitial();
     }
 
@@ -171,7 +152,7 @@ public class Option : MonoBehaviour
 
     private void Update()
     {
-        // ===== メニュー開閉（ESC含む）=====
+        // メニュー開閉
         if (input.UI.Option.WasPressedThisFrame())
         {
             ToggleMenu();
@@ -188,33 +169,26 @@ public class Option : MonoBehaviour
         {
             Vector2 mousePos = Mouse.current.position.ReadValue();
 
-            // hover処理
             UpdateGameEndHover(mousePos);
 
-            // 左クリック押した瞬間
             if (Mouse.current.leftButton.wasPressedThisFrame)
             {
-                // ON/OFF / スクリーンモード / ゲーム終了
                 TryClickToggles(mousePos);
-
-                // 感度バー（クリック位置に即ジャンプ＋ドラッグ開始）
                 TryBeginSensitivityDrag(mousePos);
             }
 
-            // 感度ドラッグ中
             if (Mouse.current.leftButton.isPressed && _isDraggingSensitivity)
             {
                 UpdateSensitivityByPointerDrag(mousePos);
             }
 
-            // 離したらドラッグ終了
             if (Mouse.current.leftButton.wasReleasedThisFrame)
             {
                 _isDraggingSensitivity = false;
             }
         }
 
-        // ===== ゲームパッド/キーボード入力 =====
+        // ===== ゲームパッド/キーボード =====
         Vector2 move = input.Player.Move.ReadValue<Vector2>();
 
         // 上
@@ -226,10 +200,7 @@ public class Option : MonoBehaviour
                 _didMoveUp = true;
             }
         }
-        else
-        {
-            _didMoveUp = false;
-        }
+        else _didMoveUp = false;
 
         // 下
         if (move.y < -0.5f)
@@ -240,10 +211,7 @@ public class Option : MonoBehaviour
                 _didMoveDown = true;
             }
         }
-        else
-        {
-            _didMoveDown = false;
-        }
+        else _didMoveDown = false;
 
         // 右
         if (move.x > 0.5f)
@@ -254,10 +222,7 @@ public class Option : MonoBehaviour
                 _didMoveRight = true;
             }
         }
-        else
-        {
-            _didMoveRight = false;
-        }
+        else _didMoveRight = false;
 
         // 左
         if (move.x < -0.5f)
@@ -268,15 +233,10 @@ public class Option : MonoBehaviour
                 _didMoveLeft = true;
             }
         }
-        else
-        {
-            _didMoveLeft = false;
-        }
+        else _didMoveLeft = false;
     }
 
-    // =============================================================================
-    // 起動時にカーソル状態を整える
-    // =============================================================================
+    // カーソル初期状態
     private void ApplyCursorStateInitial()
     {
         if (IsGameplayScene)
@@ -291,20 +251,15 @@ public class Option : MonoBehaviour
         }
     }
 
-    // =============================================================================
-    // メニューのオン/オフ
-    // =============================================================================
+    // メニューオンオフ
     private void ToggleMenu()
     {
         MenuOn = !MenuOn;
-
         if (MenuWindow)
             MenuWindow.SetActive(MenuOn);
 
-        // ゲーム停止/再開
         ApplyPauseState(MenuOn);
 
-        // メニュー開いた瞬間の初期化
         _didMoveRight = _didMoveLeft = _didMoveUp = _didMoveDown = false;
         _isDraggingSensitivity = false;
 
@@ -322,13 +277,10 @@ public class Option : MonoBehaviour
             RefreshGameEndColor();
         }
 
-        // ESCヒント更新
         RefreshEscHint();
     }
 
-    // =============================================================================
-    // ゲームの時間と操作を止める/戻す
-    // =============================================================================
+    // ポーズ
     private void ApplyPauseState(bool pause)
     {
         if (pause)
@@ -337,16 +289,12 @@ public class Option : MonoBehaviour
             Time.timeScale = 0f;
 
             if (CameraController)
-            {
                 CameraController.ControlEnable = false;
-            }
 
             if (PauseTargets != null)
             {
                 foreach (var mb in PauseTargets)
-                {
                     if (mb) mb.enabled = false;
-                }
             }
 
             Cursor.lockState = CursorLockMode.None;
@@ -357,16 +305,12 @@ public class Option : MonoBehaviour
             Time.timeScale = _prevTimeScale;
 
             if (CameraController)
-            {
                 CameraController.ControlEnable = true;
-            }
 
             if (PauseTargets != null)
             {
                 foreach (var mb in PauseTargets)
-                {
                     if (mb) mb.enabled = true;
-                }
             }
 
             if (IsGameplayScene)
@@ -382,9 +326,7 @@ public class Option : MonoBehaviour
         }
     }
 
-    // =============================================================================
-    // 今の状態をOption側にコピー（開いたとき）
-    // =============================================================================
+    // カメラ→オプション
     private void SyncFromCamera()
     {
         if (CameraController)
@@ -398,9 +340,7 @@ public class Option : MonoBehaviour
 #endif
     }
 
-    // =============================================================================
-    // Optionの反転状態をカメラに反映
-    // =============================================================================
+    // オプション→カメラ
     private void SyncToCamera()
     {
         if (!CameraController) return;
@@ -409,9 +349,6 @@ public class Option : MonoBehaviour
         CameraController.InvertY = InvertY;
     }
 
-    // =============================================================================
-    // Screen.fullScreen を切り替え（ビルド後のみ）
-    // =============================================================================
     private void ApplyScreenMode()
     {
 #if !UNITY_EDITOR
@@ -419,9 +356,6 @@ public class Option : MonoBehaviour
 #endif
     }
 
-    // =============================================================================
-    // ゲーム終了
-    // =============================================================================
     private void QuitGame()
     {
 #if UNITY_EDITOR
@@ -431,9 +365,7 @@ public class Option : MonoBehaviour
 #endif
     }
 
-    // =============================================================================
-    // 「ゲーム終了」hover処理
-    // =============================================================================
+    // GameEnd hover
     private void UpdateGameEndHover(Vector2 mousePos)
     {
         if (GameEndHit == null || GameEndImage == null)
@@ -455,34 +387,19 @@ public class Option : MonoBehaviour
         }
     }
 
-    // 「ゲーム終了」の色だけ更新
     private void RefreshGameEndColor()
     {
         if (!GameEndImage) return;
-
         GameEndImage.color = _gameEndHover ? ActiveColor : InactiveColor;
     }
 
-    // =============================================================================
-    // ESCヒントの文言を更新
-    // =============================================================================
     private void RefreshEscHint()
     {
         if (!EscHintText) return;
-
-        if (MenuOn)
-        {
-            EscHintText.text = "ESCでオプション閉じる";
-        }
-        else
-        {
-            EscHintText.text = "ESCでオプション開く";
-        }
+        EscHintText.text = MenuOn ? "ESCでオプション閉じる" : "ESCでオプション開く";
     }
 
-    // =============================================================================
-    // ON/OFFクリック / フルスクリーン / ゲーム終了クリック
-    // =============================================================================>
+    // トグルクリック
     private void TryClickToggles(Vector2 mousePos)
     {
         bool Hit(RectTransform rt)
@@ -491,231 +408,170 @@ public class Option : MonoBehaviour
             return RectTransformUtility.RectangleContainsScreenPoint(rt, mousePos, _uiCamera);
         }
 
-        // --- 視点操作左右反転
-        if (Hit(InvertX_OnHit))
+        if (Hit(InvertX_OnHit)) { InvertX = true; SyncToCamera(); RefreshColors(); return; }
+        if (Hit(InvertX_OffHit)) { InvertX = false; SyncToCamera(); RefreshColors(); return; }
+
+        if (Hit(InvertY_OnHit)) { InvertY = true; SyncToCamera(); RefreshColors(); return; }
+        if (Hit(InvertY_OffHit)) { InvertY = false; SyncToCamera(); RefreshColors(); return; }
+
+        if (Hit(FullScreen_OnHit)) { FullScreen = true; ApplyScreenMode(); RefreshColors(); return; }
+        if (Hit(FullScreen_OffHit)) { FullScreen = false; ApplyScreenMode(); RefreshColors(); return; }
+
+        if (Hit(GameEndHit)) { QuitGame(); return; }
+    }
+
+    // =========================================================================
+    // マウス座標 → ハンドル親のローカルX に変換
+    // =========================================================================
+    private bool TryGetHandleLocalXFromMouse(Vector2 mousePos, out float localX)
+    {
+        localX = 0f;
+
+        if (_handleParent == null)
+            return false;
+
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            _handleParent,
+            mousePos,
+            _uiCamera,
+            out Vector2 localPoint))
         {
-            InvertX = true;
-            SyncToCamera();
-            RefreshColors();
-            return;
-        }
-        if (Hit(InvertX_OffHit))
-        {
-            InvertX = false;
-            SyncToCamera();
-            RefreshColors();
-            return;
+            return false;
         }
 
-        // --- 視点操作上下反転
-        if (Hit(InvertY_OnHit))
-        {
-            InvertY = true;
-            SyncToCamera();
-            RefreshColors();
+        localX = localPoint.x;
+        return true;
+    }
+
+    // =========================================================================
+    // ローカルXから感度＆ハンドル位置を更新
+    // =========================================================================
+    private void ApplySensitivityFromLocalX(float localX)
+    {
+        if (SensitivityHandle == null || HandleMaxX <= HandleMinX)
             return;
-        }
-        if (Hit(InvertY_OffHit))
+
+        // マウス位置にオフセットを足した「見た目のX」
+        float visualX = localX + HandleVisualOffsetX;
+
+        // 見た目のXを範囲内にクランプ（←ここがポイント）
+        visualX = Mathf.Clamp(visualX, HandleMinX, HandleMaxX);
+
+        // その見た目の位置を使って 0〜1 に正規化
+        float t = Mathf.InverseLerp(HandleMinX, HandleMaxX, visualX);
+        _sensitivity01 = Mathf.Clamp01(t);
+
+        // カメラ回転速度に反映
+        if (CameraController)
         {
-            InvertY = false;
-            SyncToCamera();
-            RefreshColors();
-            return;
+            float newSpeed = Mathf.Lerp(
+                CameraController.MinRotateSpeed,
+                CameraController.MaxRotateSpeed,
+                _sensitivity01
+            );
+            CameraController.SetRotateSpeedFromOption(newSpeed);
         }
 
-        // --- スクリーンモード
-        if (Hit(FullScreen_OnHit))
-        {
-            FullScreen = true; // ウィンドウ表示
-            ApplyScreenMode();
-            RefreshColors();
-            return;
-        }
-        if (Hit(FullScreen_OffHit))
-        {
-            FullScreen = false; // フルスクリーン
-            ApplyScreenMode();
-            RefreshColors();
-            return;
-        }
+        // ハンドルを見た目のXにセット
+        SensitivityHandle.anchoredPosition = new Vector2(
+            visualX,
+            _handleBaseY
+        );
+    }
 
-        // --- ゲーム終了
-        if (Hit(GameEndHit))
+    // クリック開始：その位置にジャンプ＋ドラッグ開始
+    private void TryBeginSensitivityDrag(Vector2 mousePos)
+    {
+        if (TryGetHandleLocalXFromMouse(mousePos, out float localX))
         {
-            QuitGame();
-            return;
+            ApplySensitivityFromLocalX(localX);
+            _isDraggingSensitivity = true;
+        }
+        else
+        {
+            _isDraggingSensitivity = false;
         }
     }
 
-    // =============================================================================
-    // X 座標（親ローカル）から感度とハンドル位置を更新する共通処理
-    // =============================================================================
-    private void ApplySensitivityFromLocalX(float localX)
+    // ドラッグ中：毎フレームマウスXに追従
+    private void UpdateSensitivityByPointerDrag(Vector2 mousePos)
     {
-        if (!CameraController ||
-            !SensitivityLeftAnchor ||
-            !SensitivityRightAnchor)
+        if (!_isDraggingSensitivity)
+            return;
+
+        if (TryGetHandleLocalXFromMouse(mousePos, out float localX))
         {
+            ApplySensitivityFromLocalX(localX);
+        }
+    }
+
+    // カメラのRotateSpeed→0〜1に変換
+    private void SyncSensitivityFromCamera()
+    {
+        if (!CameraController)
+        {
+            _sensitivity01 = 0f;
             return;
         }
 
-        float leftX = SensitivityLeftAnchor.anchoredPosition.x;
-        float rightX = SensitivityRightAnchor.anchoredPosition.x;
+        float min = CameraController.MinRotateSpeed;
+        float max = CameraController.MaxRotateSpeed;
+        float cur = Mathf.Clamp(CameraController.RotateSpeed, min, max);
 
-        float t = 0.5f;
-        if (Mathf.Abs(rightX - leftX) > Mathf.Epsilon)
-        {
-            t = Mathf.InverseLerp(leftX, rightX, localX);
-        }
+        if (max > min)
+            _sensitivity01 = Mathf.InverseLerp(min, max, cur);
+        else
+            _sensitivity01 = 0f;
 
-        _sensitivity01 = Mathf.Clamp01(t);
+        _sensitivity01 = Mathf.Clamp01(_sensitivity01);
+    }
 
-        float newSpeed = Mathf.Lerp(
-            CameraController.MinRotateSpeed,
-            CameraController.MaxRotateSpeed,
-            _sensitivity01
+    // 0〜1の感度値からハンドル位置を決定
+    private void UpdateSensitivityHandlePosition()
+    {
+        if (!SensitivityHandle || HandleMaxX <= HandleMinX)
+            return;
+
+        float t = Mathf.Clamp01(_sensitivity01);
+
+        // 見た目のX（ここでは offset は使わず、純粋にバーの両端を補間）
+        float visualX = Mathf.Lerp(HandleMinX, HandleMaxX, t);
+
+        SensitivityHandle.anchoredPosition = new Vector2(
+            visualX,
+            _handleBaseY
         );
+    }
 
-        CameraController.SetRotateSpeedFromOption(newSpeed);
+    private IEnumerator RepositionNextFrame()
+    {
+        yield return null;
+        Canvas.ForceUpdateCanvases();
         UpdateSensitivityHandlePosition();
     }
 
-    // =============================================================================
-    // 感度バーを掴む判定 ＋ クリック位置に即ジャンプ（Yは無視）
-    // =============================================================================
-    private void TryBeginSensitivityDrag(Vector2 mousePos)
-    {
-        if (!SensitivityHandle ||
-            !SensitivityLeftAnchor ||
-            !SensitivityRightAnchor)
-        {
-            _isDraggingSensitivity = false;
-            return;
-        }
-
-        RectTransform parent = SensitivityHandle.parent as RectTransform;
-        if (!parent)
-        {
-            _isDraggingSensitivity = false;
-            return;
-        }
-
-        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            parent,
-            mousePos,
-            _uiCamera,
-            out Vector2 localPoint))
-        {
-            _isDraggingSensitivity = false;
-            return;
-        }
-
-        // クリックした瞬間に X に合わせる（Y 完全無視）
-        ApplySensitivityFromLocalX(localPoint.x);
-
-        // X 方向だけでクリック範囲チェック
-        float leftX = SensitivityLeftAnchor.anchoredPosition.x;
-        float rightX = SensitivityRightAnchor.anchoredPosition.x;
-        float minX = Mathf.Min(leftX, rightX) - SensitivityDragExtraX;
-        float maxX = Mathf.Max(leftX, rightX) + SensitivityDragExtraX;
-
-        _isDraggingSensitivity = (localPoint.x >= minX && localPoint.x <= maxX);
-    }
-
-    // =============================================================================
-    // ドラッグ中：感度更新（Xのみ見る）
-    // =============================================================================
-    private void UpdateSensitivityByPointerDrag(Vector2 mousePos)
-    {
-        if (!SensitivityHandle ||
-            !SensitivityLeftAnchor ||
-            !SensitivityRightAnchor ||
-            !CameraController)
-        {
-            return;
-        }
-
-        RectTransform parent = SensitivityHandle.parent as RectTransform;
-        if (!parent) return;
-
-        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            parent,
-            mousePos,
-            _uiCamera,
-            out Vector2 localPoint))
-        {
-            return;
-        }
-
-        // X 座標から感度とハンドル位置を更新（Y 完全無視）
-        ApplySensitivityFromLocalX(localPoint.x);
-    }
-
-    // =============================================================================
-    // キー/パッド：右
-    // =============================================================================
     private void HandleRight()
     {
         switch (currentIndex)
         {
-            case 0: // 左右反転
-                InvertX = true;
-                SyncToCamera();
-                RefreshColors();
-                break;
-
-            case 1: // 上下反転
-                InvertY = true;
-                SyncToCamera();
-                RefreshColors();
-                break;
-
-            case 2: // スクリーンモード → 「ON」側（ウィンドウ表示）
-                FullScreen = true;
-                ApplyScreenMode();
-                RefreshColors();
-                break;
-
-            case 3: // 感度アップ
-                ChangeSensitivity(+SensitivityStep);
-                break;
+            case 0: InvertX = true; SyncToCamera(); RefreshColors(); break;
+            case 1: InvertY = true; SyncToCamera(); RefreshColors(); break;
+            case 2: FullScreen = true; ApplyScreenMode(); RefreshColors(); break;
+            case 3: ChangeSensitivity(+SensitivityStep); break;
         }
     }
 
-    // =============================================================================
-    // キー/パッド：左
-    // =============================================================================
     private void HandleLeft()
     {
         switch (currentIndex)
         {
-            case 0:
-                InvertX = false;
-                SyncToCamera();
-                RefreshColors();
-                break;
-
-            case 1:
-                InvertY = false;
-                SyncToCamera();
-                RefreshColors();
-                break;
-
-            case 2: // スクリーンモード → 「OFF」側（フルスクリーン）
-                FullScreen = false;
-                ApplyScreenMode();
-                RefreshColors();
-                break;
-
-            case 3:
-                ChangeSensitivity(-SensitivityStep);
-                break;
+            case 0: InvertX = false; SyncToCamera(); RefreshColors(); break;
+            case 1: InvertY = false; SyncToCamera(); RefreshColors(); break;
+            case 2: FullScreen = false; ApplyScreenMode(); RefreshColors(); break;
+            case 3: ChangeSensitivity(-SensitivityStep); break;
         }
     }
 
-    // =============================================================================
-    // 感度を+-する（キー/パッド用）
-    // =============================================================================
     private void ChangeSensitivity(float delta01)
     {
         if (!CameraController) return;
@@ -732,75 +588,18 @@ public class Option : MonoBehaviour
         UpdateSensitivityHandlePosition();
     }
 
-    // カメラの現在RotateSpeedを読んで _sensitivity01 に変換
-    private void SyncSensitivityFromCamera()
-    {
-        if (!CameraController)
-        {
-            _sensitivity01 = 0f;
-            return;
-        }
-
-        float min = CameraController.MinRotateSpeed;
-        float max = CameraController.MaxRotateSpeed;
-        float cur = Mathf.Clamp(CameraController.RotateSpeed, min, max);
-
-        if (max > min)
-        {
-            _sensitivity01 = Mathf.InverseLerp(min, max, cur);
-        }
-        else
-        {
-            _sensitivity01 = 0f;
-        }
-
-        _sensitivity01 = Mathf.Clamp01(_sensitivity01);
-    }
-
-    // ハンドルの見た目更新（Xだけ動かしてYは固定）
-    private void UpdateSensitivityHandlePosition()
-    {
-        if (!SensitivityHandle ||
-            !SensitivityLeftAnchor ||
-            !SensitivityRightAnchor)
-        {
-            return;
-        }
-
-        float leftX = SensitivityLeftAnchor.anchoredPosition.x;
-        float rightX = SensitivityRightAnchor.anchoredPosition.x;
-        float newX = Mathf.Lerp(leftX, rightX, _sensitivity01);
-
-        SensitivityHandle.anchoredPosition = new Vector2(
-            newX,
-            _handleBaseY
-        );
-    }
-
-    // レイアウト安定後に位置揃える
-    private IEnumerator RepositionNextFrame()
-    {
-        yield return null;
-        Canvas.ForceUpdateCanvases();
-        UpdateSensitivityHandlePosition();
-    }
-
-    // 赤/白の切り替え（反転とスクリーンモード用）
     private void RefreshColors()
     {
-        // 左右反転
         if (InvertX_OnImage)
             InvertX_OnImage.color = InvertX ? ActiveColor : InactiveColor;
         if (InvertX_OffImage)
             InvertX_OffImage.color = InvertX ? InactiveColor : ActiveColor;
 
-        // 上下反転
         if (InvertY_OnImage)
             InvertY_OnImage.color = InvertY ? ActiveColor : InactiveColor;
         if (InvertY_OffImage)
             InvertY_OffImage.color = InvertY ? InactiveColor : ActiveColor;
 
-        // スクリーンモード
         if (FullScreen_OnImage)
             FullScreen_OnImage.color = FullScreen ? ActiveColor : InactiveColor;
         if (FullScreen_OffImage)

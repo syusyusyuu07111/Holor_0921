@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using CriWare;
+using UnityEngine;
 using UnityEngine.InputSystem;
 
 [RequireComponent(typeof(Animator))]
@@ -12,7 +13,10 @@ public class PlayerController : MonoBehaviour
     [SerializeField] Transform Cam;
     [SerializeField] Animator animator;
     [SerializeField] TPSCamera tpsCamera;
-    [SerializeField] AudioManager audioManager;
+
+    [Header("Footstep (CRI Atom)")]
+    [SerializeField] CriAtomSource walkLoopSource; // 歩き用ループSE
+    [SerializeField] CriAtomSource runLoopSource;  // 走り用ループSE
 
     // ===== Move =====
     [Header("Speed")]
@@ -73,7 +77,6 @@ public class PlayerController : MonoBehaviour
     private int _dominantAxis = 0; // 0=未, 1=X, 2=Y
     private float _noInputTimer = 0f;
     private bool _prevDash = false;
-    private bool _footLoopOn = false;
     private Vector3 _lockedPos;
     private Quaternion _lockedRot;
     private float _fixedY;
@@ -81,6 +84,10 @@ public class PlayerController : MonoBehaviour
 
     // 入力方向の符号記録（反転検出用）
     private int _lastSignX = 0, _lastSignY = 0;
+
+    // 足音ループ状態
+    private bool _walkLoopOn = false;
+    private bool _runLoopOn = false;
 
     // 公開（他スクリプト互換）
     [System.Serializable] public class DashEvent : UnityEngine.Events.UnityEvent { }
@@ -98,6 +105,7 @@ public class PlayerController : MonoBehaviour
         Input = new InputSystem_Actions();
         _cap = GetComponent<CapsuleCollider>();
     }
+
     void OnEnable()
     {
         Input.Player.Enable();
@@ -105,6 +113,7 @@ public class PlayerController : MonoBehaviour
         _lockedRot = transform.rotation;
         _fixedY = transform.position.y;
     }
+
     void OnDisable() => Input.Player.Disable();
 
     void Update()
@@ -125,11 +134,22 @@ public class PlayerController : MonoBehaviour
             _noInputTimer += Time.deltaTime;
             if (_noInputTimer >= stopGrace && animator && animator.GetBool("IsMoving"))
                 animator.SetBool("IsMoving", false);
-            if (animator) { animator.SetBool("IsDashing", false); animator.SetBool("IsSlowWalking", false); }
+            if (animator)
+            {
+                animator.SetBool("IsDashing", false);
+                animator.SetBool("IsSlowWalking", false);
+            }
 
             IsMovingNow = IsDashingNow = IsSlowWalkingNow = false;
-            if (_prevDash) { OnDashEnd.Invoke(); _prevDash = false; }
-            ToggleFootLoop(false);
+            if (_prevDash)
+            {
+                OnDashEnd.Invoke();
+                _prevDash = false;
+            }
+
+            // 足音も停止
+            UpdateFootstepLoop(false, false);
+
             _dominantAxis = 0;
             _lastSignX = 0; _lastSignY = 0;
             return;
@@ -259,7 +279,11 @@ public class PlayerController : MonoBehaviour
         if (!IsDashingNow && _prevDash) OnDashEnd.Invoke();
         _prevDash = IsDashingNow;
 
-        ToggleFootLoop(movedThisFrame); // 壁押し中は足音オフ
+        // 歩き / 走り判定（足音用）
+        bool isRunningNow = IsDashingNow;
+        bool isWalkingNow = IsMovingNow && !IsDashingNow;
+
+        UpdateFootstepLoop(isWalkingNow, isRunningNow); // 壁押し中も含めて足音制御
 
         // 符号の記録
         _lastSignX = signX; _lastSignY = signY;
@@ -285,11 +309,61 @@ public class PlayerController : MonoBehaviour
         return src.eulerAngles.y;
     }
 
-    void ToggleFootLoop(bool on)
+    // --- 足音（CRI Atom制御） ---
+    void UpdateFootstepLoop(bool isWalkingNow, bool isRunningNow)
     {
-        if (audioManager == null) return;
-        if (on && !_footLoopOn) { audioManager.StartFootstepLoop(); _footLoopOn = true; }
-        else if (!on && _footLoopOn) { audioManager.StopFootstepLoop(); _footLoopOn = false; }
+        // どちらも参照がない場合は何もしない
+        if (walkLoopSource == null && runLoopSource == null) return;
+
+        // 走りが優先（走っている間は歩きループは止める）
+        if (isRunningNow)
+        {
+            // 歩きループを止める
+            if (_walkLoopOn && walkLoopSource != null)
+            {
+                walkLoopSource.Stop();
+                _walkLoopOn = false;
+            }
+
+            // 走りループを再生開始
+            if (!_runLoopOn && runLoopSource != null)
+            {
+                runLoopSource.loop = true; // ループ設定はInspectorでもOK
+                runLoopSource.Play();
+                _runLoopOn = true;
+            }
+        }
+        else if (isWalkingNow)
+        {
+            // 走りループを止める
+            if (_runLoopOn && runLoopSource != null)
+            {
+                runLoopSource.Stop();
+                _runLoopOn = false;
+            }
+
+            // 歩きループを再生開始
+            if (!_walkLoopOn && walkLoopSource != null)
+            {
+                walkLoopSource.loop = true;
+                walkLoopSource.Play();
+                _walkLoopOn = true;
+            }
+        }
+        else
+        {
+            // どちらも動いていない → 両方止める
+            if (_walkLoopOn && walkLoopSource != null)
+            {
+                walkLoopSource.Stop();
+                _walkLoopOn = false;
+            }
+            if (_runLoopOn && runLoopSource != null)
+            {
+                runLoopSource.Stop();
+                _runLoopOn = false;
+            }
+        }
     }
 
     // --- ログ
@@ -408,5 +482,9 @@ public class PlayerController : MonoBehaviour
         {
             transform.position = new Vector3(transform.position.x, _fixedY, transform.position.z);
         }
+
+        // 押された結果の位置をロックにも反映したいなら以下を有効化
+        // _lockedPos = transform.position;
+        // _lockedRot = transform.rotation;
     }
 }
