@@ -4,6 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Events;
+using CriWare; // アイテム取得SEで使用
 
 /// <summary>
 /// プレイヤー周囲のアイテム探索＆拾い処理。
@@ -25,7 +26,6 @@ public class ItemPickupController2 : MonoBehaviour
     [SerializeField] private Transform _upRayOrigin;
     private bool _isOnChair = false;   // 椅子上にいる間は true
 
-
     [Header("Chair Climb Timing (Detect Only)")]
     [SerializeField] private string _chairTag = "Chair";    // 椅子タグ PickupItemByChairでも使用
     [SerializeField] private float _chairCheckRange = 0.9f; // 「上れる」と見なす距離
@@ -37,6 +37,9 @@ public class ItemPickupController2 : MonoBehaviour
     [SerializeField] private Transform _player;             // プレイヤー位置（距離計算のみ）
     [SerializeField] private GameObject _itemText;          // アイテムUI
     [SerializeField] private ItemDetailUManager _itemDetailUI;
+
+    [Header("SE（CRI）")]
+    public CriAtomSource ItemPickupSeSource;               // アイテム取得時に鳴らすSE
 
     private readonly List<GameObject> _inventory = new List<GameObject>();
     private GameObject _nearestItem;
@@ -127,6 +130,7 @@ public class ItemPickupController2 : MonoBehaviour
                 if (_itemText) _itemText.SetActive(false);
             }
         }
+
         PickupItemByChair();
         // ここでは「上れるタイミング」を距離だけで検出し、イベント通知だけ行う
         DetectChairClimbTiming();
@@ -169,11 +173,10 @@ public class ItemPickupController2 : MonoBehaviour
         if (nearestChair != null && OnChairClimbRequested != null)
         {
             OnChairClimbRequested.Invoke(nearestChair, topY);
-            // ※連発させたくない場合は、呼び先で一度だけ受ける/自身でクールダウン等を実装してください
         }
     }
 
-    // ====== アイテム関連（既存のまま） ======
+    // ====== アイテム関連 ======
 
     /// <summary>一定間隔でアイテムを探索するループ</summary>
     private IEnumerator CheckItemsRoutine()
@@ -244,6 +247,12 @@ public class ItemPickupController2 : MonoBehaviour
 
         _nearestItem = null;
         if (_itemText) _itemText.SetActive(false);
+
+        // ★ アイテム取得SEを鳴らす
+        if (ItemPickupSeSource != null)
+        {
+            ItemPickupSeSource.Play();
+        }
     }
 
     private void PickupItemByChair()

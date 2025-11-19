@@ -19,6 +19,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Collections;
+using CriWare; // CRI
 
 [DisallowMultipleComponent]
 public class PushController : MonoBehaviour
@@ -151,6 +152,16 @@ public class PushController : MonoBehaviour
     [Header("UI 表示設定")]
     [Tooltip("「押す」「乗る」「降りる」などのテキストを表示する TextMeshProUGUI")]
     [SerializeField] private TextMeshProUGUI _pushTextMeshPro;
+
+    // ========================
+    // SE 再生（CRI）
+    // ========================
+    [Header("SE 設定（CRI）")]
+    [Tooltip("椅子を押している間にループ再生する SE 用 CriAtomSource（ループ設定のキューを指定）")]
+    [SerializeField] private CriAtomSource _pushLoopSource;
+
+    [Tooltip("椅子に上った瞬間に一度だけ再生する SE 用 CriAtomSource")]
+    [SerializeField] private CriAtomSource _climbSeSource;
 
     // ========================
     // ForceBoneScale 連携（任意）
@@ -545,6 +556,12 @@ public class PushController : MonoBehaviour
                 _pushPCWasEnabled = _playerController.enabled;
                 _playerController.enabled = false;
             }
+
+            // 押しループSE再生
+            if (_pushLoopSource != null)
+            {
+                _pushLoopSource.Play();
+            }
         }
     }
 
@@ -567,11 +584,16 @@ public class PushController : MonoBehaviour
             _playerController.enabled = true;
         }
         _pushPCWasEnabled = false;
+
+        // 押しループSE停止
+        if (_pushLoopSource != null)
+        {
+            _pushLoopSource.Stop();
+        }
     }
 
     // ========================
     // 上る（Climb）／降りる（Descend）
-    // ※ ここは前回版とほぼ同じなのでそのまま
     // ========================
 
     private void OnClimbPressed(InputAction.CallbackContext ctx)
@@ -632,6 +654,12 @@ public class PushController : MonoBehaviour
                 chairRoot = ResolveChairRoot(hitInfo);
         }
         AlignForClimb(chairRoot);
+
+        // 上りSE再生（登り開始が確定したタイミング）
+        if (_climbSeSource != null)
+        {
+            _climbSeSource.Play();
+        }
 
         CreateWrapperIfNeeded(initialSetup: false);
         _canAcceptToggle = false;

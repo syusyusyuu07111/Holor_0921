@@ -597,7 +597,7 @@ public class Tutorial : MonoBehaviour
         Time.timeScale = 0f;
 
         yield return null;
-        while (!_input.UI.Submit.WasPressedThisFrame()) yield return null;
+        while (!_input.UI.Click.WasPressedThisFrame()) yield return null;
 
         panel.SetActive(false);
         if (PauseAudioWhilePanel) AudioListener.pause = _prevListenerPause;

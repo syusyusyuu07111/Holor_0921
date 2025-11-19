@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using TMPro;
 using UnityEngine.Events;
+using CriWare;   // ★ CRI用
 
 public class HideCroset : MonoBehaviour
 {
@@ -90,6 +91,9 @@ public class HideCroset : MonoBehaviour
 
     [Header("隠れ中のプレイヤー可視性")]
     public bool HidePlayerWhileHidden = true;                   // 隠れている間はプレイヤー非表示
+
+    [Header("隠れるSE（CRI）")]
+    public CriAtomSource HideSeSource;                          // ★ 隠れた瞬間に鳴らすSE
 
     // ───── 内部退避 ─────
     private bool _prevKeepFixed = false;
@@ -309,6 +313,12 @@ public class HideCroset : MonoBehaviour
 
         SetMovementEnabled(false);
         hide = true;
+
+        // ★ 隠れた瞬間にSEを再生
+        if (HideSeSource != null)
+        {
+            HideSeSource.Play();
+        }
 
         // ★ 隠れ中はプレイヤー非表示
         if (HidePlayerWhileHidden) SetPlayerVisible(false);

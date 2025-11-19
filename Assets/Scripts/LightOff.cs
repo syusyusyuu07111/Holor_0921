@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using CriWare;  // ★ CRI Atom 用
 
 public class LightOff : MonoBehaviour
 {
@@ -10,12 +11,19 @@ public class LightOff : MonoBehaviour
     public float PushDistance = 3.0f;                       // インタラクト距離
     public bool OnLight = true;                             // 「いまは明るい(冷色側)？」UI表示用
     public GameObject Ghost;                                // 暖色化後に消したいオブジェクト（敵とか）
+
+    [Header("レバーON時に消す呪いエフェクト")]
+    public List<GameObject> CurseEffects = new List<GameObject>();   // レバーON時に消したい呪いエフェクト（Inspectorでアタッチ）
+
     public GameObject lever;                                // 回すレバー
     public float RotateLever = 30f;                         // 回す角度（X度）
 
     [Header("レバー回転")]
     public float LeverRotateSpeed = 180f;                   // 回転速度[deg/sec]
     private bool _isLeverAnimating = false;                 // レバー演出中フラグ
+
+    [Header("レバー音(CRI AtomSource)")]
+    public CriAtomSource LeverAtomSource;                   // レバーをガチャっとした時に鳴らす音
 
     [Header("操作対象ライト群")]
     [SerializeField] private List<Light> LightLists = new List<Light>();
@@ -246,6 +254,26 @@ public class LightOff : MonoBehaviour
     }
 
     //==================================================
+    // レバー音再生
+    //==================================================
+    private void PlayLeverSound()
+    {
+        // Inspector でセットされたものを優先
+        var src = LeverAtomSource;
+
+        // 未設定なら、レバーのGameObjectから拾う
+        if (!src && lever)
+        {
+            src = lever.GetComponent<CriAtomSource>();
+        }
+
+        if (!src) return;
+
+        // CueはAtomSource側に設定されている前提
+        src.Play();
+    }
+
+    //==================================================
     // 冷色→暖色に切り替える操作（レバー＆カメラ演出込み）
     //==================================================
     private void TurnOffToWarm()
@@ -257,7 +285,12 @@ public class LightOff : MonoBehaviour
         if (lever && RotateLever != 0f)
         {
             if (!_isLeverAnimating)
+            {
+                // ★ レバーをガチャっとしたタイミングで音を鳴らす
+                PlayLeverSound();
+
                 StartCoroutine(CoRotateLeverThenShowcaseThenWarmify());
+            }
         }
         else
         {
@@ -425,6 +458,16 @@ public class LightOff : MonoBehaviour
     {
         // ゴースト消す
         if (Ghost) Destroy(Ghost.gameObject);
+
+        // 呪いエフェクトをすべて破棄
+        if (CurseEffects != null)
+        {
+            foreach (var eff in CurseEffects)
+            {
+                if (!eff) continue;
+                Destroy(eff);
+            }
+        }
 
         // メッセージ表示
         ShowEventMessage(MsgTurnedOff);
