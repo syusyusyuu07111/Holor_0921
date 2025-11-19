@@ -487,7 +487,7 @@ public class PushController : MonoBehaviour
             }
             else if (_state == MountState.Mounted)
             {
-                nextText = "Interact: 降りる";
+                nextText = "(E): 降りる";
             }
 
             if (_lastUiText != nextText)
