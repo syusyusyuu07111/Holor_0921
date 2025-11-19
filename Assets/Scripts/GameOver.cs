@@ -48,9 +48,13 @@ public class GameOver : MonoBehaviour
     [Header("SE再生用")]
     public AudioManager AudioMgr;               // 捕まった時のSEを鳴らすための参照
 
-    [Header("ピンチSE（CRI Atom Loop BGM）")]
-    public CriAtomSource PinchSource;           // ピンチ時に鳴らすループBGM用 SOURCE（幽霊側に付けると3Dっぽくなる）
+    [Header("ピンチSE（3D・CRI Atom Loop BGM）")]
+    public CriAtomSource PinchSource;           // ピンチ時に鳴らすループBGM用（3D想定）
     private bool _pinchPlaying = false;         // 再生中かどうか
+
+    [Header("ピンチSE（2D・距離で音量変化）")]
+    public CriAtomSource Pinch2DSource;         // 距離に応じて音量が0→1になる2D SE
+    private bool _pinch2DPlaying = false;       // 再生中かどうか
 
     // ===== カメラ演出 =====
     [Header("ゲームオーバー演出カメラ")]
@@ -113,7 +117,7 @@ public class GameOver : MonoBehaviour
 
     void Awake()
     {
-        // ----- 参照の保険と初期化 -----
+        Debug.Log("[GameOver] Awake 開始");
 
         // Player自動取得
         if (!Player)
@@ -122,6 +126,7 @@ public class GameOver : MonoBehaviour
             if (p != null)
             {
                 Player = p.transform;
+                Debug.Log("[GameOver] Player をタグから取得");
             }
             else
             {
@@ -129,6 +134,11 @@ public class GameOver : MonoBehaviour
                 if (pc != null)
                 {
                     Player = pc.transform;
+                    Debug.Log("[GameOver] Player を PlayerController から取得");
+                }
+                else
+                {
+                    Debug.LogWarning("[GameOver] Player が見つかりません");
                 }
             }
         }
@@ -140,6 +150,7 @@ public class GameOver : MonoBehaviour
             if (g != null)
             {
                 Ghost = g.transform;
+                Debug.Log("[GameOver] Ghost をタグから取得");
             }
             else
             {
@@ -147,6 +158,11 @@ public class GameOver : MonoBehaviour
                 if (anyChase != null)
                 {
                     Ghost = anyChase.transform;
+                    Debug.Log("[GameOver] Ghost を SearchChase から取得");
+                }
+                else
+                {
+                    Debug.LogWarning("[GameOver] Ghost が見つかりません");
                 }
             }
         }
@@ -155,6 +171,8 @@ public class GameOver : MonoBehaviour
         if (!HideRef)
         {
             HideRef = UnityEngine.Object.FindFirstObjectByType<HideCroset>();
+            if (HideRef == null)
+                Debug.LogWarning("[GameOver] HideCroset がシーンに見つかりません");
         }
 
         // GhostChase
@@ -176,6 +194,8 @@ public class GameOver : MonoBehaviour
         {
             _hasVig = PostVolume.profile.TryGet(out _vig);
             _hasCA = PostVolume.profile.TryGet(out _ca);
+
+            Debug.Log($"[GameOver] Volume 初期化 hasVig={_hasVig} hasCA={_hasCA}");
 
             if (_hasVig)
             {
@@ -222,6 +242,27 @@ public class GameOver : MonoBehaviour
             GameOverText.text = "";
             GameOverText.gameObject.SetActive(false);
         }
+
+        // === サウンドの初期状態ログ ===
+        if (PinchSource != null)
+        {
+            Debug.Log("[GameOver] PinchSource(3D) が設定されています。obj=" + PinchSource.gameObject.name);
+        }
+        else
+        {
+            Debug.LogWarning("[GameOver] PinchSource(3D) が未設定です");
+        }
+
+        if (Pinch2DSource != null)
+        {
+            Debug.Log("[GameOver] Pinch2DSource(2D) が設定されています。obj=" + Pinch2DSource.gameObject.name);
+        }
+        else
+        {
+            Debug.LogWarning("[GameOver] Pinch2DSource(2D) が未設定です");
+        }
+
+        Debug.Log("[GameOver] Awake 完了");
     }
 
     void OnEnable()
@@ -231,14 +272,43 @@ public class GameOver : MonoBehaviour
 
     void Update()
     {
+        // デバッグ：Pキーで2DピンチSEをテスト再生
+        if (Input.GetKeyDown(KeyCode.P))
+        {
+            if (Pinch2DSource != null)
+            {
+                Debug.Log("[GameOver] [TEST] Pキーで Pinch2DSource.Play() を呼びます");
+                Pinch2DSource.volume = 1.0f;
+                Pinch2DSource.Play();
+                _pinch2DPlaying = true;
+            }
+            else
+            {
+                Debug.LogWarning("[GameOver] [TEST] Pinch2DSource が未設定のため再生できません");
+            }
+        }
+
         // ★ ゲームオーバー後は演出更新を止める & ピンチSEも必ずOFF
         if (_gameOverFired)
         {
             if (PinchSource != null && _pinchPlaying)
             {
+                Debug.Log("[GameOver] _gameOverFired 中なので PinchSource(3D) STOP");
                 PinchSource.Stop();
                 _pinchPlaying = false;
             }
+
+            if (Pinch2DSource != null)
+            {
+                if (_pinch2DPlaying)
+                {
+                    Debug.Log("[GameOver] _gameOverFired 中なので Pinch2DSource(2D) STOP");
+                    Pinch2DSource.Stop();
+                    _pinch2DPlaying = false;
+                }
+                Pinch2DSource.volume = 0f;
+            }
+
             return;
         }
 
@@ -257,17 +327,12 @@ public class GameOver : MonoBehaviour
 
             if (Player && nearGhost != null)
             {
-                // 近い実体の幽霊を毎回採用（生成された個体も含む）
                 Ghost = nearGhost;
                 GhostChase = nearGhost.GetComponent<SearchChase>();
 
                 float dist = Vector3.Distance(Player.position, nearGhost.position);
                 bool hidden = (HideRef && HideRef.hide);
                 int state = (GhostChase ? GhostChase.GetState() : 1);
-
-                // 仕様：
-                // - state1 かつ 隠れ中 → スキップ
-                // - それ以外は距離のみで発火
                 bool skip = ShouldSkipCatch();
                 bool willFire = (!skip && dist <= TriggerDistance);
 
@@ -295,6 +360,8 @@ public class GameOver : MonoBehaviour
 
         float dist = Vector3.Distance(Player.position, nearGhost.position);
         bool isSafe = ShouldSkipCatch(); // 隠れ＋state1なら安全
+
+        Debug.Log($"[Danger] dist={dist:F3}, isSafe={isSafe}");
 
         // 隠れてて安全ならフェードアウト方向（= state1 かつ 隠れ中のみ）
         if (isSafe)
@@ -332,7 +399,7 @@ public class GameOver : MonoBehaviour
             _ca.intensity.Override(_currIntensity * 0.55f);
         }
 
-        // WarnDistance を境にピンチSEをON/OFF
+        // WarnDistance を境にピンチSE（3D/2D）をON/OFF＋2D音量更新
         UpdatePinchSEByDistance(dist, false);
     }
 
@@ -342,14 +409,26 @@ public class GameOver : MonoBehaviour
         if (_gameOverFired) return;
         _gameOverFired = true;
 
-        // 捕まった瞬間にピンチBGMを必ず停止（念押し）
+        Debug.Log("[GameOver] FireGameOver 実行");
+
+        // 捕まった瞬間にピンチBGMを必ず停止（3D/2D両方）
         if (PinchSource != null && _pinchPlaying)
         {
+            Debug.Log("[GameOver] FireGameOver で PinchSource(3D) STOP");
             PinchSource.Stop();
             _pinchPlaying = false;
         }
+        if (Pinch2DSource != null)
+        {
+            if (_pinch2DPlaying)
+            {
+                Debug.Log("[GameOver] FireGameOver で Pinch2DSource(2D) STOP");
+                Pinch2DSource.Stop();
+                _pinch2DPlaying = false;
+            }
+            Pinch2DSource.volume = 0f;
+        }
 
-        // 発火直前にも最寄り幽霊（とその状態）を再取得して整合
         Transform nearGhost = GetNearestGhostToPlayer();
         if (nearGhost != null)
         {
@@ -357,14 +436,12 @@ public class GameOver : MonoBehaviour
             GhostChase = nearGhost.GetComponent<SearchChase>();
         }
 
-        // いちばん近い幽霊のAnimatorを優先して使う
         Animator nearestAnim = GetNearestGhostAnimator();
         if (nearestAnim != null)
         {
             GhostAnimator = nearestAnim;
         }
 
-        // SE（CRIWAREの例外で止まらないように保護）
         try
         {
             if (AudioMgr != null)
@@ -381,13 +458,11 @@ public class GameOver : MonoBehaviour
             Debug.LogError($"[GameOver] SE再生中に例外：{ex.Message}\n{ex.StackTrace}\n→ SEをスキップして続行します。");
         }
 
-        // プレイヤーの見た目を消す（手とか体とか）
         HidePlayerVisualsIfNeeded();
 
-        // 幽霊のアニメーターに「GameOverフラグON」
         if (GhostAnimator && !string.IsNullOrEmpty(GameOverBoolName))
         {
-            GhostAnimator.updateMode = AnimatorUpdateMode.UnscaledTime; // 0でも動く保険
+            GhostAnimator.updateMode = AnimatorUpdateMode.UnscaledTime;
             GhostAnimator.SetBool(GameOverBoolName, true);
 
             bool val = GhostAnimator.GetBool(GameOverBoolName);
@@ -400,14 +475,12 @@ public class GameOver : MonoBehaviour
             Debug.LogWarning("[GameOver] GhostAnimator か GameOverBoolName が未設定です。");
         }
 
-        // イベント本編
         StartCoroutine(GameOverSequence());
     }
 
     // ゲームオーバー演出のフロー本体
     private IEnumerator GameOverSequence()
     {
-        // NavMeshAgentを止める（暴れ防止）
         if (StopAgentsOnGameOver)
         {
             NavMeshAgent a1 = Player ? Player.GetComponent<NavMeshAgent>() : null;
@@ -416,13 +489,11 @@ public class GameOver : MonoBehaviour
             if (a2 && a2.isOnNavMesh) a2.isStopped = true;
         }
 
-        // ちょいタメ
         if (CameraCutDelay > 0f)
         {
             yield return new WaitForSeconds(CameraCutDelay);
         }
 
-        // メインカメラOFF・キルカメラON
         if (MainCamera && MainCamera.enabled)
         {
             MainCamera.enabled = false;
@@ -433,13 +504,9 @@ public class GameOver : MonoBehaviour
             KillCamera.enabled = true;
         }
 
-        // アニメ再生待ち + 余韻ホールド + テキスト出し
         yield return StartCoroutine(WaitForGameOverAnim());
-
-        // 暗転フェード
         yield return StartCoroutine(FadeOutScreen());
 
-        // シーン遷移
         if (!string.IsNullOrEmpty(GameoverScene))
         {
             SceneManager.LoadScene(GameoverScene);
@@ -451,13 +518,11 @@ public class GameOver : MonoBehaviour
         }
     }
 
-    // アニメの待ち
     private IEnumerator WaitForGameOverAnim()
     {
         float timer = 0f;
         bool enteredTaggedState = false;
 
-        // 1) GameOverタグ付きステートに入るまで待つ
         while (true)
         {
             UpdateKillCameraFollow();
@@ -471,7 +536,6 @@ public class GameOver : MonoBehaviour
                 {
                     enteredTaggedState = true;
 
-                    // 掴まれた瞬間の短い強い揺れ
                     if (EnableCameraShake)
                     {
                         StartShake(ShakeDuration, ShakeAmplitude);
@@ -491,7 +555,6 @@ public class GameOver : MonoBehaviour
             yield return null;
         }
 
-        // 2) タグ付きステートが1周終わるか / 抜けるまで待つ
         if (enteredTaggedState)
         {
             while (true)
@@ -503,14 +566,12 @@ public class GameOver : MonoBehaviour
                 {
                     AnimatorStateInfo st = GhostAnimator.GetCurrentAnimatorStateInfo(GhostAnimLayer);
 
-                    // もうタグじゃなくなった = 遷移した → 終了扱い
                     if (!st.IsTag(GameOverAnimTag))
                     {
                         Debug.Log("[GameOverAnimCheck] タグ外れたのでFINISH扱い");
                         break;
                     }
 
-                    // normalizedTime>=1.0 → 1周再生完了（ループしない前提）
                     if (st.normalizedTime >= 1.0f)
                     {
                         Debug.Log("[GameOverAnimCheck] normalizedTime>=1.0 -> FINISH");
@@ -522,13 +583,11 @@ public class GameOver : MonoBehaviour
             }
         }
 
-        // 3) 余韻ホールド
         if (EnableCameraShake)
         {
             StartShake(HoldAfterAnimSeconds, HoldShakeAmplitude);
         }
 
-        // ホールド開始時にテキスト開始（1文字ずつ）
         StartTypewriterText();
 
         float hold = 0f;
@@ -540,7 +599,6 @@ public class GameOver : MonoBehaviour
         }
     }
 
-    // テキストのタイプ出しを開始（シーン中で一度きり）
     private void StartTypewriterText()
     {
         if (_textStarted)
@@ -569,7 +627,6 @@ public class GameOver : MonoBehaviour
         _typingCo = StartCoroutine(TypewriterCo());
     }
 
-    // 実際に1文字ずつ増やしていく
     private IEnumerator TypewriterCo()
     {
         if (GameOverText == null) yield break;
@@ -588,7 +645,6 @@ public class GameOver : MonoBehaviour
         }
     }
 
-    // カメラ揺れ開始
     private void StartShake(float duration, float amplitude)
     {
         if (!EnableCameraShake)
@@ -604,7 +660,6 @@ public class GameOver : MonoBehaviour
         _currentShakeAmplitude = amplitude;
     }
 
-    // 黒フェード
     private IEnumerator FadeOutScreen()
     {
         if (!FadeCanvasGroup)
@@ -624,7 +679,6 @@ public class GameOver : MonoBehaviour
         FadeCanvasGroup.alpha = 1f;
     }
 
-    // Animatorの現在ステート/タグをログ
     private void LogAnimatorState(string header)
     {
         if (!GhostAnimator)
@@ -656,7 +710,6 @@ public class GameOver : MonoBehaviour
         );
     }
 
-    // キルカメラを「今いちばん近い幽霊」に追従させる＆揺らす
     private void UpdateKillCameraFollow()
     {
         if (!KillCamera) return;
@@ -668,17 +721,15 @@ public class GameOver : MonoBehaviour
             return;
         }
 
-        // ベース位置
         Vector3 camPos = tgtGhost.position;
         camPos += tgtGhost.forward * CamDistFromGhost;
         camPos += tgtGhost.right * CamSideOffset;
         camPos.y = tgtGhost.position.y + CamHeightOffset;
 
-        // 揺れ：_shakeTimeLeft > 0 の間は徐々に小さくしながらランダムオフセット
         if (EnableCameraShake && _shakeTimeLeft > 0f && _shakeTotalDuration > 0f)
         {
-            float shakeT = _shakeTimeLeft / _shakeTotalDuration; // 1→0
-            float amp = _currentShakeAmplitude * shakeT;         // 時間とともに小さく
+            float shakeT = _shakeTimeLeft / _shakeTotalDuration;
+            float amp = _currentShakeAmplitude * shakeT;
 
             Vector3 randomOffset = new Vector3(
                 (Random.value * 2f - 1f) * amp,
@@ -692,18 +743,14 @@ public class GameOver : MonoBehaviour
         }
 
         KillCamera.transform.position = camPos;
-
-        // 幽霊を見る
         KillCamera.transform.LookAt(tgtGhost.position);
 
-        // ピッチだけオフセット
         if (CamLookPitchOffsetDeg != 0f)
         {
             KillCamera.transform.rotation =
                 KillCamera.transform.rotation * Quaternion.Euler(CamLookPitchOffsetDeg, 0f, 0f);
         }
 
-        // デバッグ用にだしてる
         float realDist = Vector3.Distance(KillCamera.transform.position, tgtGhost.position);
         Vector3 vp = KillCamera.WorldToViewportPoint(tgtGhost.position);
         bool isVisible =
@@ -727,7 +774,6 @@ public class GameOver : MonoBehaviour
         );
     }
 
-    // プレイヤーに一番近い幽霊(複数湧いたもの含む)を探す
     private Transform GetNearestGhostToPlayer()
     {
         if (Player == null) return null;
@@ -735,7 +781,6 @@ public class GameOver : MonoBehaviour
         Transform nearest = null;
         float bestDist = float.PositiveInfinity;
 
-        // タグ "Ghost" を持つ候補
         GameObject[] tagged = GameObject.FindGameObjectsWithTag("Ghost");
         for (int i = 0; i < tagged.Length; i++)
         {
@@ -750,7 +795,6 @@ public class GameOver : MonoBehaviour
             }
         }
 
-        // SearchChase持ち（タグがない生成ゴーストも拾う）
         SearchChase[] chasers = UnityEngine.Object.FindObjectsByType<SearchChase>(FindObjectsSortMode.None);
         for (int i = 0; i < chasers.Length; i++)
         {
@@ -766,7 +810,6 @@ public class GameOver : MonoBehaviour
             }
         }
 
-        // それでもnullならFallbackで最初のGhost参照
         if (nearest == null)
         {
             nearest = Ghost;
@@ -775,18 +818,15 @@ public class GameOver : MonoBehaviour
         return nearest;
     }
 
-    // いちばん近い幽霊のAnimatorを取る（FireGameOverで使う）
     private Animator GetNearestGhostAnimator()
     {
         Transform t = GetNearestGhostToPlayer();
         if (!t) return null;
 
-        // ド真ん中のオブジェクト側にAnimatorが無い場合もあるので子から探す
         Animator a = t.GetComponentInChildren<Animator>();
         return a;
     }
 
-    // クローゼットに隠れてる＋幽霊がState1なら、キャッチ無効（＝それ以外は距離だけで発火）
     private bool ShouldSkipCatch()
     {
         bool hidden = (HideRef && HideRef.hide);
@@ -799,15 +839,12 @@ public class GameOver : MonoBehaviour
         Transform g = GetNearestGhostToPlayer();
         if (Player && g)
         {
-            // 判定距離の目安
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(g.position, Mathf.Max(TriggerDistance, 0.01f));
 
-            // Player-ghost のライン
             Gizmos.color = Color.cyan;
             Gizmos.DrawLine(Player.position, g.position);
 
-            // シーンビューでキルカメラ予定位置も見えるように
             Vector3 debugCamPos = g.position
                                 + g.forward * CamDistFromGhost
                                 + g.right * CamSideOffset;
@@ -818,19 +855,17 @@ public class GameOver : MonoBehaviour
         }
     }
 
-    // プレイヤーを消す（Player の子を全部非アクティブにする）
     private void HidePlayerVisualsIfNeeded()
     {
         if (!HidePlayerOnGameOver) return;
         if (_playerHidden) return;
         if (Player == null) return;
 
-        // Player 自身は残しつつ、その子孫をすべて非表示にする
         Transform[] allChildren = Player.GetComponentsInChildren<Transform>(true);
         for (int i = 0; i < allChildren.Length; i++)
         {
             Transform t = allChildren[i];
-            if (t == Player) continue; // 自分自身は残す
+            if (t == Player) continue;
 
             t.gameObject.SetActive(false);
         }
@@ -839,43 +874,97 @@ public class GameOver : MonoBehaviour
         Debug.Log("[GameOver] Player の子オブジェクトを全て非表示にしました。");
     }
 
-    // === WarnDistance を境に、距離と安全状態でピンチBGMのON/OFFを制御 ===
+    // === WarnDistance を境に、距離と安全状態でピンチBGM(3D)と2D SEを制御 ===
     private void UpdatePinchSEByDistance(float dist, bool isSafe)
     {
-        if (PinchSource == null)
-            return;
+        // === デバッグ共通ログ ===
+        float pinch01Debug = 0f;
+        if (dist <= WarnDistance)
+        {
+            float spanDebug = Mathf.Max(WarnDistance - TriggerDistance, 0.0001f);
+            pinch01Debug = Mathf.Clamp01((WarnDistance - dist) / spanDebug);
+        }
+        Debug.Log($"[Pinch] isSafe={isSafe}, dist={dist:F3}, Warn={WarnDistance:F3}, Trigger={TriggerDistance:F3}, pinch01(2D)={pinch01Debug:F2}");
 
-        // 隠れてて安全なときは、距離に関係なく止める
+        // 安全状態（クローゼット＋state1）のときは両方止めて音量0
         if (isSafe)
         {
-            if (_pinchPlaying)
+            if (PinchSource != null && _pinchPlaying)
             {
                 PinchSource.Stop();
                 _pinchPlaying = false;
-                Debug.Log("[PinchSE] STOP (safe hide)");
+                Debug.Log("[PinchSE] STOP (safe hide / 3D)");
+            }
+
+            if (Pinch2DSource != null)
+            {
+                if (_pinch2DPlaying)
+                {
+                    Pinch2DSource.Stop();
+                    _pinch2DPlaying = false;
+                    Debug.Log("[Pinch2D] STOP (safe hide)");
+                }
+                Pinch2DSource.volume = 0f;
             }
             return;
         }
 
         bool inPinchRange = (dist <= WarnDistance);
 
-        // ピンチ距離内に入ったら再生
-        if (!_pinchPlaying && inPinchRange)
+        // --- 3D ピンチSEのON/OFF ---
+        if (PinchSource != null)
         {
-            PinchSource.Play();
-            _pinchPlaying = true;
-            Debug.Log("[PinchSE] START  dist=" + dist.ToString("0.00"));
+            if (!_pinchPlaying && inPinchRange)
+            {
+                PinchSource.Play();
+                _pinchPlaying = true;
+                Debug.Log("[PinchSE] START  dist=" + dist.ToString("0.00"));
+            }
+            else if (_pinchPlaying && !inPinchRange)
+            {
+                PinchSource.Stop();
+                _pinchPlaying = false;
+                Debug.Log("[PinchSE] STOP   dist=" + dist.ToString("0.00"));
+            }
         }
-        // ピンチ距離外に出たら停止
-        else if (_pinchPlaying && !inPinchRange)
+
+        // --- 2D ピンチSEの音量制御 ---
+        if (Pinch2DSource != null)
         {
-            PinchSource.Stop();
-            _pinchPlaying = false;
-            Debug.Log("[PinchSE] STOP   dist=" + dist.ToString("0.00"));
+            float pinch01 = 0f;
+
+            if (dist <= WarnDistance)
+            {
+                float span = Mathf.Max(WarnDistance - TriggerDistance, 0.0001f);
+                pinch01 = Mathf.Clamp01((WarnDistance - dist) / span); // dist=Warn →0, dist=Trigger→1
+            }
+
+            Debug.Log($"[Pinch2D] dist={dist:F3}, pinch01={pinch01:F2}, playing={_pinch2DPlaying}");
+
+            if (!_pinch2DPlaying && pinch01 > 0f)
+            {
+                Debug.Log("[Pinch2D] START 再生要求");
+                Pinch2DSource.Play();
+                _pinch2DPlaying = true;
+            }
+            else if (_pinch2DPlaying && pinch01 <= 0f)
+            {
+                Debug.Log("[Pinch2D] STOP 再生停止");
+                Pinch2DSource.Stop();
+                _pinch2DPlaying = false;
+            }
+
+            if (_pinch2DPlaying)
+            {
+                Pinch2DSource.volume = pinch01;
+            }
+            else
+            {
+                Pinch2DSource.volume = 0f;
+            }
         }
     }
 
-    // === 現在の「近接警告ビネット」ブレンド量(0..1)を外部へ渡す（必要あれば） ===
     public float GetDangerBlend01()
     {
         if (!_hasVig || MaxVignette <= 0f) return 0f;
