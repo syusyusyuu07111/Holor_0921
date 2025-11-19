@@ -1,9 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-/// <summary>
-/// プレイヤーが蝋燭を消す操作を行うスクリプト
-/// </summary>
 public class CandleInteraction : MonoBehaviour
 {
     [Header("Ray設定")]
@@ -20,28 +17,24 @@ public class CandleInteraction : MonoBehaviour
     private Candle _currentCandle; // 今レイが当たっている蝋燭
     [SerializeField] private GameObject _pintsText;
 
+    [Header("チュートリアル参照")]
+    [SerializeField] private SecondRoomTutorial _secondRoomTutorial; // ← 追加（インスペクタでアサイン）
 
     private void OnEnable()
     {
-        if (_interactActionRef != null)
-        {
-            _interactAction = _interactActionRef.action; // アセットから取得
-            _interactAction.Enable();
-            _interactAction.performed += OnInteract;
-        }
-        else
-        {
-            return;
-        }
+        if (_interactActionRef == null) return;
+
+        _interactAction = _interactActionRef.action;
+        _interactAction.Enable();
+        _interactAction.performed += OnInteract;
     }
 
     private void OnDisable()
     {
-        if (_interactAction != null)
-        {
-            _interactAction.performed -= OnInteract;
-            _interactAction.Disable();
-        }
+        if (_interactAction == null) return;
+
+        _interactAction.performed -= OnInteract;
+        _interactAction.Disable();
     }
 
     private void Update()
@@ -51,11 +44,18 @@ public class CandleInteraction : MonoBehaviour
 
     private void OnInteract(InputAction.CallbackContext context)
     {
-        if (_currentCandle != null)
+        if (_currentCandle == null) return;
+
+        // ★ 本を全部集め終わる前（チュートリアル2未満）は蝋燭イベント封印
+        if (_secondRoomTutorial != null && !_secondRoomTutorial.CanTriggerCandleEvent)
         {
-            _currentCandle.CandlePutOut();
-            _interactionText?.SetActive(false); // 消したらUIも消す
+            // 必要ならここで「まだ何か足りない気がする…」などの演出も可
+            return;
         }
+
+        // 解禁済みなら普通に消す
+        _currentCandle.CandlePutOut();
+        _interactionText?.SetActive(false); // 消したらUIも消す
     }
 
     private void UpdateRaycast()
@@ -68,6 +68,14 @@ public class CandleInteraction : MonoBehaviour
             // タグが "Candle" なら反応
             if (hit.collider.CompareTag("Candle"))
             {
+                // ★ UI自体も出したくないならここでもガード
+                if (_secondRoomTutorial != null && !_secondRoomTutorial.CanTriggerCandleEvent)
+                {
+                    HideAllUI();
+                    _currentCandle = null;
+                    return;
+                }
+
                 Candle candle = hit.collider.GetComponentInParent<Candle>();
                 if (candle != null)
                 {
@@ -87,7 +95,10 @@ public class CandleInteraction : MonoBehaviour
                     return; // 現在蝋燭を見ている
                 }
             }
-            if (hit.collider.CompareTag("paintings_sea") || hit.collider.CompareTag("paintings_sunflower") || hit.collider.CompareTag("paintings_swing"))
+
+            if (hit.collider.CompareTag("paintings_sea") ||
+                hit.collider.CompareTag("paintings_sunflower") ||
+                hit.collider.CompareTag("paintings_swing"))
             {
                 if (hit.collider.GetComponentInParent<Painting>() != null)
                 {
@@ -96,10 +107,9 @@ public class CandleInteraction : MonoBehaviour
                     return;
                 }
             }
-
         }
 
-        // ここに来たら蝋燭に当たっていない
+        // ここに来たら蝋燭/絵に当たっていない
         HideAllUI();
         _currentCandle = null;
     }
@@ -110,7 +120,7 @@ public class CandleInteraction : MonoBehaviour
             _interactionText.SetActive(false);
 
         if (_pintsText != null && _pintsText.activeSelf)
-            _interactionText.SetActive(false);
+            _pintsText.SetActive(false);   // ← ここバグ直し！_pintsText を消す
     }
 
     private void OnDrawGizmosSelected()
@@ -121,4 +131,3 @@ public class CandleInteraction : MonoBehaviour
         Gizmos.DrawSphere(_rayOrigin.position + _rayOrigin.forward * _interactRange, 0.05f);
     }
 }
-

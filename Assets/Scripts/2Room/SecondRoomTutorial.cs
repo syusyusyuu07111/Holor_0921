@@ -30,8 +30,15 @@ public class SecondRoomTutorial : MonoBehaviour
     // 3 = チュートリアル3（正解の絵を集め終わったあと、幽霊に絵を渡すミッション）
     private int tutorialStep = 0;
 
-    // （必要なら）本を調べたかどうか（他のスクリプトから true にしてもらう想定）
+    // 本を全部調べ終わったかどうか（他のスクリプトから true にしてもらう想定）
     public bool isBookChecked = false;
+
+    // 外から「蝋燭イベントを発生させていいか」を見る用
+    // （チュートリアル2以降ならOK）
+    public bool CanTriggerCandleEvent
+    {
+        get { return tutorialStep >= 2; }
+    }
 
     // 表示するテキスト（セリフ・ミッション）
     public TextMeshProUGUI Saytext;
@@ -92,13 +99,11 @@ public class SecondRoomTutorial : MonoBehaviour
 
         if (!canShowTutorial) return;
 
-        // 必要ならここで Step ごとの進行管理をする
-        /*
+        // 本を全部調べ終わったらチュートリアル2へ進む
         if (tutorialStep == 1 && isBookChecked)
         {
             GoToTutorial2();
         }
-        */
 
         // ★ チュートリアル2（絵を集めるミッション）中に、
         //    絵パズル側で「正解の絵2枚」がそろったら次のミッションへ進む
@@ -279,8 +284,8 @@ public class SecondRoomTutorial : MonoBehaviour
     }
 
     /// <summary>
-    /// 別スクリプトから呼び出して「本を調べた」ことにする用の関数
-    /// （本のオブジェクト側から呼んでもOK）
+    /// 他スクリプトから呼び出して「本を全部調べ終わった」と伝える用の関数
+    /// （本の管理側から、最後の一冊を調べたタイミングで呼ぶ想定）
     /// </summary>
     public void OnBookChecked()
     {

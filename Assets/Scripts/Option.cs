@@ -9,7 +9,6 @@ public class Option : MonoBehaviour
     public InputSystem_Actions input;
 
     // ===== このシーンはインゲーム扱い？ =====
-    // タイトルとかゲームオーバー画面では false にしておく
     [Header("このシーンはインゲーム中として扱う？")]
     public bool IsGameplayScene = true; // ★ここ重要
 
@@ -21,7 +20,6 @@ public class Option : MonoBehaviour
     private float _prevTimeScale = 1f;
 
     [Header("一時停止中は止めたいスクリプトたち")]
-    // プレイヤー移動とか、止めたいスクリプトをここに突っ込む
     public MonoBehaviour[] PauseTargets;
 
     // ===== 設定状態 =====
@@ -49,7 +47,7 @@ public class Option : MonoBehaviour
     private bool _isDraggingSensitivity = false;
 
     [Header("Drag Hit Settings")]
-    public float SensitivityDragMaxDistanceY = 15f;
+    public float SensitivityDragMaxDistanceY = 15f; // ※今は未使用（Y無視仕様）
     public float SensitivityDragExtraX = 10f;
 
     // ===== 表示画像（赤/白切り替えする画像）=====
@@ -76,10 +74,10 @@ public class Option : MonoBehaviour
     public RectTransform FullScreen_OnHit;
     public RectTransform FullScreen_OffHit;
 
-    // 「ゲーム終了」用のヒット領域（透明ボタン領域とか）
+    // 「ゲーム終了」用のヒット領域
     public RectTransform GameEndHit;
 
-    // hover状態を覚える
+    // hover状態
     private bool _gameEndHover = false;
 
     // ===== ESCヒント表示用 =====
@@ -95,9 +93,33 @@ public class Option : MonoBehaviour
 
     private bool _didMoveRight, _didMoveLeft, _didMoveUp, _didMoveDown;
 
+    // ===== UI用 Canvas / Camera =====
+    private Canvas _canvas;
+    private Camera _uiCamera;
+
     private void Awake()
     {
         input = new InputSystem_Actions();
+
+        // ===== Canvas / UIカメラ取得 =====
+        _canvas = GetComponentInParent<Canvas>();
+        if (_canvas != null)
+        {
+            if (_canvas.renderMode == RenderMode.ScreenSpaceOverlay)
+            {
+                _uiCamera = null; // Overlay のときは null でOK
+            }
+            else
+            {
+                _uiCamera = _canvas.worldCamera != null
+                    ? _canvas.worldCamera
+                    : Camera.main;
+            }
+        }
+        else
+        {
+            _uiCamera = Camera.main;
+        }
 
         // 最初は閉じておく
         MenuOn = false;
@@ -128,7 +150,7 @@ public class Option : MonoBehaviour
         // ESCヒント初期化
         RefreshEscHint();
 
-        // ★起動時のマウス表示状態を整える
+        // 起動時のマウス表示状態
         ApplyCursorStateInitial();
     }
 
@@ -149,7 +171,7 @@ public class Option : MonoBehaviour
 
     private void Update()
     {
-        // ===== メニュー開閉（Optionアクション。ESC含む想定）=====
+        // ===== メニュー開閉（ESC含む）=====
         if (input.UI.Option.WasPressedThisFrame())
         {
             ToggleMenu();
@@ -166,16 +188,16 @@ public class Option : MonoBehaviour
         {
             Vector2 mousePos = Mouse.current.position.ReadValue();
 
-            // hover処理（毎フレーム）
+            // hover処理
             UpdateGameEndHover(mousePos);
 
             // 左クリック押した瞬間
             if (Mouse.current.leftButton.wasPressedThisFrame)
             {
-                // ON/OFFクリック / 画面モード / ゲーム終了
+                // ON/OFF / スクリーンモード / ゲーム終了
                 TryClickToggles(mousePos);
 
-                // 感度バーを掴むかチェック
+                // 感度バー（クリック位置に即ジャンプ＋ドラッグ開始）
                 TryBeginSensitivityDrag(mousePos);
             }
 
@@ -192,7 +214,7 @@ public class Option : MonoBehaviour
             }
         }
 
-        // ===== ゲームパッド/キーボード入力（ポーズ中でもメニュー操作はOK）=====
+        // ===== ゲームパッド/キーボード入力 =====
         Vector2 move = input.Player.Move.ReadValue<Vector2>();
 
         // 上
@@ -253,28 +275,24 @@ public class Option : MonoBehaviour
     }
 
     // =============================================================================
-    // ★ 起動時にカーソル状態を整える
-    //    - インゲームシーンなら「プレイ中扱い」なので隠す
-    //    - それ以外なら表示
+    // 起動時にカーソル状態を整える
     // =============================================================================
     private void ApplyCursorStateInitial()
     {
         if (IsGameplayScene)
         {
-            // ゲームプレイ開始状態：メニュー閉じてる想定なので隠す
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
         }
         else
         {
-            // タイトル/ゲームオーバー等：常に見える
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
         }
     }
 
     // =============================================================================
-    // メニューのオン/オフまとめたやつ（ESC押したとき含めてここを呼ぶ）
+    // メニューのオン/オフ
     // =============================================================================
     private void ToggleMenu()
     {
@@ -310,24 +328,19 @@ public class Option : MonoBehaviour
 
     // =============================================================================
     // ゲームの時間と操作を止める/戻す
-    // ここでカーソルの状態も決めるようにする
     // =============================================================================
     private void ApplyPauseState(bool pause)
     {
         if (pause)
         {
-            // ---- メニューを開いた瞬間 ----
-            // 時間を止める
             _prevTimeScale = Time.timeScale;
             Time.timeScale = 0f;
 
-            // カメラ操作を止める
             if (CameraController)
             {
                 CameraController.ControlEnable = false;
             }
 
-            // プレイヤーの移動など止めたいスクリプトを全部OFFに
             if (PauseTargets != null)
             {
                 foreach (var mb in PauseTargets)
@@ -336,23 +349,18 @@ public class Option : MonoBehaviour
                 }
             }
 
-            // ★メニュー中はマウスを見せたいので常に解放
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
         }
         else
         {
-            // ---- メニューを閉じた瞬間 ----
-            // 時間を元に戻す
             Time.timeScale = _prevTimeScale;
 
-            // カメラ操作を戻す
             if (CameraController)
             {
                 CameraController.ControlEnable = true;
             }
 
-            // プレイヤー操作スクリプトも戻す
             if (PauseTargets != null)
             {
                 foreach (var mb in PauseTargets)
@@ -361,9 +369,6 @@ public class Option : MonoBehaviour
                 }
             }
 
-            // ★ここが今回の一番大事な分岐
-            // ゲームプレイ中のシーンなら、閉じたらマウス消す
-            // それ以外のシーンなら、閉じてもマウスは表示のまま
             if (IsGameplayScene)
             {
                 Cursor.lockState = CursorLockMode.Locked;
@@ -389,8 +394,6 @@ public class Option : MonoBehaviour
         }
 
 #if !UNITY_EDITOR
-        // フルスクリーン中なら Screen.fullScreen = true
-        // → UI的には OFF が赤（＝ FullScreen = false）
         FullScreen = !Screen.fullScreen;
 #endif
     }
@@ -407,10 +410,7 @@ public class Option : MonoBehaviour
     }
 
     // =============================================================================
-    // Screen.fullScreen を切り替え
-    // FullScreen == true  → ウィンドウ表示 → Screen.fullScreen = false
-    // FullScreen == false → フルスクリーン → Screen.fullScreen = true
-    // ビルド後だけ有効
+    // Screen.fullScreen を切り替え（ビルド後のみ）
     // =============================================================================
     private void ApplyScreenMode()
     {
@@ -442,7 +442,11 @@ public class Option : MonoBehaviour
             return;
         }
 
-        bool hit = RectTransformUtility.RectangleContainsScreenPoint(GameEndHit, mousePos, null);
+        bool hit = RectTransformUtility.RectangleContainsScreenPoint(
+            GameEndHit,
+            mousePos,
+            _uiCamera
+        );
 
         if (hit != _gameEndHover)
         {
@@ -478,13 +482,13 @@ public class Option : MonoBehaviour
 
     // =============================================================================
     // ON/OFFクリック / フルスクリーン / ゲーム終了クリック
-    // =============================================================================
+    // =============================================================================>
     private void TryClickToggles(Vector2 mousePos)
     {
         bool Hit(RectTransform rt)
         {
             if (rt == null) return false;
-            return RectTransformUtility.RectangleContainsScreenPoint(rt, mousePos, null);
+            return RectTransformUtility.RectangleContainsScreenPoint(rt, mousePos, _uiCamera);
         }
 
         // --- 視点操作左右反転
@@ -522,16 +526,14 @@ public class Option : MonoBehaviour
         // --- スクリーンモード
         if (Hit(FullScreen_OnHit))
         {
-            // 「ON」→ウィンドウ表示したい
-            FullScreen = true;
+            FullScreen = true; // ウィンドウ表示
             ApplyScreenMode();
             RefreshColors();
             return;
         }
         if (Hit(FullScreen_OffHit))
         {
-            // 「OFF」→フルスクリーンにしたい
-            FullScreen = false;
+            FullScreen = false; // フルスクリーン
             ApplyScreenMode();
             RefreshColors();
             return;
@@ -546,7 +548,40 @@ public class Option : MonoBehaviour
     }
 
     // =============================================================================
-    // 感度バーを掴む判定
+    // X 座標（親ローカル）から感度とハンドル位置を更新する共通処理
+    // =============================================================================
+    private void ApplySensitivityFromLocalX(float localX)
+    {
+        if (!CameraController ||
+            !SensitivityLeftAnchor ||
+            !SensitivityRightAnchor)
+        {
+            return;
+        }
+
+        float leftX = SensitivityLeftAnchor.anchoredPosition.x;
+        float rightX = SensitivityRightAnchor.anchoredPosition.x;
+
+        float t = 0.5f;
+        if (Mathf.Abs(rightX - leftX) > Mathf.Epsilon)
+        {
+            t = Mathf.InverseLerp(leftX, rightX, localX);
+        }
+
+        _sensitivity01 = Mathf.Clamp01(t);
+
+        float newSpeed = Mathf.Lerp(
+            CameraController.MinRotateSpeed,
+            CameraController.MaxRotateSpeed,
+            _sensitivity01
+        );
+
+        CameraController.SetRotateSpeedFromOption(newSpeed);
+        UpdateSensitivityHandlePosition();
+    }
+
+    // =============================================================================
+    // 感度バーを掴む判定 ＋ クリック位置に即ジャンプ（Yは無視）
     // =============================================================================
     private void TryBeginSensitivityDrag(Vector2 mousePos)
     {
@@ -568,29 +603,27 @@ public class Option : MonoBehaviour
         if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
             parent,
             mousePos,
-            null,
+            _uiCamera,
             out Vector2 localPoint))
         {
             _isDraggingSensitivity = false;
             return;
         }
 
+        // クリックした瞬間に X に合わせる（Y 完全無視）
+        ApplySensitivityFromLocalX(localPoint.x);
+
+        // X 方向だけでクリック範囲チェック
         float leftX = SensitivityLeftAnchor.anchoredPosition.x;
         float rightX = SensitivityRightAnchor.anchoredPosition.x;
         float minX = Mathf.Min(leftX, rightX) - SensitivityDragExtraX;
         float maxX = Mathf.Max(leftX, rightX) + SensitivityDragExtraX;
 
-        float barY = GetBarCenterYInParent(parent);
-        float diffY = Mathf.Abs(localPoint.y - barY);
-
-        bool withinX = (localPoint.x >= minX && localPoint.x <= maxX);
-        bool withinY = (diffY <= SensitivityDragMaxDistanceY);
-
-        _isDraggingSensitivity = (withinX && withinY);
+        _isDraggingSensitivity = (localPoint.x >= minX && localPoint.x <= maxX);
     }
 
     // =============================================================================
-    // ドラッグ中：感度更新
+    // ドラッグ中：感度更新（Xのみ見る）
     // =============================================================================
     private void UpdateSensitivityByPointerDrag(Vector2 mousePos)
     {
@@ -608,43 +641,14 @@ public class Option : MonoBehaviour
         if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
             parent,
             mousePos,
-            null,
+            _uiCamera,
             out Vector2 localPoint))
         {
             return;
         }
 
-        float leftX = SensitivityLeftAnchor.anchoredPosition.x;
-        float rightX = SensitivityRightAnchor.anchoredPosition.x;
-
-        float t = 0.5f;
-        if (Mathf.Abs(rightX - leftX) > Mathf.Epsilon)
-        {
-            t = Mathf.InverseLerp(leftX, rightX, localPoint.x);
-        }
-        _sensitivity01 = Mathf.Clamp01(t);
-
-        float newSpeed = Mathf.Lerp(
-            CameraController.MinRotateSpeed,
-            CameraController.MaxRotateSpeed,
-            _sensitivity01
-        );
-
-        CameraController.SetRotateSpeedFromOption(newSpeed);
-        UpdateSensitivityHandlePosition();
-    }
-
-    // 親ローカル座標でバーの中心Yを取る
-    private float GetBarCenterYInParent(RectTransform parent)
-    {
-        if (parent == null || SensitivityBarArea == null)
-        {
-            return _handleBaseY;
-        }
-
-        Vector3 barWorldPos = SensitivityBarArea.TransformPoint(SensitivityBarArea.rect.center);
-        Vector3 barLocalInParent = parent.InverseTransformPoint(barWorldPos);
-        return barLocalInParent.y;
+        // X 座標から感度とハンドル位置を更新（Y 完全無視）
+        ApplySensitivityFromLocalX(localPoint.x);
     }
 
     // =============================================================================
