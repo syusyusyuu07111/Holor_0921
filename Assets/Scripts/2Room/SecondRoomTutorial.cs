@@ -55,7 +55,7 @@ public class SecondRoomTutorial : MonoBehaviour
     // 文字送りのスピード
     public float typeSpeed = 0.03f;
 
-    // セリフの行間の待ち時間（何秒か置いて次のセリフに行く）
+    // セリフの行間の待ち時間（何秒か置いて次のセリフに行く & TypeText の表示維持時間にも使用）
     public float sayLineInterval = 0.6f;
 
     // 2つ目の部屋に入ったときの「つぶやきセリフ」をリストで管理
@@ -66,6 +66,12 @@ public class SecondRoomTutorial : MonoBehaviour
         "ここの部屋は何だろう。",
         "部屋をしらべてみよう！"
     };
+
+    // 幽霊のつぶやきミッション（チュートリアル2）が進行中かどうか
+    public bool IsGhostWhisperMissionActive
+    {
+        get { return tutorialStep == 2; }
+    }
 
     // 幽霊つぶやきミッションのベーステキスト
     private const string HintMissionBaseText = "ミッション：幽霊のつぶやきからヒントを集めよう。";
@@ -378,7 +384,7 @@ public class SecondRoomTutorial : MonoBehaviour
 
     /// <summary>
     /// 1文字ずつ表示するタイプ演出（単発テキスト用）
-    /// 他スクリプトの書き込みの影響を受けないように、ローカルバッファで管理する
+    /// 表示し終わったら少し待ってからテキストを消す
     /// </summary>
     private IEnumerator TypeText(TextMeshProUGUI target, string content)
     {
@@ -389,14 +395,21 @@ public class SecondRoomTutorial : MonoBehaviour
         string current = "";
         target.text = current;
 
+        // 1文字ずつ表示
         foreach (char c in content)
         {
             current += c;
-            target.text = current;                  // 毎回、自分の current で上書き
+            target.text = current;
             yield return new WaitForSecondsRealtime(typeSpeed);
         }
 
         Debug.Log($"[SecondRoomTutorial] TypeText 完了 text=\"{target.text}\"");
+
+        // ★ 打ち終わったあと、少しだけ見せてから消す
+        yield return new WaitForSecondsRealtime(sayLineInterval);
+
+        target.text = "";
+        Debug.Log("[SecondRoomTutorial] TypeText 表示終了 → テキストをクリアしました");
     }
 
     /// <summary>
@@ -427,7 +440,7 @@ public class SecondRoomTutorial : MonoBehaviour
             foreach (char c in line)
             {
                 current += c;
-                target.text = current;              // 常に current を上書き
+                target.text = current;
                 yield return new WaitForSecondsRealtime(typeSpeed);
             }
 

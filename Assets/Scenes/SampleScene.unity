@@ -35444,7 +35444,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: -12.8, y: -439.85}
-  m_SizeDelta: {x: 1930.2, y: 148.9}
+  m_SizeDelta: {x: 2500, y: 148.9}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1534714871
 MonoBehaviour:
@@ -35534,6 +35534,12 @@ MonoBehaviour:
   OnProgressChanged:
     m_PersistentCalls:
       m_Calls: []
+  OnSecondRoomHintProgressUpdated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSecondRoomHintsFullyRevealed:
+    m_PersistentCalls:
+      m_Calls: []
   AutoTrackNearestGhost: 1
   GhostTag: Ghost
   RetargetInterval: 0.3
@@ -35616,8 +35622,18 @@ MonoBehaviour:
     TutorialLinesOnFullyRevealed:
     - 
     - 
+    State3FullyRevealedLines:
+    - "\u3053\u306E\u5B50\u306F\u3001\u6D77\u306B\u5ACC\u306A\u601D\u3044\u51FA\u304C\u3042\u308B\u307F\u305F\u3044"
+    State4FullyRevealedLines:
+    - "\u3053\u306E\u5B50\u306F\u30D6\u30E9\u30F3\u30B3\u3068\u4F55\u304C\u597D\u304D\u306A\u3093\u3060\u308D\u3046\u2026"
   ProgressStage: 0
   OnHintTutorialLinesRequested:
+    m_PersistentCalls:
+      m_Calls: []
+  OnState3FullyRevealed:
+    m_PersistentCalls:
+      m_Calls: []
+  OnState4FullyRevealed:
     m_PersistentCalls:
       m_Calls: []
   OnLineFullyRevealed:
@@ -35643,12 +35659,6 @@ MonoBehaviour:
     m_Bits: 0
   CameraEyeHeight: 0
   ForceVisibleWhileHiding: 1
-  OnSecondRoomHintsFullyRevealed:
-    m_PersistentCalls:
-      m_Calls: []
-  OnSecondRoomHintProgressChanged:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!114 &1534714874
 MonoBehaviour:
   m_ObjectHideFlags: 0
