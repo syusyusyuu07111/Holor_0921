@@ -55,7 +55,7 @@ public class SecondRoomTutorial : MonoBehaviour
     // 文字送りのスピード
     public float typeSpeed = 0.03f;
 
-    // セリフの行間の待ち時間（何秒か置いて次のセリフに行く & TypeText の表示維持時間にも使用）
+    // セリフの行間の待ち時間（何秒か置いて次のセリフに行く & TypeText の表示保持時間）
     public float sayLineInterval = 0.6f;
 
     // 2つ目の部屋に入ったときの「つぶやきセリフ」をリストで管理
@@ -185,7 +185,7 @@ public class SecondRoomTutorial : MonoBehaviour
         // 自分側のテキスト・コルーチンも一度全部リセット
         ResetAllTextAndCoroutines();
 
-        // ここから「2部屋目専用のセリフ」で上書き表示
+        // ここから「2部屋目専用のセリフ」で上書き表示（セリフは消える）
         if (Saytext != null && enterRoomSayLines != null && enterRoomSayLines.Length > 0)
         {
             Debug.Log($"[SecondRoomTutorial] つぶやき開始。行数={enterRoomSayLines.Length}");
@@ -196,13 +196,10 @@ public class SecondRoomTutorial : MonoBehaviour
             Debug.LogWarning("[SecondRoomTutorial] Saytext または enterRoomSayLines が設定されていません");
         }
 
-        // ミッションテキスト側は固定文を出す
+        // ミッションテキストは直接セット（消さない）
         if (missiontext != null)
         {
-            Debug.Log("[SecondRoomTutorial] ミッションテキストを表示開始");
-            missionCoroutine = StartCoroutine(
-                TypeText(missiontext, "ミッション：本を調べて情報を集めよう。")
-            );
+            missiontext.text = "ミッション：本を調べて情報を集めよう。";
         }
 
         Debug.Log("【チュートリアル1（二つ目の部屋）】部屋に入ったときのつぶやき＋本を調べよう 開始");
@@ -226,6 +223,7 @@ public class SecondRoomTutorial : MonoBehaviour
 
         ResetAllTextAndCoroutines();
 
+        // つぶやき（セリフ）は TypeText で出して少ししたら消える
         if (Saytext != null)
         {
             Debug.Log("[SecondRoomTutorial] チュートリアル2 セリフ表示開始");
@@ -234,13 +232,10 @@ public class SecondRoomTutorial : MonoBehaviour
             );
         }
 
+        // ミッションテキストは固定で表示（数字は Update で上書き）
         if (missiontext != null)
         {
-            Debug.Log("[SecondRoomTutorial] チュートリアル2 ミッションテキスト表示開始");
-            // まずはベース文言だけタイプ表示（〇/〇 は Update で上書き）
-            missionCoroutine = StartCoroutine(
-                TypeText(missiontext, HintMissionBaseText)
-            );
+            missiontext.text = HintMissionBaseText;
         }
 
         Debug.Log("【チュートリアル2（二つ目の部屋）】幽霊のつぶやきからヒントを集めよう ミッション開始");
@@ -264,6 +259,7 @@ public class SecondRoomTutorial : MonoBehaviour
 
         ResetAllTextAndCoroutines();
 
+        // セリフは TypeText で一瞬出して消える
         if (Saytext != null)
         {
             Debug.Log("[SecondRoomTutorial] チュートリアル3 セリフ表示開始");
@@ -272,12 +268,11 @@ public class SecondRoomTutorial : MonoBehaviour
             );
         }
 
+        // ★ ミッションテキストは直接セットして、ずっと残す
         if (missiontext != null)
         {
-            Debug.Log("[SecondRoomTutorial] チュートリアル3 ミッションテキスト表示開始");
-            missionCoroutine = StartCoroutine(
-                TypeText(missiontext, "ミッション：幽霊が好きな絵を集めよう。")
-            );
+            Debug.Log("[SecondRoomTutorial] チュートリアル3 ミッションテキスト表示（固定）");
+            missiontext.text = "ミッション：幽霊が好きな絵を集めよう。";
         }
 
         Debug.Log("【チュートリアル3（二つ目の部屋）】幽霊が好きな絵を集めよう ミッション開始");
@@ -301,6 +296,7 @@ public class SecondRoomTutorial : MonoBehaviour
 
         ResetAllTextAndCoroutines();
 
+        // セリフは一瞬表示して消える
         if (Saytext != null)
         {
             Debug.Log("[SecondRoomTutorial] チュートリアル4 セリフ表示開始");
@@ -309,12 +305,11 @@ public class SecondRoomTutorial : MonoBehaviour
             );
         }
 
+        // ミッションテキストは固定表示
         if (missiontext != null)
         {
-            Debug.Log("[SecondRoomTutorial] チュートリアル4 ミッションテキスト表示開始");
-            missionCoroutine = StartCoroutine(
-                TypeText(missiontext, "ミッション：幽霊に絵を渡そう。")
-            );
+            Debug.Log("[SecondRoomTutorial] チュートリアル4 ミッションテキスト表示（固定）");
+            missiontext.text = "ミッション：幽霊に絵を渡そう。";
         }
 
         Debug.Log("【チュートリアル4（二つ目の部屋）】幽霊に絵を渡そう ミッション開始");
@@ -378,13 +373,12 @@ public class SecondRoomTutorial : MonoBehaviour
     public void OnSecondRoomHintProgressUpdated(int have, int need)
     {
         Debug.Log($"[SecondRoomTutorial] OnSecondRoomHintProgressUpdated {have}/{need}");
-        // 実際の表示は Update 側で毎フレームやっているので、
-        // ここでは特に何もしなくてもよい（デバッグ用）。
+        // 表示自体は Update 側でやっているのでここではログだけ
     }
 
     /// <summary>
     /// 1文字ずつ表示するタイプ演出（単発テキスト用）
-    /// 表示し終わったら少し待ってからテキストを消す
+    /// 表示し終わったら少しだけ残してから消す（セリフ用）
     /// </summary>
     private IEnumerator TypeText(TextMeshProUGUI target, string content)
     {
@@ -395,21 +389,18 @@ public class SecondRoomTutorial : MonoBehaviour
         string current = "";
         target.text = current;
 
-        // 1文字ずつ表示
         foreach (char c in content)
         {
             current += c;
-            target.text = current;
+            target.text = current;                  // 毎回、自分の current で上書き
             yield return new WaitForSecondsRealtime(typeSpeed);
         }
 
-        Debug.Log($"[SecondRoomTutorial] TypeText 完了 text=\"{target.text}\"");
-
-        // ★ 打ち終わったあと、少しだけ見せてから消す
+        // 少し表示してから消す（セリフなので永続しない）
         yield return new WaitForSecondsRealtime(sayLineInterval);
-
         target.text = "";
-        Debug.Log("[SecondRoomTutorial] TypeText 表示終了 → テキストをクリアしました");
+
+        Debug.Log($"[SecondRoomTutorial] TypeText 完了（テキストをクリア）");
     }
 
     /// <summary>
@@ -440,7 +431,7 @@ public class SecondRoomTutorial : MonoBehaviour
             foreach (char c in line)
             {
                 current += c;
-                target.text = current;
+                target.text = current;              // 常に current を上書き
                 yield return new WaitForSecondsRealtime(typeSpeed);
             }
 

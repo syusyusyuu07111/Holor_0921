@@ -76,11 +76,11 @@ public class HintText : MonoBehaviour
         [Header("全文開示時に送る台詞（任意）")]
         [TextArea] public string[] TutorialLinesOnFullyRevealed = new string[0];
 
-        // ★ 追加：state3 / state4 全開示時の専用つぶやき
-        [Header("State3 全開示時につぶやくセリフ")]
+        // state3 / state4 用のつぶやき
+        [Header("State3 全解放時につぶやくセリフ")]
         [TextArea] public string[] State3FullyRevealedLines = new string[0];
 
-        [Header("State4 全開示時につぶやくセリフ")]
+        [Header("State4 全解放時につぶやくセリフ")]
         [TextArea] public string[] State4FullyRevealedLines = new string[0];
     }
 
@@ -94,19 +94,23 @@ public class HintText : MonoBehaviour
     [Header("チュートリアル連携")]
     public HintTutorialLinesEvent OnHintTutorialLinesRequested = new HintTutorialLinesEvent();
 
-    // ★ 追加：State3 / State4 専用全文開示イベント
-    [Header("State別全文開示イベント")]
+    // State3 / State4 専用つぶやきイベント（必要ならインスペクタからも使えるように残しておく）
+    [Header("State別つぶやきイベント（任意）")]
     public HintTutorialLinesEvent OnState3FullyRevealed = new HintTutorialLinesEvent();
     public HintTutorialLinesEvent OnState4FullyRevealed = new HintTutorialLinesEvent();
 
-    // ★ 行“全文表示”イベント（stateX.elementY）
+    // 行“全文表示”イベント（stage.state.element）
     [Header("行開示トリガ")]
     public UnityEvent<string> OnLineFullyRevealed = new UnityEvent<string>();
-    private readonly HashSet<string> _lineRevealedIds = new HashSet<string>(); // 一度きり
-    public bool HasLineBeenRevealed(int state, int element) => _lineRevealedIds.Contains(MakeId(state, element));
-    private static string MakeId(int state, int element) => $"state{Mathf.Max(1, state)}.element{Mathf.Clamp(element, 0, 4)}";
 
-    // ★ state単位「全文開示済み」管理
+    // 行単位で「一度でも開いた」管理（ステージ＋state＋行index）
+    private readonly HashSet<string> _lineRevealedIds = new HashSet<string>();
+    public bool HasLineBeenRevealed(int stage, int state, int element)
+        => _lineRevealedIds.Contains(MakeId(stage, state, element));
+    private static string MakeId(int stage, int state, int element)
+        => $"stage{stage}.state{Mathf.Max(1, state)}.element{Mathf.Clamp(element, 0, 4)}";
+
+    // state単位「全部の必要行が解放済みか」管理（＝専用セリフを一度だけ出すため）
     private readonly HashSet<string> _stateFullyRevealedIds = new HashSet<string>();
     private static string MakeStateFullId(int stage, int hintState) => $"stage{stage}.state{hintState}";
 
@@ -295,9 +299,12 @@ public class HintText : MonoBehaviour
 
                 if (IsFullyRevealed(activeLines[currentIndex], revealProgressChars))
                 {
-                    // ★行単位イベント
-                    int stateNow = (ChaseRef ? ChaseRef.GetState() : 1); // id は幽霊stateベースのまま
-                    string id = MakeId(stateNow, currentIndex);
+                    // ★ 行単位イベント（stage + hintState + element で一意）
+                    int ghostStateNow = (ChaseRef ? ChaseRef.GetState() : 1);
+                    int hintStateNow = ConvertGhostStateToHintState(ghostStateNow);
+                    int stageIndex = Mathf.Clamp(ProgressStage, 0, Mathf.Max(0, (Stages?.Count ?? 1) - 1));
+
+                    string id = MakeId(stageIndex, hintStateNow, currentIndex);
                     if (_lineRevealedIds.Add(id))
                     {
                         Debug.Log($"[HintText] OnLineFullyRevealed -> {id}");
@@ -305,6 +312,12 @@ public class HintText : MonoBehaviour
 
                         // 2部屋目ヒントミッションの進捗チェック
                         CheckSecondRoomHintsMission();
+
+                        // state3 / state4 の「全行コンプ」チェック
+                        if (hintStateNow == 3 || hintStateNow == 4)
+                        {
+                            TrySendStateSpecificAllLinesRevealed(hintStateNow, stageIndex);
+                        }
                     }
 
                     currentIndex = Mathf.Min(currentIndex + 1, 4);
@@ -512,19 +525,6 @@ public class HintText : MonoBehaviour
 
         bool allRevealed = AllFiveRevealed();
 
-        // 今の幽霊state → hintState を取得
-        int ghostState = (ChaseRef ? ChaseRef.GetState() : 1);
-        int hintState = ConvertGhostStateToHintState(ghostState);
-
-        if (allRevealed)
-        {
-            // ステージ共通の全文開示台詞
-            TrySendTutorialLinesForStage();
-
-            // state3 / state4 専用全文開示台詞
-            TrySendStateSpecificFullyRevealedLines(hintState);
-        }
-
         if (!AutoAdvanceWhenAllRevealed)
         {
             _autoAdvanceTimer = -1f;
@@ -614,55 +614,49 @@ public class HintText : MonoBehaviour
         return IsFullyRevealed(activeLines[4], revealProgressChars) || string.IsNullOrEmpty(activeLines[4]);
     }
 
-    private void TrySendTutorialLinesForStage()
-    {
-        if (_foundOverrideActive) return;
-        if (Stages == null || Stages.Count == 0) return;
-
-        int stageIndex = Mathf.Clamp(ProgressStage, 0, Stages.Count - 1);
-        var set = Stages[stageIndex];
-        if (set == null || set.TutorialLinesOnFullyRevealed == null) return;
-
-        bool hasContent = false;
-        for (int i = 0; i < set.TutorialLinesOnFullyRevealed.Length; i++)
-        {
-            if (!string.IsNullOrWhiteSpace(set.TutorialLinesOnFullyRevealed[i]))
-            {
-                hasContent = true;
-                break;
-            }
-        }
-        if (!hasContent) return;
-
-        OnHintTutorialLinesRequested?.Invoke((string[])set.TutorialLinesOnFullyRevealed.Clone());
-    }
-
     /// <summary>
-    /// state3 / state4 が全文開示されたとき、専用のつぶやきセリフを一度だけ送る
+    /// state3 / state4 について、
+    /// 「このステージでそのstateに属する全てのテキスト行が一度は解放されたか」をチェック。
+    /// そろっていれば、対応するセリフを一度だけ発火。
     /// </summary>
-    private void TrySendStateSpecificFullyRevealedLines(int hintState)
+    private void TrySendStateSpecificAllLinesRevealed(int hintState, int stageIndex)
     {
-        // 対象は state3 / state4 のみ
         if (hintState != 3 && hintState != 4) return;
         if (Stages == null || Stages.Count == 0) return;
 
-        int stageIndex = Mathf.Clamp(ProgressStage, 0, Stages.Count - 1);
+        stageIndex = Mathf.Clamp(stageIndex, 0, Stages.Count - 1);
         var set = Stages[stageIndex];
         if (set == null) return;
 
-        string id = MakeStateFullId(stageIndex, hintState);
-        if (!_stateFullyRevealedIds.Add(id))
-        {
-            // すでにこのステージ・このstateで一回出している
+        // すでにこのステージ＋stateでセリフを出しているなら何もしない
+        string stateKey = MakeStateFullId(stageIndex, hintState);
+        if (_stateFullyRevealedIds.Contains(stateKey))
             return;
+
+        // 対象 state の元テキスト配列を取る
+        string[] src = (hintState == 3) ? set.State3 : set.State4;
+        if (src == null) return;
+
+        // 「実際に文字が入っている行」について、全部 HasLineBeenRevealed かチェック
+        for (int i = 0; i < 5; i++)
+        {
+            string line = (i < src.Length) ? src[i] : null;
+            if (string.IsNullOrWhiteSpace(line))
+                continue;   // 空行はノーカウント
+
+            if (!HasLineBeenRevealed(stageIndex, hintState, i))
+            {
+                // まだ開いていない行がある → まだコンプしていない
+                return;
+            }
         }
 
-        string[] lines = null;
-        if (hintState == 3)
-            lines = set.State3FullyRevealedLines;
-        else if (hintState == 4)
-            lines = set.State4FullyRevealedLines;
+        // ここまで来たら、このステージ＋stateの全ての「意味のある行」は解放済み
+        _stateFullyRevealedIds.Add(stateKey);
 
+        // 対応するセリフを取る
+        string[] lines = (hintState == 3) ? set.State3FullyRevealedLines
+                                          : set.State4FullyRevealedLines;
         if (lines == null || lines.Length == 0) return;
 
         bool hasContent = false;
@@ -676,14 +670,17 @@ public class HintText : MonoBehaviour
         }
         if (!hasContent) return;
 
+        // ★ 既存のチュートリアル連携イベントにも流す（SecondRoomTutorial で拾ってタイプ演出する想定）
+        OnHintTutorialLinesRequested?.Invoke((string[])lines.Clone());
+
         if (hintState == 3)
         {
-            Debug.Log("[HintText] State3 fully revealed → OnState3FullyRevealed");
+            Debug.Log("[HintText] State3 all hints revealed (across spawns) → OnState3FullyRevealed");
             OnState3FullyRevealed?.Invoke((string[])lines.Clone());
         }
-        else if (hintState == 4)
+        else
         {
-            Debug.Log("[HintText] State4 fully revealed → OnState4FullyRevealed");
+            Debug.Log("[HintText] State4 all hints revealed (across spawns) → OnState4FullyRevealed");
             OnState4FullyRevealed?.Invoke((string[])lines.Clone());
         }
     }
@@ -714,8 +711,8 @@ public class HintText : MonoBehaviour
             if (!string.IsNullOrWhiteSpace(s3)) need++;
             if (!string.IsNullOrWhiteSpace(s4)) need++;
 
-            if (!string.IsNullOrWhiteSpace(s3) && HasLineBeenRevealed(3, i)) have++;
-            if (!string.IsNullOrWhiteSpace(s4) && HasLineBeenRevealed(4, i)) have++;
+            if (!string.IsNullOrWhiteSpace(s3) && HasLineBeenRevealed(stageIndex, 3, i)) have++;
+            if (!string.IsNullOrWhiteSpace(s4) && HasLineBeenRevealed(stageIndex, 4, i)) have++;
         }
     }
 
@@ -738,6 +735,12 @@ public class HintText : MonoBehaviour
             _secondRoomMissionCleared = true;
             Debug.Log("[HintText] 2部屋目ヒントミッション 完了 → OnSecondRoomHintsFullyRevealed 発火");
             OnSecondRoomHintsFullyRevealed?.Invoke();
+
+            // ★ ここで直接 2部屋目チュートリアルを次のミッションへ進める
+            if (SecondRoomRef != null)
+            {
+                SecondRoomRef.OnSecondRoomAllHintsRevealed();
+            }
         }
     }
 
@@ -865,7 +868,7 @@ public class HintText : MonoBehaviour
             }
         }
     }
-
+    //hh
     private void ApplyLineColors(Color[] colors)
     {
         EnsureColorArraySize(ref colors, 5, Color.white);
