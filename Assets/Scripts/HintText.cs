@@ -12,7 +12,7 @@ public class HintText : MonoBehaviour
     public HideCroset HideRef;
 
     [Header("2つ目の部屋フラグ参照")]
-    public SecondRoomTutorial SecondRoomRef;   // ★追加：2部屋目かどうかを見る
+    public SecondRoomTutorial SecondRoomRef;   // 2部屋目かどうかを見る
 
     [Header("初見イベント")]
     public UnityEvent OnFirstGhostSeen;
@@ -120,6 +120,9 @@ public class HintText : MonoBehaviour
     [Header("クローゼット中の特別表示")]
     public bool ForceVisibleWhileHiding = true;   // クローゼット中は必ず表示（ただし全文開示はしない）
 
+    [Header("2部屋目ヒントミッション連携")]
+    public UnityEvent OnSecondRoomHintsFullyRevealed = new UnityEvent();
+
     // ---- 内部 ----
     private string[] activeLines = new string[5];
     private int currentIndex = 0;
@@ -193,7 +196,7 @@ public class HintText : MonoBehaviour
             return;
         }
 
-        // ---- 可視判定（クローゼット中は常時表示） ----
+        // ---- 可視判定（クローゼット中は常時表示）----
         float dist = Vector3.Distance(Player.position, Ghost.position);
         bool visibleByDistance = dist <= VisibleDistance;
         bool onScreen = !OnlyWhenGhostOnScreen || IsGhostOnScreen();
@@ -281,6 +284,9 @@ public class HintText : MonoBehaviour
                     {
                         Debug.Log($"[HintText] OnLineFullyRevealed -> {id}");
                         OnLineFullyRevealed?.Invoke(id);
+
+                        // 2部屋目ヒントミッションの進捗チェック
+                        CheckSecondRoomHintsMission();
                     }
 
                     currentIndex = Mathf.Min(currentIndex + 1, 4);
@@ -597,6 +603,51 @@ public class HintText : MonoBehaviour
         if (!hasContent) return;
 
         OnHintTutorialLinesRequested?.Invoke((string[])set.TutorialLinesOnFullyRevealed.Clone());
+    }
+
+    // ====== 2部屋目用：state3/state4 全開示チェック ======
+    private void CheckSecondRoomHintsMission()
+    {
+        // 2部屋目フラグが立っていないならまだ対象外
+        if (SecondRoomRef == null || !SecondRoomRef.IsPlayerInSecondRoom)
+            return;
+
+        if (Stages == null || Stages.Count == 0)
+            return;
+
+        int stageIndex = Mathf.Clamp(ProgressStage, 0, Stages.Count - 1);
+        var set = Stages[stageIndex];
+        if (set == null) return;
+
+        // state3 / state4 で「実際にテキストが入っている行」の数を数える
+        int need = 0;
+        for (int i = 0; i < 5; i++)
+        {
+            if (set.State3 != null && i < set.State3.Length && !string.IsNullOrEmpty(set.State3[i]))
+                need++;
+            if (set.State4 != null && i < set.State4.Length && !string.IsNullOrEmpty(set.State4[i]))
+                need++;
+        }
+        if (need == 0) return;
+
+        // すでに開示済みの行を数える
+        int have = 0;
+        for (int i = 0; i < 5; i++)
+        {
+            if (HasLineBeenRevealed(3, i) &&
+                set.State3 != null && i < set.State3.Length && !string.IsNullOrEmpty(set.State3[i]))
+                have++;
+
+            if (HasLineBeenRevealed(4, i) &&
+                set.State4 != null && i < set.State4.Length && !string.IsNullOrEmpty(set.State4[i]))
+                have++;
+        }
+
+        if (have >= need)
+        {
+            Debug.Log("[HintText] 2部屋目ヒント（state3/state4）が全て開示されました");
+            OnSecondRoomHintsFullyRevealed?.Invoke();
+        }
     }
 
     // ====== リング配置 ======

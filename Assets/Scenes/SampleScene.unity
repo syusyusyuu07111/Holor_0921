@@ -20151,7 +20151,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -0.102
+      value: 14.79
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       propertyPath: m_LocalPosition.y
@@ -35643,6 +35643,9 @@ MonoBehaviour:
     m_Bits: 0
   CameraEyeHeight: 0
   ForceVisibleWhileHiding: 1
+  OnSecondRoomHintsFullyRevealed:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &1534714874
 MonoBehaviour:
   m_ObjectHideFlags: 0
