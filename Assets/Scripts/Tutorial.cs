@@ -18,6 +18,9 @@ public class Tutorial : MonoBehaviour
     [TextArea] public string[] Step3Lines = { "……何か音がしたぞ！", "周りを探してみよう。" };
     private Coroutine _typing;
 
+    // 「どのリクエストが最新か」を表すトークン
+    private int _typingToken = 0;
+
     // ========== メッセージ ==========
     [Header("ロック/解錠メッセージ")]
     [TextArea] public string DoorLockedMessage = "ドアはあかないようだ…";
@@ -148,7 +151,14 @@ public class Tutorial : MonoBehaviour
 
     private void SkipCurrentTyping()
     {
-        if (_typing != null) { StopCoroutine(_typing); _typing = null; }
+        // 今までのテキストリクエストを全部無効化
+        _typingToken++;
+
+        if (_typing != null)
+        {
+            StopCoroutine(_typing);
+            _typing = null;
+        }
         if (BottomText) BottomText.gameObject.SetActive(false);
     }
 
@@ -300,7 +310,7 @@ public class Tutorial : MonoBehaviour
             _input.UI.Disable();
         }
 
-        if (Time.timeScale == 0f) Time.timeScale = 1f;
+        // 他システムの timeScale を勝手にいじらないようにここでは触らない
 
         if (Spawners != null)
         {
@@ -342,7 +352,12 @@ public class Tutorial : MonoBehaviour
                 if (Spawners[i]) Spawners[i].StopSpawning();
 
         ApplyDoorEnableByProgress(HintRef ? HintRef.ProgressStage : 0);
-        Step1();
+
+        // 前段チュートリアルが無効 or すでに完了しているときだけ Step1 をここで呼ぶ
+        if (!EnableBasicTutorial || _basicDone)
+        {
+            Step1();
+        }
 
         if (_queuedHintTutorials.Count > 0 && !_pauseGate && IsEventAllowed() && _typing == null)
         {
@@ -458,9 +473,13 @@ public class Tutorial : MonoBehaviour
     {
         if (_stoppedForSecondRoom) return;
         if (!BottomText) return;
+
+        // 最新リクエストとしてトークン更新
+        _typingToken++;
+
         if (_typing != null) StopCoroutine(_typing);
         BottomText.gameObject.SetActive(true);
-        _typing = StartCoroutine(CoTypeLines(Step1Lines));
+        _typing = StartCoroutine(CoTypeLines(Step1Lines, _typingToken));
     }
 
     private void HandleLockedDoorTapFeedback()
@@ -543,11 +562,14 @@ public class Tutorial : MonoBehaviour
 
         if (Step3Lines != null && Step3Lines.Length > 0)
         {
+            // 後から来たこのテキストを優先
+            _typingToken++;
+
             if (_typing != null) StopCoroutine(_typing);
             if (BottomText)
             {
                 BottomText.gameObject.SetActive(true);
-                _typing = StartCoroutine(CoTypeLines(Step3Lines));
+                _typing = StartCoroutine(CoTypeLines(Step3Lines, _typingToken));
             }
         }
     }
@@ -687,10 +709,14 @@ public class Tutorial : MonoBehaviour
     {
         if (_stoppedForSecondRoom) return;
         if (!BottomText) return;
+
+        // Hint からのテキストも最新としてトークン更新
+        _typingToken++;
+
         var copy = DuplicateLines(lines);
         if (_typing != null) StopCoroutine(_typing);
         BottomText.gameObject.SetActive(true);
-        _typing = StartCoroutine(CoTypeLines(copy));
+        _typing = StartCoroutine(CoTypeLines(copy, _typingToken));
     }
 
     private string[] DuplicateLines(string[] source)
@@ -811,45 +837,74 @@ public class Tutorial : MonoBehaviour
             if (LightsToToggle[i]) LightsToToggle[i].SetActive(true);
     }
 
-    // ========== テキスト演出 ==========
+    // ========== テキスト演出（BottomText用・トークン対応） ==========
     public void ShowOneShot(string line)
     {
         if (_stoppedForSecondRoom) return;
         if (!BottomText || string.IsNullOrEmpty(line)) return;
+
+        // これ以降のテキストを最新として扱う
+        _typingToken++;
+
         if (_typing != null) StopCoroutine(_typing);
         BottomText.gameObject.SetActive(true);
-        _typing = StartCoroutine(CoTypeOneShot(line));
+        _typing = StartCoroutine(CoTypeOneShot(line, _typingToken));
     }
 
-    private IEnumerator CoTypeOneShot(string line)
+    private IEnumerator CoTypeOneShot(string line, int token)
     {
-        yield return StartCoroutine(CoTypeOne(line));
+        // 本文
+        yield return StartCoroutine(CoTypeOne(line, token));
+        if (token != _typingToken) yield break;
+
+        // 行間ウェイト
         yield return new WaitForSeconds(LineInterval);
+        if (token != _typingToken) yield break;
+
         BottomText.gameObject.SetActive(false);
-        _typing = null;
+
+        if (token == _typingToken)
+            _typing = null;
     }
 
-    private IEnumerator CoTypeLines(string[] lines)
+    private IEnumerator CoTypeLines(string[] lines, int token)
     {
         for (int li = 0; li < lines.Length; li++)
         {
-            yield return StartCoroutine(CoTypeOne(lines[li]));
-            if (li < lines.Length - 1) yield return new WaitForSeconds(LineInterval);
+            yield return StartCoroutine(CoTypeOne(lines[li], token));
+            if (token != _typingToken) yield break;
+
+            if (li < lines.Length - 1)
+            {
+                yield return new WaitForSeconds(LineInterval);
+                if (token != _typingToken) yield break;
+            }
         }
+
+        if (token != _typingToken) yield break;
+
         if (HideWhenDone) BottomText.gameObject.SetActive(false);
-        _typing = null;
+
+        if (token == _typingToken)
+            _typing = null;
     }
 
-    private IEnumerator CoTypeOne(string text)
+    private IEnumerator CoTypeOne(string text, int token)
     {
         BottomText.text = "";
-        if (CharsPerSecond <= 0f) { BottomText.text = text; yield break; }
+        if (CharsPerSecond <= 0f)
+        {
+            if (token == _typingToken)
+                BottomText.text = text;
+            yield break;
+        }
+
         float interval = 1f / CharsPerSecond;
         float acc = 0f; int i = 0;
-        while (i < text.Length)
+        while (i < text.Length && token == _typingToken)
         {
             acc += Time.deltaTime;
-            while (acc >= interval && i < text.Length)
+            while (acc >= interval && i < text.Length && token == _typingToken)
             {
                 acc -= interval; i++;
                 BottomText.text = text.Substring(0, i);
@@ -869,10 +924,13 @@ public class Tutorial : MonoBehaviour
         if (CameraTransform) _basicPrevCamRot = CameraTransform.rotation;
         yield return null;
 
+        // この前段チュートリアル中のテキスト用トークン
+        int token = ++_typingToken;
+
         // 移動
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
         BottomText.gameObject.SetActive(true);
-        yield return StartCoroutine(CoTypeOne(BasicMoveText));
+        yield return StartCoroutine(CoTypeOne(BasicMoveText, token));
 
         _basicMoveTotal = 0f;
         _basicMovePrevPos = Player ? Player.position : Vector3.zero;
@@ -900,7 +958,7 @@ public class Tutorial : MonoBehaviour
         // 視点
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
         BottomText.gameObject.SetActive(true);
-        yield return StartCoroutine(CoTypeOne(BasicLookText));
+        yield return StartCoroutine(CoTypeOne(BasicLookText, token));
 
         _basicAccYaw = 0f; _basicAccPitch = 0f;
         while (true)
@@ -934,7 +992,7 @@ public class Tutorial : MonoBehaviour
         // ダッシュ
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
         BottomText.gameObject.SetActive(true);
-        yield return StartCoroutine(CoTypeOne(BasicDashText));
+        yield return StartCoroutine(CoTypeOne(BasicDashText, token));
 
         float dashTimer = 0f;
         float decayPerSec = 0.5f;
