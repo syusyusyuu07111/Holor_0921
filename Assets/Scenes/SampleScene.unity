@@ -35646,6 +35646,9 @@ MonoBehaviour:
   OnSecondRoomHintsFullyRevealed:
     m_PersistentCalls:
       m_Calls: []
+  OnSecondRoomHintProgressChanged:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &1534714874
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -38430,6 +38433,7 @@ MonoBehaviour:
   Player: {fileID: 956023711}
   firstRoomTutorial: {fileID: 1534714874}
   paintingPuzzleManager: {fileID: 1619055634}
+  hintText: {fileID: 1534714873}
   triggerPosX: 6
   isBookChecked: 0
   Saytext: {fileID: 1750382308}

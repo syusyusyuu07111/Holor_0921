@@ -14,6 +14,9 @@ public class SecondRoomTutorial : MonoBehaviour
     [Header("絵パズル管理（インスペクターでアサイン）")]
     [SerializeField] private PaintingPuzzleManager paintingPuzzleManager;
 
+    [Header("幽霊ヒント連携（HintText をアサイン）")]
+    [SerializeField] private HintText hintText;
+
     // どの位置を越えたらチュートリアルを出すか
     public float triggerPosX = -3.3f;
 
@@ -64,6 +67,9 @@ public class SecondRoomTutorial : MonoBehaviour
         "部屋をしらべてみよう！"
     };
 
+    // 幽霊つぶやきミッションのベーステキスト
+    private const string HintMissionBaseText = "ミッション：幽霊のつぶやきからヒントを集めよう。";
+
     private void Start()
     {
         Debug.Log($"[SecondRoomTutorial] Start. Time.timeScale={Time.timeScale}");
@@ -76,6 +82,8 @@ public class SecondRoomTutorial : MonoBehaviour
             Debug.LogWarning("[SecondRoomTutorial] firstRoomTutorial がアサインされていません");
         if (paintingPuzzleManager == null)
             Debug.LogWarning("[SecondRoomTutorial] paintingPuzzleManager がアサインされていません");
+        if (hintText == null)
+            Debug.LogWarning("[SecondRoomTutorial] hintText がアサインされていません（進捗 〇/〇 表示に使用）");
     }
 
     private void Update()
@@ -115,6 +123,22 @@ public class SecondRoomTutorial : MonoBehaviour
             Debug.Log("[SecondRoomTutorial] 絵パズルが完成したため、次のミッションへ進みます");
             GoToNextMissionAfterPictures();
         }
+
+        // ★ チュートリアル2中は、HintText から常に進捗を取ってミッションテキスト末尾に表示
+        if (tutorialStep == 2 && missiontext != null && hintText != null)
+        {
+            int have, need;
+            hintText.GetSecondRoomHintProgress(out have, out need);
+
+            if (need > 0)
+            {
+                missiontext.text = $"{HintMissionBaseText}（{have}/{need}）";
+            }
+            else
+            {
+                missiontext.text = HintMissionBaseText;
+            }
+        }
     }
 
     /// <summary>
@@ -136,7 +160,7 @@ public class SecondRoomTutorial : MonoBehaviour
             Time.timeScale = 1f;
         }
 
-        // ★ 一つ目の部屋のチュートリアル側を処理
+        // 一つ目の部屋のチュートリアル側を処理
         if (firstRoomTutorial != null)
         {
             Debug.Log("[SecondRoomTutorial] firstRoomTutorial にスポーン開始＋停止指示を送ります");
@@ -207,8 +231,9 @@ public class SecondRoomTutorial : MonoBehaviour
         if (missiontext != null)
         {
             Debug.Log("[SecondRoomTutorial] チュートリアル2 ミッションテキスト表示開始");
+            // まずはベース文言だけタイプ表示（〇/〇 は Update で上書き）
             missionCoroutine = StartCoroutine(
-                TypeText(missiontext, "ミッション：幽霊のつぶやきからヒントを集めよう。")
+                TypeText(missiontext, HintMissionBaseText)
             );
         }
 
@@ -338,6 +363,17 @@ public class SecondRoomTutorial : MonoBehaviour
     {
         Debug.Log("[SecondRoomTutorial] OnSecondRoomAllHintsRevealed 受信 → チュートリアル3へ");
         GoToTutorial3();
+    }
+
+    /// <summary>
+    /// 2部屋目ヒント進捗（have/need）が更新されたときに
+    /// （イベント経由で呼ばれてもいいし、呼ばれなくてもいい・今は保険用）
+    /// </summary>
+    public void OnSecondRoomHintProgressUpdated(int have, int need)
+    {
+        Debug.Log($"[SecondRoomTutorial] OnSecondRoomHintProgressUpdated {have}/{need}");
+        // 実際の表示は Update 側で毎フレームやっているので、
+        // ここでは特に何もしなくてもよい（デバッグ用）。
     }
 
     /// <summary>
