@@ -15117,6 +15117,7 @@ MonoBehaviour:
   AlsoShakeChromatic: 0
   AudioMgr: {fileID: 0}
   PinchSource: {fileID: 0}
+  Pinch2DSource: {fileID: 0}
   MainCamera: {fileID: 0}
   KillCamera: {fileID: 0}
   KillCamNearClip: 0.01
@@ -19408,6 +19409,7 @@ MonoBehaviour:
   RotateLever: 45
   LeverRotateSpeed: 180
   LeverAtomSource: {fileID: 788558997}
+  UnlockAtomSource: {fileID: 788558998}
   LightLists:
   - {fileID: 640520204}
   - {fileID: 1831542898}
@@ -19525,6 +19527,39 @@ MonoBehaviour:
     - 0
     - 0
   _cueName: SE_lever
+  _cueSheet: CueSheet_0
+--- !u!114 &788558998
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 788558990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1e631c3b9947b54c823c6853a05529c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _playOnStart: 0
+  _regionOnStart: {fileID: 0}
+  _listenerOnStart: {fileID: 0}
+  _use3dPositioning: 1
+  _freezeOrientation: 0
+  _loop: 0
+  _volume: 1
+  _pitch: 0
+  _androidUseLowLatencyVoicePool: 0
+  need_to_player_update_all: 1
+  _use3dRandomization: 0
+  _randomPositionListMaxLength: 0
+  randomize3dConfig:
+    followsOriginalSource: 0
+    calculationType: 0
+    calculationParameters:
+    - 0
+    - 0
+    - 0
+  _cueName: SE_key_exit
   _cueSheet: CueSheet_0
 --- !u!1 &790005848
 GameObject:
@@ -20116,7 +20151,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 8.6
+      value: -0.102
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       propertyPath: m_LocalPosition.y
@@ -25231,6 +25266,7 @@ MonoBehaviour:
   AlsoShakeChromatic: 0
   AudioMgr: {fileID: 0}
   PinchSource: {fileID: 0}
+  Pinch2DSource: {fileID: 0}
   MainCamera: {fileID: 0}
   KillCamera: {fileID: 0}
   KillCamNearClip: 0.01
@@ -27036,6 +27072,7 @@ MonoBehaviour:
   AlsoShakeChromatic: 0
   AudioMgr: {fileID: 1012635561}
   PinchSource: {fileID: 1088747870}
+  Pinch2DSource: {fileID: 1088747871}
   MainCamera: {fileID: 330585545}
   KillCamera: {fileID: 1510880887}
   KillCamNearClip: 0.01
@@ -27109,6 +27146,39 @@ MonoBehaviour:
     - 0
     - 0
   _cueName: SE_gh_threat
+  _cueSheet: CueSheet_0
+--- !u!114 &1088747871
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1088747850}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1e631c3b9947b54c823c6853a05529c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _playOnStart: 0
+  _regionOnStart: {fileID: 0}
+  _listenerOnStart: {fileID: 0}
+  _use3dPositioning: 1
+  _freezeOrientation: 0
+  _loop: 0
+  _volume: 1
+  _pitch: 0
+  _androidUseLowLatencyVoicePool: 0
+  need_to_player_update_all: 1
+  _use3dRandomization: 0
+  _randomPositionListMaxLength: 0
+  randomize3dConfig:
+    followsOriginalSource: 0
+    calculationType: 0
+    calculationParameters:
+    - 0
+    - 0
+    - 0
+  _cueName: SE_gh_laughter
   _cueSheet: CueSheet_0
 --- !u!1001 &1092411333
 PrefabInstance:
@@ -45675,6 +45745,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 155acdbe93e54154db61ec6b57355331, type: 3}
       insertIndex: -1
       addedObject: {fileID: 788558997}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 155acdbe93e54154db61ec6b57355331, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 788558998}
   m_SourcePrefab: {fileID: 100100000, guid: 155acdbe93e54154db61ec6b57355331, type: 3}
 --- !u!1 &1762575679
 GameObject:
@@ -58149,6 +58222,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 2672928710479239448, guid: 6c37b82c80289b94a82523e1b940c2e4, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1088747870}
+    - targetCorrespondingSourceObject: {fileID: 2672928710479239448, guid: 6c37b82c80289b94a82523e1b940c2e4, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1088747871}
   m_SourcePrefab: {fileID: 100100000, guid: 6c37b82c80289b94a82523e1b940c2e4, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

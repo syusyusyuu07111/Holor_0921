@@ -288,7 +288,7 @@ public class GameOver : MonoBehaviour
             }
         }
 
-        // ★ ゲームオーバー後は演出更新を止める & ピンチSEも必ずOFF
+        // ゲームオーバー後は演出更新を止める & ピンチSEも必ずOFF
         if (_gameOverFired)
         {
             if (PinchSource != null && _pinchPlaying)

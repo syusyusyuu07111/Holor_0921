@@ -25,6 +25,9 @@ public class LightOff : MonoBehaviour
     [Header("レバー音(CRI AtomSource)")]
     public CriAtomSource LeverAtomSource;                   // レバーをガチャっとした時に鳴らす音
 
+    [Header("鍵が開く音(CRI AtomSource)")]
+    public CriAtomSource UnlockAtomSource;                  // 鍵が開いた時のSE
+
     [Header("操作対象ライト群")]
     [SerializeField] private List<Light> LightLists = new List<Light>();
 
@@ -274,6 +277,18 @@ public class LightOff : MonoBehaviour
     }
 
     //==================================================
+    // 鍵が開く音再生
+    //==================================================
+    private void PlayUnlockSound()
+    {
+        var src = UnlockAtomSource;
+        if (!src) return;
+
+        // Cue は AtomSource 側に設定されている前提
+        src.Play();
+    }
+
+    //==================================================
     // 冷色→暖色に切り替える操作（レバー＆カメラ演出込み）
     //==================================================
     private void TurnOffToWarm()
@@ -505,6 +520,9 @@ public class LightOff : MonoBehaviour
                     tut.ReapplyDoorByCurrentProgress();
                 }
 
+                // ★ 鍵が開いたタイミングでSE再生
+                PlayUnlockSound();
+
                 _alreadyCounted = true;
             }
         }
@@ -516,6 +534,9 @@ public class LightOff : MonoBehaviour
             {
                 tut.ForceUnlockDoors();
                 tut.ReapplyDoorByCurrentProgress();
+
+                // ★ こちらの経路でもドアを開けたのでSE再生
+                PlayUnlockSound();
             }
         }
     }
