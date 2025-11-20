@@ -109,7 +109,7 @@ public class EnemyAI : MonoBehaviour
     private float _blueLerp = 0f;
     private float _baseVolumeWeight = 1f;
 
-    // =================サイクル =================
+    // ================= サイクル =================
 
     void Start()
     {
@@ -257,11 +257,18 @@ public class EnemyAI : MonoBehaviour
             // ==== 通常抽選 ====
             if (inSecond)
             {
-                // ★ 2部屋目：
-                //    5秒ごとに 0〜99 の乱数
-                //    >90 だけヒット → 約9% → 平均約55秒に1回
+                // ★ 2部屋目：幽霊のつぶやきミッション中か？
+                bool whisperActive =
+                    (secondRoomTutorial != null && secondRoomTutorial.IsGhostWhisperMissionActive);
+
                 GhostEncountChance = Random.Range(0, 100); // 0〜99
-                bool spawn = (GhostEncountChance > 90);
+
+                // つぶやきミッション中は出現確率アップ
+                //   通常： >90 → 約 9%
+                //   ミッション中： >40 → 約 60% くらい
+                bool spawn = whisperActive
+                    ? (GhostEncountChance > 40)   // ← 好きに調整してOK
+                    : (GhostEncountChance > 90);
 
                 if (spawn && !CurrentGhost)
                 {
