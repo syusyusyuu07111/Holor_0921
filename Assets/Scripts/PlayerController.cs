@@ -85,9 +85,13 @@ public class PlayerController : MonoBehaviour
     // 入力方向の符号記録（反転検出用）
     private int _lastSignX = 0, _lastSignY = 0;
 
-    // 足音ループ状態
+    // 足音ループ状態（実際に今 Self 管理しているか）
     private bool _walkLoopOn = false;
     private bool _runLoopOn = false;
+
+    // ★追加：前フレームの「論理状態」（歩き/走り中か）
+    private bool _wasWalking = false;
+    private bool _wasRunning = false;
 
     // 公開（他スクリプト互換）
     [System.Serializable] public class DashEvent : UnityEngine.Events.UnityEvent { }
@@ -147,7 +151,7 @@ public class PlayerController : MonoBehaviour
                 _prevDash = false;
             }
 
-            // 足音も停止
+            // 足音も停止（論理的に歩き/走りとも false）
             UpdateFootstepLoop(false, false);
 
             _dominantAxis = 0;
@@ -283,6 +287,7 @@ public class PlayerController : MonoBehaviour
         bool isRunningNow = IsDashingNow;
         bool isWalkingNow = IsMovingNow && !IsDashingNow;
 
+        // ★ここで「始まった/終わった」の変化だけを検出して Play/Stop
         UpdateFootstepLoop(isWalkingNow, isRunningNow); // 壁押し中も含めて足音制御
 
         // 符号の記録
@@ -310,60 +315,75 @@ public class PlayerController : MonoBehaviour
     }
 
     // --- 足音（CRI Atom制御） ---
+    // 「歩く始まる＞1回Play」「歩く終わる＞1回Stop」
+    // 「走る始まる＞1回Play」「走る終わる＞1回Stop」
     void UpdateFootstepLoop(bool isWalkingNow, bool isRunningNow)
     {
-        // どちらも参照がない場合は何もしない
         if (walkLoopSource == null && runLoopSource == null) return;
 
-        // 走りが優先（走っている間は歩きループは止める）
-        if (isRunningNow)
+        // --- 歩きの開始/終了 ---
+        if (isWalkingNow && !_wasWalking)
         {
-            // 歩きループを止める
-            if (_walkLoopOn && walkLoopSource != null)
-            {
-                walkLoopSource.Stop();
-                _walkLoopOn = false;
-            }
-
-            // 走りループを再生開始
-            if (!_runLoopOn && runLoopSource != null)
-            {
-                runLoopSource.loop = true; // ループ設定はInspectorでもOK
-                runLoopSource.Play();
-                _runLoopOn = true;
-            }
-        }
-        else if (isWalkingNow)
-        {
-            // 走りループを止める
+            // 歩き始め：走りループがついてたら止めてから WALK 再生
             if (_runLoopOn && runLoopSource != null)
             {
+                Debug.Log("Footstep: Stop RUN (because WALK started)");
                 runLoopSource.Stop();
                 _runLoopOn = false;
             }
 
-            // 歩きループを再生開始
-            if (!_walkLoopOn && walkLoopSource != null)
+            if (walkLoopSource != null && !_walkLoopOn)
             {
+                Debug.Log("Footstep: Play WALK");
                 walkLoopSource.loop = true;
                 walkLoopSource.Play();
                 _walkLoopOn = true;
             }
         }
-        else
+        else if (!isWalkingNow && _wasWalking)
         {
-            // どちらも動いていない → 両方止める
+            // 歩き終了（Idle または 走りへの遷移）
             if (_walkLoopOn && walkLoopSource != null)
             {
+                Debug.Log("Footstep: Stop WALK");
                 walkLoopSource.Stop();
                 _walkLoopOn = false;
             }
+        }
+
+        // --- 走りの開始/終了 ---
+        if (isRunningNow && !_wasRunning)
+        {
+            // 走り始め：歩きがついてたら止めてから RUN 再生
+            if (_walkLoopOn && walkLoopSource != null)
+            {
+                Debug.Log("Footstep: Stop WALK (because RUN started)");
+                walkLoopSource.Stop();
+                _walkLoopOn = false;
+            }
+
+            if (runLoopSource != null && !_runLoopOn)
+            {
+                Debug.Log("Footstep: Play RUN");
+                runLoopSource.loop = true;
+                runLoopSource.Play();
+                _runLoopOn = true;
+            }
+        }
+        else if (!isRunningNow && _wasRunning)
+        {
+            // 走り終了（Idle または 歩きへの遷移）
             if (_runLoopOn && runLoopSource != null)
             {
+                Debug.Log("Footstep: Stop RUN");
                 runLoopSource.Stop();
                 _runLoopOn = false;
             }
         }
+
+        // 状態を記録（次フレームの比較用）
+        _wasWalking = isWalkingNow;
+        _wasRunning = isRunningNow;
     }
 
     // --- ログ
@@ -425,7 +445,6 @@ public class PlayerController : MonoBehaviour
     }
 
     // --- 経路スイープ（CapsuleCast）
-    // ★ PushController など外部からも使えるように public にする
     public bool TrySweepTo(Vector3 fromPos, Vector3 toPos, out Vector3 hitStopPos, out RaycastHit hitInfo)
     {
         hitInfo = default;
@@ -454,14 +473,6 @@ public class PlayerController : MonoBehaviour
     // ================================
     //  外部用: 押しなどで delta だけ動かしたいとき
     // ================================
-    /// <summary>
-    /// 外部（PushController など）から「この delta 分だけ動かしたい」
-    /// というときに使うメソッド。
-    ///
-    /// ・内部の CapsuleCast / Sweep ロジックをそのまま利用
-    /// ・壁や家具に当たるとそこで止まる（貫通しない）
-    /// ・Y固定（lockY=true）の場合は足元高さを維持する
-    /// </summary>
     public void ExternalMoveByDelta(Vector3 worldDelta)
     {
         if (worldDelta.sqrMagnitude <= 0f) return;

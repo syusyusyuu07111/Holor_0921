@@ -20497,13 +20497,16 @@ PrefabInstance:
       addedObject: {fileID: 956023728}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 956023730}
+      addedObject: {fileID: 956023733}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 956023729}
+      addedObject: {fileID: 956023734}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 956023731}
+      addedObject: {fileID: 956023736}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 956023735}
   m_SourcePrefab: {fileID: 100100000, guid: 90ea623bd97db534ba6e7bea773b0bdb, type: 3}
 --- !u!1 &807589548
 GameObject:
@@ -22813,8 +22816,8 @@ MonoBehaviour:
   Cam: {fileID: 330585546}
   animator: {fileID: 956023716}
   tpsCamera: {fileID: 330585548}
-  walkLoopSource: {fileID: 956023730}
-  runLoopSource: {fileID: 956023729}
+  walkLoopSource: {fileID: 956023736}
+  runLoopSource: {fileID: 956023735}
   MoveSpeed: 1
   DashSpeed: 1.5
   SlowSpeed: 2
@@ -23208,7 +23211,54 @@ MonoBehaviour:
     - 0
   _cueName: SE_fu_move
   _cueSheet: CueSheet_0
---- !u!114 &956023729
+--- !u!114 &956023733
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 956023711}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 924300843cfc30c43a70873b6180e4c1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  bgmSource: {fileID: 956023734}
+  playOnEnable: 1
+--- !u!114 &956023734
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 956023711}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1e631c3b9947b54c823c6853a05529c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _playOnStart: 1
+  _regionOnStart: {fileID: 0}
+  _listenerOnStart: {fileID: 0}
+  _use3dPositioning: 0
+  _freezeOrientation: 0
+  _loop: 1
+  _volume: 1
+  _pitch: 0
+  _androidUseLowLatencyVoicePool: 0
+  need_to_player_update_all: 1
+  _use3dRandomization: 0
+  _randomPositionListMaxLength: 0
+  randomize3dConfig:
+    followsOriginalSource: 0
+    calculationType: 0
+    calculationParameters:
+    - 0
+    - 0
+    - 0
+  _cueName: BGM_ingame
+  _cueSheet: CueSheet_0
+--- !u!114 &956023735
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -23225,7 +23275,7 @@ MonoBehaviour:
   _listenerOnStart: {fileID: 0}
   _use3dPositioning: 1
   _freezeOrientation: 0
-  _loop: 0
+  _loop: 1
   _volume: 1
   _pitch: 0
   _androidUseLowLatencyVoicePool: 0
@@ -23239,9 +23289,9 @@ MonoBehaviour:
     - 0
     - 0
     - 0
-  _cueName: SE_run
+  _cueName: SE_run_material
   _cueSheet: CueSheet_0
---- !u!114 &956023730
+--- !u!114 &956023736
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -23258,7 +23308,7 @@ MonoBehaviour:
   _listenerOnStart: {fileID: 0}
   _use3dPositioning: 1
   _freezeOrientation: 0
-  _loop: 0
+  _loop: 1
   _volume: 1
   _pitch: 0
   _androidUseLowLatencyVoicePool: 0
@@ -23272,22 +23322,8 @@ MonoBehaviour:
     - 0
     - 0
     - 0
-  _cueName: SE_walk
+  _cueName: SE_walk_material
   _cueSheet: CueSheet_0
---- !u!114 &956023731
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 956023711}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ce7d42e042e4c9c4db4bde98b863e167, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  regionOnStart: {fileID: 0}
-  activateListenerOnEnable: 0
 --- !u!4 &957036294 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 7787048224407105938, guid: 3d21ab27376275d43b5bcc180968ceeb, type: 3}
@@ -25329,8 +25365,6 @@ GameObject:
   - component: {fileID: 1012635559}
   - component: {fileID: 1012635563}
   - component: {fileID: 1012635564}
-  - component: {fileID: 1012635565}
-  - component: {fileID: 1012635568}
   m_Layer: 0
   m_Name: AudioManager
   m_TagString: Untagged
@@ -25420,7 +25454,7 @@ MonoBehaviour:
   doorCloseSource: {fileID: 1012635559}
   GhostAppearSource: {fileID: 1012635563}
   SE_catchSource: {fileID: 1012635564}
-  SE_walk: {fileID: 1012635565}
+  SE_walk: {fileID: 0}
 --- !u!4 &1012635562
 Transform:
   m_ObjectHideFlags: 0
@@ -25501,72 +25535,6 @@ MonoBehaviour:
     - 0
     - 0
   _cueName: SE_catch
-  _cueSheet: CueSheet_0
---- !u!114 &1012635565
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1012635558}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d1e631c3b9947b54c823c6853a05529c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _playOnStart: 0
-  _regionOnStart: {fileID: 0}
-  _listenerOnStart: {fileID: 0}
-  _use3dPositioning: 1
-  _freezeOrientation: 0
-  _loop: 0
-  _volume: 1
-  _pitch: 0
-  _androidUseLowLatencyVoicePool: 0
-  need_to_player_update_all: 1
-  _use3dRandomization: 0
-  _randomPositionListMaxLength: 0
-  randomize3dConfig:
-    followsOriginalSource: 0
-    calculationType: 0
-    calculationParameters:
-    - 0
-    - 0
-    - 0
-  _cueName: SE_walk
-  _cueSheet: CueSheet_0
---- !u!114 &1012635568
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1012635558}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d1e631c3b9947b54c823c6853a05529c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _playOnStart: 1
-  _regionOnStart: {fileID: 0}
-  _listenerOnStart: {fileID: 330585550}
-  _use3dPositioning: 1
-  _freezeOrientation: 0
-  _loop: 1
-  _volume: 1
-  _pitch: 0
-  _androidUseLowLatencyVoicePool: 0
-  need_to_player_update_all: 1
-  _use3dRandomization: 0
-  _randomPositionListMaxLength: 0
-  randomize3dConfig:
-    followsOriginalSource: 0
-    calculationType: 0
-    calculationParameters:
-    - 0
-    - 0
-    - 0
-  _cueName: BGM_ingame
   _cueSheet: CueSheet_0
 --- !u!1001 &1018990154
 PrefabInstance:
@@ -27125,7 +27093,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _playOnStart: 0
   _regionOnStart: {fileID: 0}
-  _listenerOnStart: {fileID: 956023731}
+  _listenerOnStart: {fileID: 0}
   _use3dPositioning: 1
   _freezeOrientation: 0
   _loop: 0
