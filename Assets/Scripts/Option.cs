@@ -45,7 +45,6 @@ public class Option : MonoBehaviour
     public float HandleMaxX = 100f;
 
     // マウス位置からハンドルを置くときの補正
-    // （「少し右にずれる」を打ち消す値。右にずれるならマイナス値）
     public float HandleVisualOffsetX = 0f;
 
     private RectTransform _handleParent;
@@ -137,6 +136,34 @@ public class Option : MonoBehaviour
 
     private void OnEnable()
     {
+        if (input == null)
+        {
+            input = new InputSystem_Actions();
+        }
+
+        // ---- Optionアクションのバインド調整 ----
+        // InputActionsアセット側で UI/Option に
+        //  ・<Keyboard>/escape
+        //  ・<Keyboard>/tab
+        // の2つをバインドしておく前提。
+        var optionAction = input.UI.Option;
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        // WebGL では Escape バインドだけ無効にして、
+        // Tab だけが有効になるようにする
+        optionAction.Disable();
+
+        for (int i = 0; i < optionAction.bindings.Count; i++)
+        {
+            if (optionAction.bindings[i].path == "<Keyboard>/escape")
+            {
+                optionAction.ApplyBindingOverride(i, "");
+            }
+        }
+
+        optionAction.Enable();
+#endif
+
         input.UI.Enable();
         input.Player.Enable();
     }
@@ -396,7 +423,16 @@ public class Option : MonoBehaviour
     private void RefreshEscHint()
     {
         if (!EscHintText) return;
-        EscHintText.text = MenuOn ? "ESCでオプション閉じる" : "ESCでオプション開く";
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        string keyLabel = "Tab";
+#else
+        string keyLabel = "Esc または Tab";
+#endif
+
+        EscHintText.text = MenuOn
+            ? $"{keyLabel}でオプション閉じる"
+            : $"{keyLabel}でオプション開く";
     }
 
     // トグルクリック
@@ -454,10 +490,10 @@ public class Option : MonoBehaviour
         // マウス位置にオフセットを足した「見た目のX」
         float visualX = localX + HandleVisualOffsetX;
 
-        // 見た目のXを範囲内にクランプ（←ここがポイント）
+        // 見た目のXを範囲内にクランプ
         visualX = Mathf.Clamp(visualX, HandleMinX, HandleMaxX);
 
-        // その見た目の位置を使って 0〜1 に正規化
+        // 0〜1 に正規化
         float t = Mathf.InverseLerp(HandleMinX, HandleMaxX, visualX);
         _sensitivity01 = Mathf.Clamp01(t);
 
@@ -472,7 +508,7 @@ public class Option : MonoBehaviour
             CameraController.SetRotateSpeedFromOption(newSpeed);
         }
 
-        // ハンドルを見た目のXにセット
+        // ハンドル位置反映
         SensitivityHandle.anchoredPosition = new Vector2(
             visualX,
             _handleBaseY
@@ -534,7 +570,6 @@ public class Option : MonoBehaviour
 
         float t = Mathf.Clamp01(_sensitivity01);
 
-        // 見た目のX（ここでは offset は使わず、純粋にバーの両端を補間）
         float visualX = Mathf.Lerp(HandleMinX, HandleMaxX, t);
 
         SensitivityHandle.anchoredPosition = new Vector2(

@@ -1122,8 +1122,8 @@
                 },
                 {
                     "name": "",
-                    "id": "c63fa6ee-0f09-4efe-af8a-bbae4895d2a1",
-                    "path": "<Keyboard>/escape",
+                    "id": "fef8357b-a381-4df1-9b02-1f45c3e22a58",
+                    "path": "<Keyboard>/tab",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
@@ -1133,8 +1133,8 @@
                 },
                 {
                     "name": "",
-                    "id": "9339a5aa-3b9f-4513-bf2f-3f7abf3baaeb",
-                    "path": "",
+                    "id": "02d074ea-8f68-4ad9-a787-4124a1b2e31c",
+                    "path": "<Keyboard>/escape",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
