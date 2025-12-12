@@ -12,6 +12,9 @@ TagManager:
   - paintings_sunflower
   - paintings_swing
   - Candle
+  - Chair
+  - Item
+  - ItemPanel
   layers:
   - Default
   - TransparentFX
