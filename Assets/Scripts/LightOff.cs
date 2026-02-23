@@ -2,70 +2,93 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using CriWare;  // ★ CRI Atom 用
+using CriWare;  // CRI Atom
+
+/*
+     ライト切替ギミック（冷色→暖色＆減光 / 暖色→冷色へ復帰）
+     ・近づいて入力で切替（レバー演出・見せカメラ演出あり）
+     ・暖色化は徐々に色/明るさを補間（TimeScale=0でも進む）
+     ・暖色化後に：ゴースト破棄 / 呪いエフェクト破棄 / ヒント進行 / ドア更新 / SE再生
+     ・冷色へ戻したらロックして再操作不可にする（仕様）
+*/
 
 public class LightOff : MonoBehaviour
 {
-    public GameObject Player;                               // プレイヤー
-    public GameObject Light;                                // インタラクト地点（スイッチなど）
-    public float PushDistance = 3.0f;                       // インタラクト距離
-    public bool OnLight = true;                             // 「いまは明るい(冷色側)？」UI表示用
-    public GameObject Ghost;                                // 暖色化後に消したいオブジェクト（敵とか）
+    //================
+    // Inspector参照
+    //================
+
+    public GameObject Player;                                   // プレイヤー
+    public GameObject Light;                                    // インタラクト地点（スイッチなど）
+    public float PushDistance = 3.0f;                           // インタラクト距離
+    public bool OnLight = true;                                 // 「いまは明るい(冷色側)？」UI表示用
+    public GameObject Ghost;                                    // 暖色化後に消したいオブジェクト（敵とか）
 
     [Header("レバーON時に消す呪いエフェクト")]
-    public List<GameObject> CurseEffects = new List<GameObject>();   // レバーON時に消したい呪いエフェクト（Inspectorでアタッチ）
+    public List<GameObject> CurseEffects = new List<GameObject>(); // レバーON時に消したい呪いエフェクト
 
-    public GameObject lever;                                // 回すレバー
-    public float RotateLever = 30f;                         // 回す角度（X度）
+    public GameObject lever;                                    // 回すレバー
+    public float RotateLever = 30f;                             // 回す角度（X度）
 
     [Header("レバー回転")]
-    public float LeverRotateSpeed = 180f;                   // 回転速度[deg/sec]
-    private bool _isLeverAnimating = false;                 // レバー演出中フラグ
+    public float LeverRotateSpeed = 180f;                       // 回転速度[deg/sec]
+    private bool _isLeverAnimating = false;                     // レバー演出中フラグ
 
     [Header("レバー音(CRI AtomSource)")]
-    public CriAtomSource LeverAtomSource;                   // レバーをガチャっとした時に鳴らす音
+    public CriAtomSource LeverAtomSource;                       // レバーをガチャっとした時に鳴らす音
 
     [Header("鍵が開く音(CRI AtomSource)")]
-    public CriAtomSource UnlockAtomSource;                  // 鍵が開いた時のSE
+    public CriAtomSource UnlockAtomSource;                      // 鍵が開いた時のSE
 
     [Header("操作対象ライト群")]
     [SerializeField] private List<Light> LightLists = new List<Light>();
 
-    // ==== 暖色の最終カラー設定 ====
+    //================
+    // 暖色の最終設定
+    //================
+
     [Header("暖色（最終の色味）")]
     public Color WarmLightColor = new Color(1.0f, 0.78f, 0.56f, 1f);
 
-    // ==== 明るさゴール設定 ====
     [Header("最終の明るさ（元の明るさに対する％）")]
     [Tooltip("例えば10にすると、最終は“最初の明るさの10%”まで落とす")]
     [Range(0f, 200f)]
     public float FinalIntensityPercent = 10f;
 
-    // ライトごとの基準Intensityを保持。初回の暖色化前にキャプチャする
+    // ライトごとの基準Intensityを保持（初回の暖色化前にキャプチャする）
     private List<float> _baselineIntensities;
     private bool _baselineCaptured = false;
 
-    // ==== ゆっくり暖色化アニメ ====
+    //================
+    // 暖色フェード演出
+    //================
+
     [Header("暖色フェード(演出中はTimeScale=0でも進む)")]
-    public float WarmifyLerpDuration = 0.5f;                // じわーっと変える秒数（実時間）
+    public float WarmifyLerpDuration = 0.5f;                    // じわーっと変える秒数（実時間）
     public AnimationCurve WarmifyCurve =
-        AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);           // 0→1のイージング
+        AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);               // 0→1のイージング
 
-    // ==== 見せカメラ ====
+    //================
+    // 見せカメラ
+    //================
+
     [Header("見せ用カメラ")]
-    public Camera MainCamera;                               // 普段のカメラ（未指定なら Camera.main）
-    public Camera ShowcaseCamera;                           // スイッチ演出を見せるカメラ
-    public float ShowcaseHoldSeconds = 0.5f;                // 色が変わったあと見せ続ける秒数(実時間)
+    public Camera MainCamera;                                   // 普段のカメラ（未指定なら Camera.main）
+    public Camera ShowcaseCamera;                               // スイッチ演出を見せるカメラ
+    public float ShowcaseHoldSeconds = 0.5f;                    // 色が変わったあと見せ続ける秒数(実時間)
 
-    private InputSystem_Actions input;                      // 新InputSystem参照
+    //================
+    // 入力 / UI
+    //================
 
-    // ==== UI系 ====
-    public TextMeshProUGUI PromptText;                      // 近づいたら出す「Eで〜」とか
-    public TextMeshProUGUI MsgText;                         // 「〜になった」メッセージ
+    private InputSystem_Actions input;                          // 新InputSystem参照
+
+    public TextMeshProUGUI PromptText;                          // 近づいたら出す「Eで〜」とか
+    public TextMeshProUGUI MsgText;                             // 「〜になった」メッセージ
 
     [Header("文言")]
-    public string PromptOn = "【E】暖色にする";              // まだ冷色で明るい→「暖色にする」
-    public string PromptOff = "【E】ライトを点ける";         // すでに暖色で暗い→「戻す」系
+    public string PromptOn = "【E】暖色にする";                  // まだ冷色で明るい→「暖色にする」
+    public string PromptOff = "【E】ライトを点ける";             // すでに暖色で暗い→「戻す」系
     public string MsgTurnedOff = "ライトが暖かい色になった";
     public string MsgTurnedOn = "ライトが点いたようだ";
 
@@ -73,7 +96,10 @@ public class LightOff : MonoBehaviour
     public float EventMsgDuration = 5.0f;
     private float _msgTimer = 0f;
 
-    // ==== 進行度・ドア連動 ====
+    //================
+    // 進行度・ドア連動
+    //================
+
     [Header("進行度参照")]
     public HintText HintRef;
     public bool AutoFindHintRef = true;
@@ -92,16 +118,25 @@ public class LightOff : MonoBehaviour
     public float ToggleDebounceSeconds = 0.25f;
     private float _lastToggleTime = -999f;
 
-    // ==== ロック系 ====
-    private bool _lockedOn = false;                         // 「一度戻したら固定ON」みたいな縛り用
+    //================
+    // ロック / 時間停止
+    //================
+
+    // 冷色へ戻した後に再操作させない用途（仕様ロック）
+    private bool _lockedOn = false;
     private bool IsLocked() => _lockedOn;
 
-    // ==== 時間停止 ====
+    // レバー演出中だけTimeScale=0にして見せる
     private bool _pausedForLever = false;
     private float _timeScaleBeforePause = 1f;
 
-    // ==== Tutorial キャッシュ ====
+    //================
+    // Tutorial / HintRef キャッシュ
+    //================
+
     private Tutorial _cachedTutorial = null;
+
+    // Tutorial参照を取得（無ければ探す）
     private Tutorial GetTutorial()
     {
         if (_cachedTutorial) return _cachedTutorial;
@@ -115,7 +150,12 @@ public class LightOff : MonoBehaviour
         return _cachedTutorial;
     }
 
-    // ==== HintText 取得の保険 ====
+    /*
+         HintText参照の保険
+         ・Inspector設定が優先
+         ・無ければTutorial経由で拾う
+         ・それでも無ければシーン内探索（AutoFindHintRef=true時）
+    */
     private HintText GetOrResolveHintRef()
     {
         if (HintRef) return HintRef;
@@ -146,6 +186,11 @@ public class LightOff : MonoBehaviour
     //==================================================
     // 基準Intensityをキャプチャ（初回だけ）
     //==================================================
+
+    /*
+         冷色（初期状態）の明るさを記録する
+         ・暖色化時の「最終 intensity = baseline × FinalIntensityPercent%」に使う
+    */
     private void CaptureBaselinesIfNeeded()
     {
         if (_baselineCaptured) return;
@@ -166,13 +211,16 @@ public class LightOff : MonoBehaviour
     //==================================================
     // ゲーム停止/再開（Time.timeScaleを0にする演出）
     //==================================================
+
+    // レバー演出の間だけTimeScaleを止める（演出はunscaledDeltaTimeで進める）
     private void PauseGameForLever()
     {
         if (_pausedForLever) return;
         _timeScaleBeforePause = Time.timeScale;
-        Time.timeScale = 0f;                // 時間停止（実時間ベースの演出で動かす）
+        Time.timeScale = 0f;
         _pausedForLever = true;
     }
+
     private void ResumeGameIfPausedForLever()
     {
         if (!_pausedForLever) return;
@@ -183,17 +231,20 @@ public class LightOff : MonoBehaviour
     //==================================================
     // Unity lifecycle
     //==================================================
+
     private void Awake()
     {
         input = new InputSystem_Actions();
 
         if (!MainCamera && Camera.main) MainCamera = Camera.main;
-        if (ShowcaseCamera) ShowcaseCamera.enabled = false; // 最初は見せカメラOFF
+        if (ShowcaseCamera) ShowcaseCamera.enabled = false;      // 最初は見せカメラOFF
     }
 
     private void OnEnable()
     {
         input.Player.Enable();
+
+        // UI初期化
         if (PromptText) { PromptText.text = ""; PromptText.gameObject.SetActive(false); }
         if (MsgText) { MsgText.text = ""; MsgText.gameObject.SetActive(false); }
     }
@@ -205,6 +256,7 @@ public class LightOff : MonoBehaviour
 
     private void OnDestroy()
     {
+        // 破棄時の後始末（例外が出ても落とさない）
         try
         {
             if (input != null)
@@ -222,29 +274,42 @@ public class LightOff : MonoBehaviour
     {
         if (!Player || !Light) return;
 
-        // プレイヤーが近い？
+        //================
+        // 距離判定
+        //================
+
         float distance = Vector3.Distance(Player.transform.position, Light.transform.position);
         bool inRange = (distance < PushDistance);
 
-        // キー案内の表示（レバー中やロック中は出さない）
+        //================
+        // 近接案内UI
+        //================
+
+        // レバー中やロック中は案内を出さない
         if (PromptText) PromptText.gameObject.SetActive(inRange && !_isLeverAnimating && !IsLocked());
         if (inRange && PromptText && !IsLocked())
         {
-            // OnLight == true → まだ冷色側だから「暖色にする」
+            // OnLight == true  → まだ冷色側だから「暖色にする」
             // OnLight == false → もう暖色側だから「ライトを点ける」
             PromptText.text = OnLight ? PromptOn : PromptOff;
         }
 
+        //================
+        // 入力
+        //================
+
         // 入力(Jumpでインタラクト想定)
         if (inRange && !_isLeverAnimating && !IsLocked() && input.Player.Jump.triggered)
         {
-            if (OnLight)
-                TurnOffToWarm();   // 冷たい白いライト → 暖色＆減光
-            else
-                TurnOnCold();      // 暖色で暗い → 明るい側に戻す
+            if (OnLight) TurnOffToWarm();                        // 冷たい白いライト → 暖色＆減光
+            else TurnOnCold();                                   // 暖色で暗い → 明るい側に戻す
         }
 
-        // メッセージの寿命（Time.timeScaleの影響を受けるほうでOK）
+        //================
+        // メッセージの寿命
+        //================
+
+        // メッセージはTime.timeScaleの影響を受ける（仕様）
         if (_msgTimer > 0f)
         {
             _msgTimer -= Time.deltaTime;
@@ -259,38 +324,46 @@ public class LightOff : MonoBehaviour
     //==================================================
     // レバー音再生
     //==================================================
+
+    /*
+         レバーSEを鳴らす
+         ・AtomSourceが未設定なら lever から拾う
+         ・CueはAtomSource側に設定されている前提
+    */
     private void PlayLeverSound()
     {
-        // Inspector でセットされたものを優先
         var src = LeverAtomSource;
 
-        // 未設定なら、レバーのGameObjectから拾う
         if (!src && lever)
-        {
             src = lever.GetComponent<CriAtomSource>();
-        }
 
         if (!src) return;
-
-        // CueはAtomSource側に設定されている前提
         src.Play();
     }
 
     //==================================================
     // 鍵が開く音再生
     //==================================================
+
+    // 鍵開きSE（CueはAtomSource側に設定されている前提）
     private void PlayUnlockSound()
     {
         var src = UnlockAtomSource;
         if (!src) return;
-
-        // Cue は AtomSource 側に設定されている前提
         src.Play();
     }
 
     //==================================================
-    // 冷色→暖色に切り替える操作（レバー＆カメラ演出込み）
+    // 冷色→暖色に切り替える（レバー＆カメラ演出込み）
     //==================================================
+
+    /*
+         暖色化の開始トリガ
+         ・ロック中は無効
+         ・連打防止のデバウンス
+         ・レバーがある場合は「回転→見せカメラ→暖色化」の流れ
+         ・レバーが無い場合は「見せカメラ→暖色化」の流れ
+    */
     private void TurnOffToWarm()
     {
         if (IsLocked()) return;
@@ -301,9 +374,7 @@ public class LightOff : MonoBehaviour
         {
             if (!_isLeverAnimating)
             {
-                // ★ レバーをガチャっとしたタイミングで音を鳴らす
                 PlayLeverSound();
-
                 StartCoroutine(CoRotateLeverThenShowcaseThenWarmify());
             }
         }
@@ -313,13 +384,15 @@ public class LightOff : MonoBehaviour
         }
     }
 
-    // レバーあり版：
-    // 1. 時間止める
-    // 2. レバー回す（unscaledDeltaTimeで進行）
-    // 3. 見せカメラON
-    // 4. ライトを徐々に暖色＆減光（基準比％まで）
-    // 5. 少し見せる
-    // 6. カメラ戻す / メッセージ / 進行度アップ / 時間戻す
+    /*
+         レバーあり版
+         1) TimeScale停止
+         2) レバー回転（unscaledDeltaTime）
+         3) 見せカメラON
+         4) 暖色＆減光（unscaledDeltaTime）
+         5) 見せ続ける（WaitForSecondsRealtime）
+         6) カメラ戻す → 副作用処理 → TimeScale復帰
+    */
     private IEnumerator CoRotateLeverThenShowcaseThenWarmify()
     {
         _isLeverAnimating = true;
@@ -332,6 +405,7 @@ public class LightOff : MonoBehaviour
         float endX = startX + RotateLever;
         float rotDur = Mathf.Max(0.01f, Mathf.Abs(RotateLever) / Mathf.Max(1f, LeverRotateSpeed));
         float t = 0f;
+
         while (t < rotDur)
         {
             t += Time.unscaledDeltaTime;
@@ -340,34 +414,32 @@ public class LightOff : MonoBehaviour
             tf.localEulerAngles = euler;
             yield return null;
         }
-        // 最終角
+
+        // 最終角を固定
         euler = tf.localEulerAngles; euler.x = endX; tf.localEulerAngles = euler;
 
-        // 見せカメラON
         SwitchToShowcaseCamera();
 
-        // ライトをゆっくり暖色へ
         yield return StartCoroutine(CoWarmifyLightsGradually());
 
-        // その状態で見せておく
         yield return new WaitForSecondsRealtime(Mathf.Max(0f, ShowcaseHoldSeconds));
 
-        // カメラ戻す
         SwitchBackToMainCamera();
 
-        // 後処理（メッセージ・進行度など）
         AfterWarmifySideEffects();
 
         _isLeverAnimating = false;
         ResumeGameIfPausedForLever();
     }
 
-    // レバーなし版：
-    // 1. 時間止める
-    // 2. 見せカメラON
-    // 3. 暖色フェード
-    // 4. 見せ続ける
-    // 5. カメラ戻す / 後処理 / 時間戻す
+    /*
+         レバーなし版
+         1) TimeScale停止
+         2) 見せカメラON
+         3) 暖色＆減光（unscaledDeltaTime）
+         4) 見せ続ける（WaitForSecondsRealtime）
+         5) カメラ戻す → 副作用処理 → TimeScale復帰
+    */
     private IEnumerator CoOnlyShowcaseThenWarmify()
     {
         PauseGameForLever();
@@ -386,19 +458,21 @@ public class LightOff : MonoBehaviour
     }
 
     //==================================================
-    // CoWarmifyLightsGradually
-    //
-    // ・呼ばれた瞬間のライト状態(色/明るさ)をスタートとする
-    // ・最終カラーは WarmLightColor
-    // ・最終明るさは「最初に記録した基準Intensity × FinalIntensityPercent%」
-    // ・Time.timeScale=0 でも unscaledDeltaTime でちゃんと進む
+    // 暖色化（色＆明るさを徐々に変える）
     //==================================================
+
+    /*
+         暖色フェード
+         ・開始時点の色/明るさを出発点とする
+         ・最終カラーは WarmLightColor
+         ・最終明るさは baseline × FinalIntensityPercent%
+         ・TimeScale=0でも unscaledDeltaTime で進む
+    */
     private IEnumerator CoWarmifyLightsGradually()
     {
-        // ライトの基準強度をまだ記録してなければここで記録
         CaptureBaselinesIfNeeded();
 
-        // 今の状態を出発点として保存
+        // 出発点（現在値）を保存
         var startColors = new List<Color>(LightLists.Count);
         var startIntensities = new List<float>(LightLists.Count);
         for (int i = 0; i < LightLists.Count; i++)
@@ -414,7 +488,6 @@ public class LightOff : MonoBehaviour
             startIntensities.Add(l.intensity);
         }
 
-        // 目標側：色は WarmLightColor、強さは baseline × percent
         float percent = Mathf.Max(0f, FinalIntensityPercent) * 0.01f;
 
         float dur = Mathf.Max(0.01f, WarmifyLerpDuration);
@@ -435,7 +508,7 @@ public class LightOff : MonoBehaviour
                 Color toC = WarmLightColor;
                 l.color = Color.Lerp(fromC, toC, eased);
 
-                // intensityを補間
+                // intensityを補間（baseline × percent に向ける）
                 float baseI = (_baselineIntensities != null && i < _baselineIntensities.Count)
                                 ? _baselineIntensities[i]
                                 : startIntensities[i];
@@ -461,20 +534,25 @@ public class LightOff : MonoBehaviour
             l.intensity = baseI * percent;
         }
 
-        // 今はもう「暖色モード」ってことにする
         OnLight = false;
         Debug.Log($"[LightOff] Warmify done. Final = baseline × {FinalIntensityPercent:F1}%");
     }
 
     //==================================================
-    // 暖色化後にやる副作用（UIメッセージ / ゴースト消す / 進行度進める etc.）
+    // 暖色化後の副作用（演出・進行・破棄）
     //==================================================
+
+    /*
+         暖色化が終わった後に起きること
+         ・ゴースト破棄 / 呪いエフェクト破棄
+         ・メッセージ表示
+         ・Hint進行 + Tutorial経由でドア反映
+         ・鍵開きSE
+    */
     private void AfterWarmifySideEffects()
     {
-        // ゴースト消す
         if (Ghost) Destroy(Ghost.gameObject);
 
-        // 呪いエフェクトをすべて破棄
         if (CurseEffects != null)
         {
             foreach (var eff in CurseEffects)
@@ -484,10 +562,8 @@ public class LightOff : MonoBehaviour
             }
         }
 
-        // メッセージ表示
         ShowEventMessage(MsgTurnedOff);
 
-        // 進行度を進める（必ず進めたいので保険付き）
         var hint = GetOrResolveHintRef();
         if (hint)
         {
@@ -495,20 +571,17 @@ public class LightOff : MonoBehaviour
             {
                 int before = hint.ProgressStage;
 
-                // 普通にAdvance
                 for (int i = 0; i < Mathf.Max(1, AdvanceAmountOnOff); i++)
                     hint.AdvanceProgress();
 
-                // 動かなかったら強制Set
+                // 動かなかったら強制Set（保険）
                 if (hint.ProgressStage == before)
-                {
                     hint.SetProgress(before + Mathf.Max(1, AdvanceAmountOnOff));
-                }
 
                 int after = hint.ProgressStage;
                 Debug.Log($"[LightOff] Warmify progress: {before} -> {after} (HintRef={hint.GetInstanceID()})");
 
-                // ドアもちゃんと開けたい場合の保険
+                // ドアを開ける反映（Tutorial経由）
                 var tut = GetTutorial();
                 if (tut)
                 {
@@ -520,7 +593,6 @@ public class LightOff : MonoBehaviour
                     tut.ReapplyDoorByCurrentProgress();
                 }
 
-                // ★ 鍵が開いたタイミングでSE再生
                 PlayUnlockSound();
 
                 _alreadyCounted = true;
@@ -534,8 +606,6 @@ public class LightOff : MonoBehaviour
             {
                 tut.ForceUnlockDoors();
                 tut.ReapplyDoorByCurrentProgress();
-
-                // ★ こちらの経路でもドアを開けたのでSE再生
                 PlayUnlockSound();
             }
         }
@@ -544,31 +614,33 @@ public class LightOff : MonoBehaviour
     //==================================================
     // 逆方向：ライトを明るい側(冷色)に戻す
     //==================================================
+
+    /*
+         暖色→冷色の復帰
+         ・intensityを baseline に戻す（色は現状維持）
+         ・必要ならここで Color.white などに戻す処理を追加できる（コメントに記載）
+         ・戻した後はロックして再操作不可にする（仕様）
+    */
     private void TurnOnCold()
     {
         if (IsLocked()) return;
         if (Time.time - _lastToggleTime < ToggleDebounceSeconds) return;
         _lastToggleTime = Time.time;
 
-        // 基準キャプチャがまだなら一応取る
         CaptureBaselinesIfNeeded();
 
-        // 明るい側に戻すイメージ：
-        // - intensity は baseline に戻す
-        // - 色は現在の色のまま or 好きなら白っぽい色に戻す処理をここで入れる
         for (int i = 0; i < LightLists.Count; i++)
         {
             var l = LightLists[i];
             if (!l) continue;
 
-            // baselineに戻す
             float baseI = (_baselineIntensities != null && i < _baselineIntensities.Count)
                             ? _baselineIntensities[i]
                             : l.intensity;
             l.intensity = baseI;
 
             // 必要なら「冷たい白」に戻したい場合はここでやる
-            // 例: l.color = Color.white; とか
+            // 例: l.color = Color.white;
         }
 
         OnLight = true;
@@ -588,7 +660,7 @@ public class LightOff : MonoBehaviour
             if (tut) tut.ReapplyDoorByCurrentProgress();
         }
 
-        // 明るい側に戻したらもう触らせたくないならロック
+        // 明るい側に戻したら、以降は触らせない仕様
         _lockedOn = true;
         if (PromptText) PromptText.gameObject.SetActive(false);
     }
@@ -596,6 +668,8 @@ public class LightOff : MonoBehaviour
     //==================================================
     // カメラ切り替え
     //==================================================
+
+    // 見せカメラに切り替える（MainCameraが未設定ならCamera.mainを拾う）
     private void SwitchToShowcaseCamera()
     {
         if (!MainCamera && Camera.main) MainCamera = Camera.main;
@@ -607,6 +681,7 @@ public class LightOff : MonoBehaviour
         }
     }
 
+    // 通常カメラに戻す
     private void SwitchBackToMainCamera()
     {
         if (ShowcaseCamera) ShowcaseCamera.enabled = false;
@@ -617,6 +692,8 @@ public class LightOff : MonoBehaviour
     //==================================================
     // メッセージ表示
     //==================================================
+
+    // イベントメッセージを一定時間表示する
     private void ShowEventMessage(string msg)
     {
         if (!MsgText) return;

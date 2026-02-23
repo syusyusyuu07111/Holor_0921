@@ -2,37 +2,72 @@
 using TMPro;
 using UnityEngine;
 
-// キャラクターが３つ目の部屋に入った時に幽霊が出てくるから急いで隠れるギミックです============================================================================
+// =================================================================================================
+// HideArie
+//
+// 核：
+// 「第3の部屋に入る → 一定時間後にゴースト出現 → プレイヤーは急いで隠れる」ギミック
+//
+// 体験の流れ：
+// 1) Trigger に入るとイベント開始（1回だけ）
+// 2) AttackWaitTime 後にゴースト出現（Door位置）
+// 3) プレイヤーが隠れていないならゴーストが追跡（Follow）
+// 4) プレイヤーが隠れている間はゴーストが徘徊（Wander）
+// 5) 一定時間（GhostLifetime）でゴーストは消滅演出→Destroy
+// 6) 終了処理：追跡/徘徊停止、怒りエフェクト停止、隠れ解除、カメラ復帰
+//
+// 入力：Interact で「隠れる/解除」
+// カメラ：隠れ中は SubCamera を有効（ゴースト方向を見る）
+// 演出：怒り（追跡）中だけ AngryEffect を表示（徘徊や消滅中はOFF）
+//
+// 注意：外部参照（InputSystem_Actions / HidePlace / Door / GhostPrefab 等）を壊さないため
+//       public 変数名は極力維持しています。
+// =================================================================================================
 public class HideArie : MonoBehaviour
 {
+    // =============================================================================================
+    // インスペクタ設定（音）
+    // =============================================================================================
     public AudioSource audioSource = null;
     public AudioClip KnockSe;
     public AudioClip KnockVoice;
 
-    public bool Hide = false;                // 隠れているか
-    public GameObject HidePlace;             // 隠れる場所
+    // =============================================================================================
+    // 隠れギミック（基本）
+    // =============================================================================================
+    public bool Hide = false;                // 隠れているか（現在状態）
+    public GameObject HidePlace;             // 隠れる場所（距離判定の基準）
     InputSystem_Actions input;
     public float HideDistance;               // 隠れる判定距離
     public GameObject Player;                // プレイヤー
     public TextMeshProUGUI text;             // 「隠れる」ガイダンス
     public Transform HidePosition;           // 隠れたときに移動させる位置
 
+    // =============================================================================================
+    // ゴースト出現～寿命
+    // =============================================================================================
     public float AttackWaitTime = 5.0f;     // 侵入後、襲いに来るまでの待ち時間
-    public GameObject Ghost;                 // 幽霊のプレハブ
+    public GameObject Ghost;                 // 幽霊プレハブ
     public GameObject Door;                  // 出現位置などに使う参照
 
-    public float GhostSpeed = 2.0f;          // 追跡時の移動速度
-    public float GhostStopDistance = 0f;   // プレイヤーに近づきすぎたら停止する距離
-    public float GhostLifetime = 10f;        // 幽霊の寿命（出現からこの秒数で消える）
+    public float GhostSpeed = 2.0f;          // 追跡移動速度
+    public float GhostStopDistance = 0f;     // 近づきすぎたら停止する距離
+    public float GhostLifetime = 10f;        // 出現からこの秒数で消える
 
-    // カメラ（Display切替は使わず、enabled の切替のみ）
-    public Camera MainCamera;                // 通常時に使うカメラ
-    public Camera SubCamera;                 // 隠れている間に使うカメラ（常に幽霊の方向を向く）
+    // =============================================================================================
+    // カメラ（隠れ中だけ切り替え）
+    // =============================================================================================
+    public Camera MainCamera;                // 通常カメラ
+    public Camera SubCamera;                 // 隠れ中カメラ（ゴーストを見る）
 
-    // 一度起動したら二度と起動しないためのフラグ
+    // =============================================================================================
+    // 1回だけ起動するためのフラグ
+    // =============================================================================================
     private bool started = false;
 
-    // 隠れる前のプレイヤー位置/回転を記録
+    // =============================================================================================
+    // 隠れる前のプレイヤー位置/回転を記録（解除時に戻す）
+    // =============================================================================================
     private Vector3 savedPlayerPos;
     private Quaternion savedPlayerRot;
     private bool savedPlayerValid = false;
@@ -43,61 +78,74 @@ public class HideArie : MonoBehaviour
     // 生成した幽霊の参照
     private GameObject currentghost;
 
+    // =============================================================================================
+    // 消滅アニメ
+    // =============================================================================================
     [Header("Disappear Animation")]
     public string DisappearBoolName = "IsDisappearing";           // Animator Bool
     public string DisappearStateTag = "GhostDisappearStateTag";   // 消えるステートのTag
 
-    //  インタラクトの連打で“入って即解除”を防ぐクールダウン
+    // Interact 連打で「入って即解除」を防ぐ
     private float interactCooldownUntil = 0f; // この時刻までは解除判定を無視
 
-    // 二重生成防止フラグ
+    // 二重生成防止
     private bool isSpawningGhost = false;
 
-    // 消え処理（VFX待ち）中フラグ
+    // 消え処理中（VFX待ちなど）フラグ
     private bool isEnding = false;
 
-    // 統合: Enemy2 の徘徊パラメータ（隠れている間の探索挙動） ==========================
+    // =============================================================================================
+    // 徘徊（Enemy2 風）…プレイヤーが隠れている間だけ使う
+    // =============================================================================================
     [Header("Wander (Enemy2 style)")]
     [SerializeField] private float _playerBaseSpeed = 5f; // プレイヤー基準速度
     [SerializeField] private float _enemySpeed = 1.3f;    // 速度倍率（徘徊用）
     [SerializeField] private float _rotationSpeed = 180f; // 旋回速度(度/秒)
-    [SerializeField] private float _rayDistance = 1.5f;   // 前方レイの距離
+    [SerializeField] private float _rayDistance = 1.5f;   // 前方レイ距離
     [Tooltip("家具など障害物のタグ名（Enemy2は\"Furniture\"を使用）")]
     public string ObstacleTag = "Furniture";
-    // ================================================================================
 
-    // コルーチン参照と前回のHide状態
+    // =============================================================================================
+    // コルーチン参照と前回状態（Hide の切替で Follow/Wander を入れ替える）
+    // =============================================================================================
     Coroutine followCo;
     Coroutine wanderCo;
     bool prevHide = false;
 
+    // =============================================================================================
+    // VFX（消滅）
+    // =============================================================================================
     [Header("VFX")]
-    public GameObject GhostDisappearVfx;   // 消えるときに出すエフェクト（任意）
-    public float VfxLifetime = 1.5f;       // VFXが完全に終わるまでの目安（Particleが無ければこれで待つ）
+    public GameObject GhostDisappearVfx;   // 消えるときのエフェクト（任意）
+    public float VfxLifetime = 1.5f;       // パーティクルが無い時の待ち目安
 
-    // --------------------------------------------------------------------------------
-    // ここから【追加：怒り（追跡）エフェクト】
+    // =============================================================================================
+    // 怒り（追跡）エフェクト
+    // =============================================================================================
     [Header("Angry (Chasing) Effect")]
-    [Tooltip("追跡中にゴーストの頭上などに出すエフェクトのPrefab（ParticleSystem推奨）")]
+    [Tooltip("追跡中にゴースト頭上などに出すエフェクトPrefab（ParticleSystem推奨）")]
     public GameObject AngryEffectPrefab;
 
     [Tooltip("怒りエフェクトのオフセット（ゴーストのローカル座標）")]
     public Vector3 AngryEffectLocalOffset = new Vector3(0f, 1.6f, 0f);
 
-    [Tooltip("true=ゴーストの子にして追従（軽い） / false=Updateで毎フレーム追従（指示通り）")]
+    [Tooltip("true=ゴーストの子にして追従（軽い） / false=Updateで毎フレーム追従")]
     public bool ParentEffectToGhost = true;
 
-    [Tooltip("追跡中のみ表示。徘徊中は非表示にする")]
+    [Tooltip("追跡中のみ表示。徘徊中は非表示")]
     public bool ShowOnlyWhileChasing = true;
 
-    private Transform angryFx;             // インスタンス
+    private Transform angryFx;             // 生成したエフェクト
     private ParticleSystem angryFxPs;      // キャッシュ
-    // --------------------------------------------------------------------------------
 
+    // =============================================================================================
+    // Awake / Enable
+    // =============================================================================================
     private void Awake()
     {
         input = new InputSystem_Actions();
     }
+
     private void OnEnable()
     {
         input.Player.Enable();
@@ -107,18 +155,31 @@ public class HideArie : MonoBehaviour
     {
         if (text) text.gameObject.SetActive(false);
 
-        if (MainCamera) { MainCamera.enabled = true; }
-        if (SubCamera) { SubCamera.enabled = false; }
+        // カメラは Main ON / Sub OFF で開始
+        if (MainCamera) MainCamera.enabled = true;
+        if (SubCamera) SubCamera.enabled = false;
 
+        // AudioListener もカメラに合わせて切替
         var ml = MainCamera ? MainCamera.GetComponent<AudioListener>() : null;
         var sl = SubCamera ? SubCamera.GetComponent<AudioListener>() : null;
         if (ml) ml.enabled = true;
         if (sl) sl.enabled = false;
     }
 
+    // =============================================================================================
+    // Update
+    //
+    // ここは「入力と状態管理」の心臓部
+    // - HidePlace に近い時に “隠れる” を許可
+    // - Hide 中は “解除” と “自動解除” を監視
+    // - Hide 状態が切り替わったタイミングで Follow/Wander を切替
+    // - 怒りエフェクトの追従更新
+    // =============================================================================================
     void Update()
     {
-        // 隠れる場所に近づいたらテキスト表示／隠れる処理
+        // --------------------------------------------
+        // 1) 隠れポイントに近い時だけ「隠れる」入力を受け付ける
+        // --------------------------------------------
         if (Player && HidePlace)
         {
             float distance = Vector3.Distance(Player.transform.position, HidePlace.transform.position);
@@ -127,8 +188,10 @@ public class HideArie : MonoBehaviour
             {
                 if (text) text.gameObject.SetActive(true);
 
+                // Interact で “隠れる” （未Hideの時だけ）
                 if (input.Player.Interact.WasPressedThisFrame() && !Hide)
                 {
+                    // 解除用にプレイヤーの元位置を保存
                     if (!savedPlayerValid)
                     {
                         savedPlayerPos = Player.transform.position;
@@ -136,39 +199,54 @@ public class HideArie : MonoBehaviour
                         savedPlayerValid = true;
                     }
 
+                    // 隠れ位置へ移動
                     if (HidePosition) Player.transform.position = HidePosition.position;
                     Hide = true;
 
+                    // テキストは出したままでも良い（演出的に必要なら）
                     if (text && !text.gameObject.activeSelf) text.gameObject.SetActive(true);
 
                     SwitchToSubCamera();
 
+                    // 連打による即解除防止
                     interactCooldownUntil = Time.time + 0.15f;
                 }
             }
             else
             {
+                // 隠れていないならガイドを消す
                 if (!Hide && text) text.gameObject.SetActive(false);
             }
         }
 
-        // 隠れている最中
+        // --------------------------------------------
+        // 2) Hide 中の処理
+        // - SubCamera はゴースト方向を見る
+        // - Interact で解除（クールダウン後）
+        // - HidePosition から離れたら自動解除
+        // --------------------------------------------
         if (Hide)
         {
-            if (SubCamera && currentghost) SubCamera.transform.LookAt(currentghost.transform.position);
+            if (SubCamera && currentghost)
+            {
+                SubCamera.transform.LookAt(currentghost.transform.position);
+            }
 
             if (text && !text.gameObject.activeSelf) text.gameObject.SetActive(true);
 
+            // 手動解除
             if (Time.time >= interactCooldownUntil && input.Player.Interact.WasPressedThisFrame())
             {
                 ExitHide(false);
                 interactCooldownUntil = Time.time + 0.15f;
             }
 
+            // 自動解除（横移動しすぎ）
             if (HidePosition && Player)
             {
                 Vector3 p = Player.transform.position; p.y = 0f;
                 Vector3 h = HidePosition.position; h.y = 0f;
+
                 if (Vector3.Distance(p, h) > AutoExitDistance)
                 {
                     ExitHide(false);
@@ -177,28 +255,34 @@ public class HideArie : MonoBehaviour
             }
         }
 
-        // Hide の切替時に 追跡↔徘徊 を入れ替え
+        // --------------------------------------------
+        // 3) Hide 状態の切替タイミングで
+        //    ゴーストAIを「追跡(Follow) ⇄ 徘徊(Wander)」入れ替える
+        // --------------------------------------------
         if (currentghost != null)
         {
+            // Hide に入った瞬間：追跡を止めて徘徊へ（怒りエフェクトOFF）
             if (Hide && !prevHide)
             {
                 StopFollow();
                 StartWander();
-                // 追跡エフェクトは消す/止める
+
                 if (ShowOnlyWhileChasing) HideAngryFx();
             }
+            // Hide を抜けた瞬間：徘徊を止めて追跡へ（怒りエフェクトON）
             else if (!Hide && prevHide)
             {
                 StopWander();
                 StartFollow();
-                // 追跡エフェクトを再開
+
                 ShowAngryFx();
             }
         }
         prevHide = Hide;
 
-        // -----------------------------------------
-        // エフェクト追従（非親子の場合）＆寿命監視
+        // --------------------------------------------
+        // 4) 怒りエフェクト追従（親子にしない設定時）
+        // --------------------------------------------
         if (angryFx)
         {
             if (!ParentEffectToGhost && currentghost)
@@ -212,9 +296,11 @@ public class HideArie : MonoBehaviour
             // ゴースト消滅に伴う後始末の取りこぼし防止
             angryFxPs = null;
         }
-        // -----------------------------------------
     }
 
+    // =============================================================================================
+    // Trigger：イベント開始（1回だけ）
+    // =============================================================================================
     private void OnTriggerEnter(Collider other)
     {
         if (other.tag == "Player")
@@ -226,23 +312,30 @@ public class HideArie : MonoBehaviour
 
                 if (audioSource && KnockSe) audioSource.PlayOneShot(KnockSe);
 
+                // 1回イベントならトリガーを無効化
                 var col = GetComponent<Collider>();
                 if (col) col.enabled = false;
             }
         }
     }
 
+    // =============================================================================================
+    // Encount：侵入→待機→ゴースト出現
+    // =============================================================================================
     IEnumerator Encount()
     {
-        // KnockSe 再生後、何があっても AttackWaitTime 後に必ず出現させる
+        // KnockSe 再生後、何があっても AttackWaitTime 後に出現
         yield return new WaitForSeconds(AttackWaitTime);
 
-        // 生成時点で追跡するかを決める（この瞬間 Hide なら追跡しない）
+        // 出現した瞬間に Hide 中なら追跡せず徘徊から開始
         bool chaseOnSpawn = !Hide;
 
         SpawnGhostIfNeeded(true, chaseOnSpawn);
     }
 
+    // =============================================================================================
+    // ゴースト寿命：一定時間で消滅開始
+    // =============================================================================================
     IEnumerator GhostLifetimeRoutine()
     {
         yield return new WaitForSeconds(GhostLifetime);
@@ -253,6 +346,9 @@ public class HideArie : MonoBehaviour
         }
     }
 
+    // =============================================================================================
+    // 消滅開始：アニメBoolを立てて、怒りエフェクトOFF、待ってDestroy
+    // =============================================================================================
     void StartDisappear(GameObject g)
     {
         if (g == null) return;
@@ -271,17 +367,21 @@ public class HideArie : MonoBehaviour
         StartCoroutine(WaitDisappearAndDestroy(g, anim));
     }
 
+    // =============================================================================================
+    // 消滅アニメ＋VFX完了待ち → Destroy → 終了処理
+    // =============================================================================================
     IEnumerator WaitDisappearAndDestroy(GameObject g, Animator anim)
     {
         const int layer = 0;
-        float enterSafety = 5f;       // タグのステートに入るまでの最大待機
+        float enterSafety = 5f;       // タグステートに入るまでの最大待機
         float stateLen = 0f;          // 実時間のステート長（speed補正後）
-        float stateEnterTime = 0f;    // ステートに入った時刻（Time.time）
+        float stateEnterTime = 0f;    // ステートに入った時刻
 
-        GameObject vfx = null;        // 生成したVFXを保持
+        GameObject vfx = null;
 
         if (anim != null && !string.IsNullOrEmpty(DisappearStateTag))
         {
+            // タグに入るまで待つ（最大 enterSafety 秒）
             float t = 0f;
             while (t < enterSafety)
             {
@@ -297,30 +397,32 @@ public class HideArie : MonoBehaviour
                 yield return null;
             }
 
+            // 入らなかった保険
             if (stateLen <= 0f)
             {
                 stateLen = 1.0f;
                 stateEnterTime = Time.time;
             }
 
+            // 終了1秒前ぐらいにVFXを出す（演出意図）
             float untilVfx = Mathf.Max(0f, stateLen - 1f);
             float elapsed = Time.time - stateEnterTime;
             float waitToVfx = Mathf.Max(0f, untilVfx - elapsed);
             if (waitToVfx > 0f) yield return new WaitForSeconds(waitToVfx);
 
-            Vector3 vfxPos = g.transform.position;
-            Quaternion vfxRot = g.transform.rotation;
             if (GhostDisappearVfx != null)
             {
-                vfx = Instantiate(GhostDisappearVfx, vfxPos, vfxRot);
+                vfx = Instantiate(GhostDisappearVfx, g.transform.position, g.transform.rotation);
                 if (VfxLifetime > 0f) Destroy(vfx, VfxLifetime);
             }
 
+            // 残りのアニメ時間を待つ
             float remaining = Mathf.Max(0f, (stateLen - (Time.time - stateEnterTime)));
             if (remaining > 0f) yield return new WaitForSeconds(remaining);
         }
         else
         {
+            // タグやAnimatorが無い時のフォールバック
             if (GhostDisappearVfx != null)
             {
                 vfx = Instantiate(GhostDisappearVfx, g.transform.position, g.transform.rotation);
@@ -329,9 +431,11 @@ public class HideArie : MonoBehaviour
             yield return new WaitForSeconds(1.0f);
         }
 
+        // ゴースト本体を消す
         if (g != null) Destroy(g);
         currentghost = null;
 
+        // VFXが残っているなら終了まで待つ
         float vfxWait = GetVfxRemainTime(vfx);
         if (vfxWait > 0f) yield return new WaitForSeconds(vfxWait);
 
@@ -339,12 +443,16 @@ public class HideArie : MonoBehaviour
         isEnding = false;
     }
 
+    // =============================================================================================
+    // VFXの残り時間推定（ParticleSystemのduration + lifetime）
+    // =============================================================================================
     float GetVfxRemainTime(GameObject vfx)
     {
         if (vfx == null) return 0f;
 
         var pss = vfx.GetComponentsInChildren<ParticleSystem>(true);
         float maxDur = 0f;
+
         foreach (var ps in pss)
         {
             var main = ps.main;
@@ -370,7 +478,10 @@ public class HideArie : MonoBehaviour
                 life = main.startLifetime.constant;
 
             float total = dur + life;
-            if (main.loop) { total = VfxLifetime > 0 ? VfxLifetime : 0f; }
+
+            // ループの場合は寿命指定があるならそれに寄せる
+            if (main.loop) total = VfxLifetime > 0 ? VfxLifetime : 0f;
+
             if (total > maxDur) maxDur = total;
         }
 
@@ -378,6 +489,9 @@ public class HideArie : MonoBehaviour
         return maxDur;
     }
 
+    // =============================================================================================
+    // 追跡：Hideしていない間だけプレイヤーへ向かう
+    // =============================================================================================
     IEnumerator FollowGhost()
     {
         while (currentghost != null && Player != null && !Hide)
@@ -390,6 +504,7 @@ public class HideArie : MonoBehaviour
                 Vector3 dir = to.normalized;
                 currentghost.transform.position += dir * Time.deltaTime * GhostSpeed;
 
+                // 向きをプレイヤー方向へ
                 if (dir.sqrMagnitude > 0.0001f)
                 {
                     currentghost.transform.rotation = Quaternion.Slerp(
@@ -402,6 +517,7 @@ public class HideArie : MonoBehaviour
             yield return null;
         }
 
+        // 追跡中にゴーストが消えた場合の後始末
         if (currentghost == null)
         {
             if (!isEnding)
@@ -411,19 +527,24 @@ public class HideArie : MonoBehaviour
         }
     }
 
-    // 統合: Enemy2 の徘徊ロジック（隠れている間だけ動作） =====================================================================================
+    // =============================================================================================
+    // 徘徊（Enemy2風）
+    // Hide 中だけ動作：障害物をレイで見て左右に回避しつつ前進する
+    // =============================================================================================
     IEnumerator WanderGhost()
     {
         if (currentghost == null) yield break;
 
         Rigidbody rb = currentghost.GetComponent<Rigidbody>();
         float speed = _playerBaseSpeed * _enemySpeed;
+
         bool isRotating = false;
         int turnDirection = 1;
         Quaternion targetRot = currentghost.transform.rotation;
 
         while (currentghost != null && Hide)
         {
+            // 旋回中は回転だけ進める
             if (isRotating)
             {
                 currentghost.transform.rotation =
@@ -438,51 +559,44 @@ public class HideArie : MonoBehaviour
                 continue;
             }
 
+            // 前方障害物チェック
             RaycastHit hit;
-            if (Physics.Raycast(currentghost.transform.position,
-                                currentghost.transform.forward,
-                                out hit, _rayDistance))
+            if (Physics.Raycast(currentghost.transform.position, currentghost.transform.forward, out hit, _rayDistance))
             {
-                if (hit.collider && hit.collider.CompareTag(ObstacleTag))
-                {
-                    turnDirection = (Random.Range(0, 2) == 0) ? 1 : -1;
-                    Vector3 side = Vector3.Cross(currentghost.transform.forward, Vector3.up).normalized * turnDirection;
-                    targetRot = Quaternion.LookRotation(side, Vector3.up);
-                }
-                else
-                {
-                    Vector3 side = Vector3.Cross(currentghost.transform.forward, Vector3.up).normalized *
-                                   ((Random.Range(0, 2) == 0) ? 1 : -1);
-                    targetRot = Quaternion.LookRotation(side, Vector3.up);
-                }
+                // 家具タグなら強めに回避、それ以外もとりあえず避ける
+                turnDirection = (Random.Range(0, 2) == 0) ? 1 : -1;
+
+                Vector3 side = Vector3.Cross(currentghost.transform.forward, Vector3.up).normalized * turnDirection;
+                targetRot = Quaternion.LookRotation(side, Vector3.up);
 
                 isRotating = true;
                 yield return null;
                 continue;
             }
 
+            // 何もなければ前進
             Vector3 nextPos = currentghost.transform.position + currentghost.transform.forward * speed * Time.deltaTime;
-            if (rb != null)
-            {
-                rb.MovePosition(nextPos);
-            }
-            else
-            {
-                currentghost.transform.position = nextPos;
-            }
+            if (rb != null) rb.MovePosition(nextPos);
+            else currentghost.transform.position = nextPos;
 
             yield return null;
         }
     }
-    // ==============================================================================
+
+    // =============================================================================================
+    // 終了処理（ゴースト終了時に必ず通す）
+    // =============================================================================================
     void OnGhostEnd()
     {
         StopFollow();
         StopWander();
-        HideAngryFx(true);    // 念のため消す
+        HideAngryFx(true);    // 念のため破棄
         ExitHide(false);
     }
 
+    // =============================================================================================
+    // 隠れ解除：位置を戻して、カメラも戻す
+    // =============================================================================================
     void ExitHide(bool _notUsedRespawn)
     {
         StopFollow();
@@ -500,7 +614,10 @@ public class HideArie : MonoBehaviour
         SwitchToMainCamera();
     }
 
-    // ゴースト生成を一元管理。生成時点で追跡させるか（chaseOnSpawn）を指定
+    // =============================================================================================
+    // ゴースト生成（入口）
+    // 生成時点で追跡させるか（chaseOnSpawn）を指定する
+    // =============================================================================================
     void SpawnGhostIfNeeded(bool fromEncount, bool chaseOnSpawn)
     {
         if (currentghost != null) return;
@@ -517,32 +634,43 @@ public class HideArie : MonoBehaviour
 
         if (currentghost == null && Ghost && Door)
         {
+            // Door位置に生成
             currentghost = Instantiate(Ghost, Door.transform.position, Quaternion.identity);
 
+            // Encount由来じゃない場合のみ声を鳴らす（設計意図がそうなら）
             if (audioSource && KnockVoice && !fromEncount)
             {
                 audioSource.PlayOneShot(KnockVoice);
             }
 
-            // 生成直後に怒りエフェクトを接続（追跡なら表示、徘徊なら隠す）
+            // 怒りエフェクトは生成直後に接続
             EnsureAngryFxAttached();
             if (chaseOnSpawn) ShowAngryFx();
             else HideAngryFx();
 
+            // 寿命カウント開始
             StartCoroutine(GhostLifetimeRoutine());
 
-            if (chaseOnSpawn) { StartFollow(); } else { StartWander(); }
+            // 初期AIモード
+            if (chaseOnSpawn) StartFollow();
+            else StartWander();
         }
 
         isSpawningGhost = false;
     }
 
-    // 追跡/徘徊の開始・停止
+    // =============================================================================================
+    // 追跡/徘徊の開始・停止（コルーチン管理）
+    // =============================================================================================
     void StartFollow() { StopFollow(); followCo = StartCoroutine(FollowGhost()); }
     void StopFollow() { if (followCo != null) { StopCoroutine(followCo); followCo = null; } }
+
     void StartWander() { StopWander(); wanderCo = StartCoroutine(WanderGhost()); }
     void StopWander() { if (wanderCo != null) { StopCoroutine(wanderCo); wanderCo = null; } }
 
+    // =============================================================================================
+    // カメラ切替（AudioListenerも同期）
+    // =============================================================================================
     void SwitchToSubCamera()
     {
         if (MainCamera)
@@ -558,6 +686,7 @@ public class HideArie : MonoBehaviour
             if (sl) sl.enabled = true;
         }
     }
+
     void SwitchToMainCamera()
     {
         if (MainCamera)
@@ -574,13 +703,14 @@ public class HideArie : MonoBehaviour
         }
     }
 
-    // --------------------------------------------------------------------
-    // ここから【怒りエフェクト制御】
+    // =============================================================================================
+    // 怒りエフェクト制御
+    // =============================================================================================
     void EnsureAngryFxAttached()
     {
         if (angryFx || !AngryEffectPrefab || !currentghost) return;
 
-        // 「Head」等のアンカーがあれば使う（任意）
+        // Head という子があればそこに付ける（任意）
         Transform anchor = currentghost.transform.Find("Head");
         Vector3 spawnPos = (anchor ? anchor.position : currentghost.transform.TransformPoint(AngryEffectLocalOffset));
 
@@ -635,6 +765,4 @@ public class HideArie : MonoBehaviour
             angryFx.gameObject.SetActive(false);
         }
     }
-    // ここまで【追加：怒りエフェクト制御】
-    // --------------------------------------------------------------------
 }

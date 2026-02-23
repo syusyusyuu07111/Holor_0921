@@ -1,13 +1,38 @@
 using UnityEngine;
 
+// ======================================================
+// GhostRotateFix
+//
+// 役割:
+// 指定したTargetの方向を常に向かせるための補助スクリプト
+//
+// 使いどころ:
+// ・幽霊が常にプレイヤーの方を向くようにしたい時
+// ・モデルの向き補正用
+// ・追跡AIと組み合わせて「向きだけ」制御したい時
+//
+// 動き:
+// 毎フレーム transform.LookAt(Target) を実行するだけ
+// ======================================================
 public class GhostRotateFix : MonoBehaviour
 {
+    // 向き続ける対象
+    // 例: プレイヤーTransform
     public Transform Target;
 
-
-    // Update is called once per frame
+    // ==================================================
+    // Update
+    //
+    // 毎フレーム呼ばれる
+    // Targetの位置を向くように回転を更新する
+    //
+    // LookAtは
+    // 「自分のforward(Z+)をTarget方向へ向ける」処理
+    // ==================================================
     void Update()
     {
+        // Targetが未設定だとエラーになる可能性があるため
+        // 実運用ではnullチェックを入れるのもあり
         transform.LookAt(Target);
     }
 }

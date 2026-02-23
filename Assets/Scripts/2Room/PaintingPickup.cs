@@ -1,3 +1,13 @@
+/*
+このスクリプトは、落下した絵（Painting）をプレイヤーが拾えるようにする処理です。
+
+主な役割
+・絵が「落ちた状態(IsDropped=true)」になったら拾える判定を開始する
+・プレイヤーが拾える距離内に入ったら「拾うテキスト」を表示する
+・一定時間（落下直後の誤操作防止）を過ぎていて、かつ Interact 入力が押されたら拾う
+・拾ったらパズル管理（PaintingPuzzleManager）のフラグを更新し、絵を消す
+*/
+
 using UnityEngine;
 using TMPro;
 using UnityEngine.InputSystem;
@@ -35,12 +45,16 @@ public class PaintingPickup : MonoBehaviour
     [Header("デバッグログを出すか")]
     [SerializeField] private bool _debugLog = true;
 
-    private bool _isPickedUp = false;      // 拾ったかどうか
+    // すでに拾った後に二重に拾えないようにするフラグ
+    private bool _isPickedUp = false;
 
+    // InputSystem（Interact 判定用）
     private InputSystem_Actions _input;
 
+    // 初期化：参照チェック、拾うテキスト非表示、入力インスタンス生成
     private void Awake()
     {
+        // 拾うテキストは初期は非表示にする（拾える距離に入った時だけ見せる）
         if (_pickupText != null)
         {
             _pickupText.gameObject.SetActive(false);
@@ -50,28 +64,35 @@ public class PaintingPickup : MonoBehaviour
             Debug.LogWarning($"[{name}] _pickupText が設定されていません。テキストは表示されません。");
         }
 
+        // 親の Painting が未設定だと「落ちたかどうか」判定ができない
         if (_painting == null && _debugLog)
         {
             Debug.LogError($"[{name}] _painting が設定されていません。親の Painting をインスペクタで割り当ててください。");
         }
 
+        // プレイヤーが未設定だと距離判定ができない
         if (_playerTransform == null && _debugLog)
         {
             Debug.LogWarning($"[{name}] _playerTransform が設定されていません。距離判定ができません。");
         }
 
+        // InputActions を生成（有効化は OnEnable で行う）
         _input = new InputSystem_Actions();
     }
 
+    // 有効化：Input を有効にして Interact が読める状態にする
     private void OnEnable()
     {
+        // Disable→Enable のタイミングで _input が破棄されている可能性に備えて作り直す
         if (_input == null)
         {
             _input = new InputSystem_Actions();
         }
+
         _input.Player.Enable();
     }
 
+    // 無効化：Input を無効にして不要な入力読み取りを止める
     private void OnDisable()
     {
         if (_input != null)
@@ -80,37 +101,48 @@ public class PaintingPickup : MonoBehaviour
         }
     }
 
+    // 毎フレーム：拾える状態かどうかの判定、テキスト表示、入力による拾い処理
     private void Update()
     {
+        // すでに拾っていたら何もしない（多重実行防止）
         if (_isPickedUp) return;
+
+        // 参照が無い場合は判定できないので何もしない
         if (_playerTransform == null) return;
         if (_painting == null) return;
 
-        // まだ落ちてない間は何もしない（テキストも出さない）
+        // まだ絵が落ちていない間は拾えない（テキストも出さない）
         if (!_painting.IsDropped)
         {
+            // 「落ちる前に拾うUIが出る」事故を防ぐ
+            SetTextVisible(false);
+
             if (_debugLog)
             {
                 Debug.Log($"[{name}] まだ落ちていません。IsDropped={_painting.IsDropped}");
             }
 
-            SetTextVisible(false);
             return;
         }
 
-        // 落ちてからの経過時間（同じ入力で即拾われるのが嫌ならここで少し待つ）
+        // 落ちてから何秒経ったかを計算する
+        // 意図：落下した瞬間の入力がそのまま拾いに繋がるのを防ぐ（誤操作防止）
         float elapsedFromDrop = Time.time - _painting.DroppedTime;
 
-        // プレイヤーとの距離（高さは無視）
+        // プレイヤーとの距離を計算する（高さは無視してXZ距離だけで判定する）
+        // 意図：上下階などで誤判定しないようにしたい場合はここを調整する
         Vector3 p = _playerTransform.position;
         Vector3 e = transform.position;
         p.y = 0f;
         e.y = 0f;
 
         float distance = Vector3.Distance(e, p);
+
+        // 拾える距離内かどうか
         bool inRange = distance <= _pickupDistance;
 
-        // ★ 表示条件：落ちている ＋ 距離内
+        // 拾うテキストの表示条件
+        // 意図：落ちている＋距離内の時だけ表示する
         SetTextVisible(inRange);
 
         if (_debugLog)
@@ -118,14 +150,15 @@ public class PaintingPickup : MonoBehaviour
             Debug.Log($"[{name}] inRange={inRange} 距離={distance:F2}, elapsedFromDrop={elapsedFromDrop:F2}");
         }
 
-        // ★ 拾える条件：
-        // ・落ちている（ここまで来てる時点でIsDropped=true）
-        // ・距離内
-        // ・落ちてから_minPickupDelayFromDrop秒以上経過
+        // 拾える条件をまとめる
+        // 条件：
+        // ・距離内にいる
+        // ・落ちてから一定時間が経過している（誤操作防止）
         bool canPickup =
             inRange &&
             elapsedFromDrop >= _minPickupDelayFromDrop;
 
+        // 条件が揃っていて、Interact が押されたら拾う
         if (canPickup && _input.Player.Interact.WasPressedThisFrame())
         {
             if (_debugLog)
@@ -137,8 +170,10 @@ public class PaintingPickup : MonoBehaviour
         }
     }
 
+    // 拾うテキストの表示/非表示を切り替える
     private void SetTextVisible(bool visible)
     {
+        // テキスト未設定なら表示できないので抜ける（ゲーム進行は止めない）
         if (_pickupText == null)
         {
             if (_debugLog)
@@ -148,6 +183,7 @@ public class PaintingPickup : MonoBehaviour
             return;
         }
 
+        // UI をON/OFFする
         _pickupText.gameObject.SetActive(visible);
 
         if (_debugLog)
@@ -156,11 +192,14 @@ public class PaintingPickup : MonoBehaviour
         }
     }
 
+    // 絵を拾ったときの処理（フラグ更新、UI消し、オブジェクト非表示）
     private void Pickup()
     {
+        // 多重実行防止のため、最初に拾った扱いにする
         _isPickedUp = true;
 
-        // パズル用フラグON
+        // パズル側のフラグを更新する
+        // 意図：A/Bそれぞれ拾ったかどうかを PuzzleManager が見て進行管理する
         if (_puzzleManager != null)
         {
             switch (_paintingType)
@@ -168,13 +207,19 @@ public class PaintingPickup : MonoBehaviour
                 case PaintingType.PaintingA:
                     _puzzleManager.pickedUpPaintingA = true;
                     break;
+
                 case PaintingType.PaintingB:
                     _puzzleManager.pickedUpPaintingB = true;
+                    break;
+
+                // None はハズレ扱い（フラグは更新しない）
+                case PaintingType.None:
+                default:
                     break;
             }
         }
 
-        // 拾ったらテキストを消す
+        // 拾ったら表示していたテキストを消す
         SetTextVisible(false);
 
         if (_debugLog)
@@ -182,12 +227,15 @@ public class PaintingPickup : MonoBehaviour
             Debug.Log($"[{name}] Pickup 完了。絵を非表示にします。");
         }
 
+        // 親の Painting を消す（Rigidbody付きの落下オブジェクト側を消したい想定）
+        // 意図：Pickup側だけ消して親が残る事故を防ぐ
         if (_painting != null)
         {
             _painting.gameObject.SetActive(false);
         }
         else
         {
+            // 念のため、親が無ければこのオブジェクトを消す
             gameObject.SetActive(false);
         }
     }

@@ -3,10 +3,21 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using TMPro;
 using UnityEngine.Events;
-using CriWare;   // ★ CRI用
+using CriWare;   // CRI
+
+/*
+     プレイヤーをクローゼットに隠れさせる
+     ・近くのクローゼットを探して、Interactで出入りする
+     ・隠れ中は位置固定 / 移動スクリプト停止 / 衝突無視 / 任意で重力停止
+     ・ドアを少し開けて“隙間アンカー”としてカメラを制限する（任意）
+*/
 
 public class HideCroset : MonoBehaviour
 {
+    //================
+    // Inspector参照
+    //================
+
     public Transform Player;                                    // プレイヤー
     public List<Transform> CrosetLists = new List<Transform>(); // クローゼット候補
     public bool hide = false;                                   // 隠れ中か
@@ -15,7 +26,10 @@ public class HideCroset : MonoBehaviour
     [Header("各クローゼットに対応するドア（CrosetLists と同じ順番で並べる）")]
     public List<Transform> DoorList = new List<Transform>();    // i番目のクローゼットのドアは DoorList[i]
 
-    [Header("ドア演出（共通設定）")]
+    //================
+    // ドア演出（共通）
+    //================
+
     public bool UseRotationInstead = false;                     // false: 平行移動 / true: 回転
     public Vector3 ShiftAxis = Vector3.right;                   // 平行移動のローカル軸
     public float ShiftValue = 0.3f;                             // 平行移動量
@@ -24,12 +38,20 @@ public class HideCroset : MonoBehaviour
     public float ShiftDuration = 0.15f;                         // 補間時間（入った時だけ使用）
     public AnimationCurve ShiftCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
 
+    //================
+    // 位置調整
+    //================
+
     [Header("位置調整（Inspectorで変更可・実行中も可）")]
     public float OffsetForward = 0.30f;                         // 奥方向（+で内側）
     public float OffsetRight = 0.00f;                           // 右
     public float OffsetUp = 0.00f;                              // 上（ベース）
     public float InteractRadius = 1.6f;                         // 隠れられる半径
     public MonoBehaviour[] MovementScriptsToDisable;            // 隠れ中だけ無効化する移動系
+
+    //================
+    // UI
+    //================
 
     [Header("UI（隠れ案内）")]
     public TextMeshProUGUI PromptText;                          // 「【E】隠れる」
@@ -38,6 +60,10 @@ public class HideCroset : MonoBehaviour
     [Header("イベント（Tutorialが購読）")]
     public UnityEvent OnFirstHidePromptShown;                   // 初めて案内が出た瞬間
 
+    //================
+    // 隠れ中テキスト
+    //================
+
     [Header("隠れ中のテキスト差し替え")]
     [TextArea] public string HiddenPromptMessage = "……（息を潜める）";
     public bool RewriteTextWhileHidden = true;                  // 隠れ開始で差し替える
@@ -45,14 +71,21 @@ public class HideCroset : MonoBehaviour
     public UnityEvent<string> OnPromptRewritten;                // 差し替え時コールバック（任意）
     public UnityEvent<string> OnPromptRestored;                 // 復元時コールバック（任意）
 
+    //================
+    // クローゼット内の浮き / 重力
+    //================
+
     [Header("クローゼット内の浮き/重力")]
     public float HiddenYOffset = 0.20f;                         // 隠れ時のY持ち上げ（台座ぶん）
     public bool DisableGravityWhileHidden = true;               // 隠れ中は重力を切る
     public bool MakeKinematicWhileHidden = true;                // 隠れ中はkinematic化（任意）
 
-    // ── カメラ連携 ──
+    //================
+    // カメラ（任意）
+    //================
+
     [Header("カメラ参照（隠れ中演出）")]
-    public TPSCamera TPS;                                       // 任意：未割り当てなら何もしない
+    public TPSCamera TPS;                                       // 未割り当てなら何もしない
 
     [Header("隠れ中のカメラ距離（差分方式：任意）")]
     public bool EnableHiddenDistance = true;
@@ -67,39 +100,59 @@ public class HideCroset : MonoBehaviour
     [Header("カメラ衝突（隠れ中は無効化）")]
     public bool DisableCameraCollisionWhileHidden = true;
 
-    // ★ Door を“隙間アンカー”に使う
-    [Header("★ 隙間アンカー：Door を使う")]
-    public bool UseDoorAsGap = true;                             // true: Door をアンカーに
-    public Vector3 DoorGapLocalOffset = new Vector3(0f, 0f, 0.02f); // ドアローカル位置補正（前に少し）
-    public Vector3 DoorGapForwardAxis = Vector3.forward;         // 「穴の向き」に使うローカル軸
-    public bool InvertDoorGapFacing = false;                     // 反転（奥/手前の切替）
-    [Tooltip("穴の方向をさらに調整する角度（度数）。+で右へ、-で左へ。")]
-    public float DoorGapYawOffsetDeg = 0f;                       // 向きの微調整
+    //================
+    // 隙間アンカー（Door）
+    //================
 
-    // 旧：プレイヤー基準アンカー（残すだけ）
+    [Header("隙間アンカー：Door を使う")]
+    public bool UseDoorAsGap = true;                              // true: Door をアンカーに
+    public Vector3 DoorGapLocalOffset = new Vector3(0f, 0f, 0.02f); // ドアローカル位置補正（前に少し）
+    public Vector3 DoorGapForwardAxis = Vector3.forward;          // 「穴の向き」に使うローカル軸
+    public bool InvertDoorGapFacing = false;                      // 反転（奥/手前の切替）
+    [Tooltip("穴の方向をさらに調整する角度（度数）。+で右へ、-で左へ。")]
+    public float DoorGapYawOffsetDeg = 0f;                        // 向きの微調整
+
+    //================
+    // 旧アンカー（残すだけ）
+    //================
+
     [Header("（旧）プレイヤー基準アンカー")]
     public bool UseGapAnchorWhileHidden = false;
     public float GapOffsetX = 0.00f;
     public float GapOffsetZ = 0.20f;
     public float GapOffsetY = 0.00f;
 
-    [Header("★ 視界制限（隠れ中だけ前方180°）")]
-    public float HiddenYawHalfAngle = 90f;                      // 左右の半角（90=180°）
+    //================
+    // 視界制限 / 見回し / 可視性
+    //================
+
+    [Header("視界制限（隠れ中だけ前方180°）")]
+    public float HiddenYawHalfAngle = 90f;                        // 左右の半角（90=180°）
 
     [Header("隠れ中の見回し")]
-    public bool AllowLookAroundWhileHidden = true;              // 穴方向を中心に±90°
+    public bool AllowLookAroundWhileHidden = true;                // 穴方向を中心に±90°
 
     [Header("隠れ中のプレイヤー可視性")]
-    public bool HidePlayerWhileHidden = true;                   // 隠れている間はプレイヤー非表示
+    public bool HidePlayerWhileHidden = true;                     // 隠れている間はプレイヤー非表示
+
+    //================
+    // SE
+    //================
 
     [Header("隠れるSE（CRI）")]
-    public CriAtomSource HideSeSource;                          // ★ 隠れた瞬間に鳴らすSE
+    public CriAtomSource HideSeSource;                            // 隠れた瞬間に鳴らすSE
 
-    // ───── 内部退避 ─────
+    //================
+    // 内部退避
+    //================
+
     private bool _prevKeepFixed = false;
     private bool _keepFixedSaved = false;
 
-    // ───────── 内部状態 ─────────
+    //================
+    // 内部状態
+    //================
+
     private Transform _currentCloset;
     private int _currentClosetIndex = -1;
     private Transform _currentDoor;
@@ -121,8 +174,12 @@ public class HideCroset : MonoBehaviour
     private Coroutine _doorTween;
 
     // プレイヤー見た目の退避
-    private Renderer[] _playerRenderers;                        // 子含む全Renderer
+    private Renderer[] _playerRenderers;                          // 子含む全Renderer
     private readonly List<bool> _rendererPrevEnabled = new List<bool>(); // enabledの退避
+
+    //================
+    // Unity Lifecycle
+    //================
 
     private void Awake()
     {
@@ -131,7 +188,7 @@ public class HideCroset : MonoBehaviour
 
         _playerCols = Player.GetComponentsInChildren<Collider>(true);
         _playerRBs = Player.GetComponentsInChildren<Rigidbody>(true);
-        _playerRenderers = Player.GetComponentsInChildren<Renderer>(true); // ★ 追加
+        _playerRenderers = Player.GetComponentsInChildren<Renderer>(true);
 
         // DoorList の初期ローカル姿勢をキャッシュ
         for (int i = 0; i < DoorList.Count; i++)
@@ -142,6 +199,7 @@ public class HideCroset : MonoBehaviour
             if (!_doorRotDefault.ContainsKey(d)) _doorRotDefault.Add(d, d.localRotation);
         }
 
+        // UIは初期状態で非表示
         if (PromptText)
         {
             PromptText.text = "";
@@ -152,7 +210,7 @@ public class HideCroset : MonoBehaviour
     private void OnEnable()
     {
         Input.Player.Enable();
-        Input.Player.Interact.started += OnInterect; // 「E」など（押した瞬間）
+        Input.Player.Interact.started += OnInterect;              // Interact押下
     }
 
     private void OnDisable()
@@ -160,13 +218,10 @@ public class HideCroset : MonoBehaviour
         Input.Player.Interact.started -= OnInterect;
         Input.Player.Disable();
 
-        // 隠れたまま無効化された場合でも必ず全ドアをリセット（shift=0）
+        // 無効化されても、ドア・見た目・カメラは必ず復帰させる
         ResetAllDoorsImmediate();
-
-        // ★ 無効化時でも見た目は戻す
         if (HidePlayerWhileHidden) SetPlayerVisible(true);
 
-        // カメラ設定の復帰
         if (TPS)
         {
             TPS.UseHiddenDistance = false;
@@ -186,7 +241,7 @@ public class HideCroset : MonoBehaviour
 
     private void OnDestroy()
     {
-        // 念のため：破棄時も全ドアをリセット
+        // 破棄時も全ドアをリセット
         ResetAllDoorsImmediate();
     }
 
@@ -195,11 +250,19 @@ public class HideCroset : MonoBehaviour
         // 隠れ中は位置を固定（物理は触らず position のみ）
         if (hide) Player.position = _lockedInsidePos;
 
-        // 近接案内UIの制御（表示/非表示）
         UpdateHidePromptUI();
     }
 
-    // 近接案内UIと初回イベント
+    //================
+    // UI制御
+    //================
+
+    /*
+         近接案内UIの制御
+         ・隠れ中は文面を差し替えて表示を維持する
+         ・非隠れ時は最寄りクローゼットが範囲内なら表示する
+         ・初回表示時にイベントを投げる（Tutorial用）
+    */
     private void UpdateHidePromptUI()
     {
         if (!PromptText) return;
@@ -220,7 +283,7 @@ public class HideCroset : MonoBehaviour
             return;
         }
 
-        // 非隠れ時
+        // 非隠れ時：近くに入れるクローゼットがあるか判定して表示/非表示
         var closet = FindNearestCloset(out int idx);
         bool canHideHere = closet && (Player.position - GetClosetCenter(closet)).sqrMagnitude <= InteractRadius * InteractRadius;
 
@@ -245,7 +308,11 @@ public class HideCroset : MonoBehaviour
         }
     }
 
-    // Interact 入力
+    //================
+    // Input
+    //================
+
+    // Interact入力
     private void OnInterect(InputAction.CallbackContext _)
     {
         if (hide) { ExitCloset(); return; }
@@ -257,7 +324,15 @@ public class HideCroset : MonoBehaviour
         }
     }
 
-    // 最寄りクローゼット検索（インデックスも返す）
+    //================
+    // クローゼット検索
+    //================
+
+    /*
+         最寄りクローゼット検索
+         ・CrosetLists が設定されている場合はそこから探す（idxが返る）
+         ・CrosetLists が空の場合は周囲をOverlapSphereで探す（idxは -1）
+    */
     private Transform FindNearestCloset(out int closetIndex)
     {
         float best = float.MaxValue;
@@ -272,7 +347,7 @@ public class HideCroset : MonoBehaviour
             if (d < best) { best = d; pick = t; closetIndex = i; }
         }
 
-        // リスト未設定なら周囲サーチ（この場合は配列対応不可）
+        // リスト未設定なら周囲サーチ（この場合はDoorListとの対応は取れない）
         if (!pick && CrosetLists.Count == 0)
         {
             Collider[] hits = Physics.OverlapSphere(Player.position, InteractRadius, ~0, QueryTriggerInteraction.Collide);
@@ -286,7 +361,17 @@ public class HideCroset : MonoBehaviour
         return pick;
     }
 
-    // 入る（瞬間ワープ：position）
+    //================
+    // 入る / 出る
+    //================
+
+    /*
+         入る（瞬間ワープ：position）
+         ・衝突無視ON
+         ・位置をクローゼット内に固定
+         ・重力/移動/見た目/カメラを隠れ状態にする
+         ・Doorがあるなら少し開ける（補間）
+    */
     private void EnterCloset(Transform closet, int closetIndex)
     {
         _currentCloset = closet;
@@ -301,7 +386,7 @@ public class HideCroset : MonoBehaviour
         Vector3 offset =
               (closet.forward * -OffsetForward)
             + (closet.right * OffsetRight)
-            + (Vector3.up * (OffsetUp + HiddenYOffset)); // 隠れ時はYをさらに持ち上げる
+            + (Vector3.up * (OffsetUp + HiddenYOffset));          // 隠れ時はYをさらに持ち上げる
 
         Vector3 targetPos = center + offset;
         Player.position = targetPos;
@@ -314,19 +399,15 @@ public class HideCroset : MonoBehaviour
         SetMovementEnabled(false);
         hide = true;
 
-        // ★ 隠れた瞬間にSEを再生
-        if (HideSeSource != null)
-        {
-            HideSeSource.Play();
-        }
+        // 隠れた瞬間にSE
+        if (HideSeSource != null) HideSeSource.Play();
 
-        // ★ 隠れ中はプレイヤー非表示
+        // 隠れ中はプレイヤー非表示
         if (HidePlayerWhileHidden) SetPlayerVisible(false);
 
         // 対応ドア（＝隙間アンカー）
         _currentDoor = null;
-        if (closetIndex >= 0 && closetIndex < DoorList.Count)
-            _currentDoor = DoorList[closetIndex];
+        if (closetIndex >= 0 && closetIndex < DoorList.Count) _currentDoor = DoorList[closetIndex];
 
         if (_currentDoor)
         {
@@ -334,7 +415,7 @@ public class HideCroset : MonoBehaviour
             if (!_doorPosDefault.ContainsKey(_currentDoor)) _doorPosDefault[_currentDoor] = _currentDoor.localPosition;
             if (!_doorRotDefault.ContainsKey(_currentDoor)) _doorRotDefault[_currentDoor] = _currentDoor.localRotation;
 
-            StartDoorShift(true); // ← 入る時だけ補間で開ける
+            StartDoorShift(true);                                 // 入る時だけ補間で開ける
         }
 
         // 隠れ開始時点で文面を差し替え、表示を維持
@@ -346,13 +427,13 @@ public class HideCroset : MonoBehaviour
             if (!PromptText.gameObject.activeSelf) PromptText.gameObject.SetActive(true);
         }
 
-        // ★ カメラ設定（Door を“隙間アンカー”に）
+        // カメラ設定（Door を“隙間アンカー”に）
         if (TPS)
         {
-            // 距離寄せ / 覗き前進
             TPS.HiddenDistanceDelta = HiddenDistanceDelta;
             TPS.HiddenDistanceLerp = HiddenDistanceLerp;
             TPS.UseHiddenDistance = EnableHiddenDistance;
+
             TPS.AllowFrontWhenHidden = EnableFrontWhenHidden;
             TPS.PeekForward = PeekForward;
             TPS.PeekForwardLerp = PeekForwardLerp;
@@ -377,16 +458,16 @@ public class HideCroset : MonoBehaviour
                 if (InvertDoorGapFacing) dirW = -dirW;
 
                 float yawCenter = Mathf.Atan2(dirW.x, dirW.z) * Mathf.Rad2Deg;
-                yawCenter += DoorGapYawOffsetDeg; // ★ Yaw微調整
+                yawCenter += DoorGapYawOffsetDeg;
 
                 TPS.HiddenYawCenter = yawCenter;
-                TPS.HiddenYawHalfAngle = Mathf.Abs(HiddenYawHalfAngle); // 例：90=前方180°
+                TPS.HiddenYawHalfAngle = Mathf.Abs(HiddenYawHalfAngle);
                 TPS.EnableHiddenYawClamp = true;
 
                 // 初期向きも穴方向へ
                 TPS.yaw = yawCenter;
 
-                // LookAt 固定は使わず見回し（±半角）に任せる
+                // LookAt固定は使わず、YawClamp内で見回す
                 TPS.UseHiddenLookAt = false;
                 TPS.HiddenLookAt = null;
             }
@@ -399,11 +480,13 @@ public class HideCroset : MonoBehaviour
                     TPS.HiddenAnchor = Player;
                     TPS.HiddenAnchorLocalOffset = new Vector3(GapOffsetX, GapOffsetY, GapOffsetZ);
                 }
+
                 TPS.UseHiddenLookAt = false;
                 TPS.HiddenLookAt = null;
 
                 Vector3 dir = Player.forward;
                 float yawCenter = Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg;
+
                 TPS.HiddenYawCenter = yawCenter;
                 TPS.HiddenYawHalfAngle = Mathf.Abs(HiddenYawHalfAngle);
                 TPS.EnableHiddenYawClamp = true;
@@ -412,30 +495,33 @@ public class HideCroset : MonoBehaviour
         }
     }
 
-    // 出る（元の位置へ）
+    /*
+         出る（元の位置へ）
+         ・衝突無視OFF
+         ・Rigidbody状態復帰
+         ・移動/見た目/ドア/カメラを元へ戻す
+         ・UI文面は元に戻す（表示/非表示は距離判定に任せる）
+    */
     private void ExitCloset()
     {
         Player.position = _cachedPos;
         ToggleIgnoreClosetCollision(false);
         _closetCols.Clear();
 
-        // 重力/運動を復元
         RestoreRBState();
 
         SetMovementEnabled(true);
         hide = false;
 
-        // ★ 退出時に表示を元へ
         if (HidePlayerWhileHidden) SetPlayerVisible(true);
 
-        // ★ 出たらすべてのshiftを0に（全ドアを即リセット）
+        // 出たら全ドアを即リセット（shift=0）
         ResetAllDoorsImmediate();
 
         _currentCloset = null;
         _currentClosetIndex = -1;
         _currentDoor = null;
 
-        // 解除：テキストを元の文面に戻す（表示/非表示は距離・視界ロジックに任せる）
         if (RestoreTextOnExit && PromptText)
         {
             string next = string.IsNullOrEmpty(PromptMessage) ? "【E】隠れる" : PromptMessage;
@@ -443,7 +529,6 @@ public class HideCroset : MonoBehaviour
             OnPromptRestored?.Invoke(next);
         }
 
-        // カメラ設定を復帰
         if (TPS)
         {
             TPS.UseHiddenDistance = false;
@@ -460,6 +545,10 @@ public class HideCroset : MonoBehaviour
             }
         }
     }
+
+    //================
+    // 位置 / 衝突 / 移動
+    //================
 
     // クローゼットの中心
     private Vector3 GetClosetCenter(Transform closet)
@@ -496,14 +585,21 @@ public class HideCroset : MonoBehaviour
         }
     }
 
-    // プレイヤー表示/非表示の切り替え
+    //================
+    // 見た目（Renderer）
+    //================
+
+    /*
+         プレイヤー表示/非表示の切り替え
+         ・非表示にする時、Renderer.enabled を退避して全OFF
+         ・表示に戻す時、退避した enabled を復元
+    */
     private void SetPlayerVisible(bool visible)
     {
         if (_playerRenderers == null || _playerRenderers.Length == 0) return;
 
         if (visible)
         {
-            // 退避した enabled を復元
             for (int i = 0; i < _playerRenderers.Length; i++)
             {
                 var r = _playerRenderers[i];
@@ -515,7 +611,6 @@ public class HideCroset : MonoBehaviour
         }
         else
         {
-            // 現在の enabled を退避して全てOFF
             _rendererPrevEnabled.Clear();
             _rendererPrevEnabled.Capacity = _playerRenderers.Length;
             for (int i = 0; i < _playerRenderers.Length; i++)
@@ -528,7 +623,15 @@ public class HideCroset : MonoBehaviour
         }
     }
 
-    // Rigidbody状態のキャッシュ＆適用
+    //================
+    // Rigidbody状態
+    //================
+
+    /*
+         Rigidbody状態のキャッシュ＆適用
+         ・元の useGravity / isKinematic を退避
+         ・速度は0にして、必要なら重力OFF / kinematic化
+    */
     private void CacheAndApplyRBState(bool disableGravity, bool makeKinematic)
     {
         if (_playerRBs == null || _playerRBs.Length == 0) return;
@@ -579,7 +682,15 @@ public class HideCroset : MonoBehaviour
         _rbPrevKinematic.Clear();
     }
 
-    // ───────── ドア補間（開くときのみ使用） ─────────
+    //================
+    // ドア補間
+    //================
+
+    /*
+         ドアを少し開ける（開くときのみ補間）
+         ・toOpenGap=true で隙間を作る
+         ・ResetAllDoorsImmediate() で全ドア即リセット
+    */
     private void StartDoorShift(bool toOpenGap)
     {
         if (!_currentDoor) return;
@@ -589,11 +700,9 @@ public class HideCroset : MonoBehaviour
 
     private System.Collections.IEnumerator CoDoorShift(bool toOpenGap)
     {
-        // 基準姿勢
         Vector3 basePos = _doorPosDefault.TryGetValue(_currentDoor, out var p) ? p : _currentDoor.localPosition;
         Quaternion baseRot = _doorRotDefault.TryGetValue(_currentDoor, out var r) ? r : _currentDoor.localRotation;
 
-        // 目標
         Vector3 targetPos = basePos;
         Quaternion targetRot = baseRot;
 
@@ -634,7 +743,7 @@ public class HideCroset : MonoBehaviour
         _doorTween = null;
     }
 
-    // ★ 全ドアの shift を 0 に（即時リセット）
+    // 全ドアの shift を 0 に（即時リセット）
     public void ResetAllDoorsImmediate()
     {
         if (_doorTween != null) { StopCoroutine(_doorTween); _doorTween = null; }
@@ -652,6 +761,10 @@ public class HideCroset : MonoBehaviour
             else { _doorRotDefault[d] = d.localRotation; }
         }
     }
+
+    //================
+    // Debug
+    //================
 
     // デバッグ表示
     private void OnDrawGizmosSelected()

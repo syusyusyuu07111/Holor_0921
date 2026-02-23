@@ -1,6 +1,51 @@
 ﻿using UnityEngine;
 using System.Collections;
 
+/*
+     このスクリプトがやること
+
+     目的：
+     ゴーストが「プレイヤーを見つけたら追跡する」処理をまとめたスクリプト。
+
+     大きく分けて 4つ の仕事がある。
+
+     1) トリガーで「見つけた」を検知する
+        ・OnTriggerEnter で Player が入ったら「見つけた」扱い
+        ・初回だけカメラ演出を入れる（cutOnlyOnce=true のとき）
+        ・追跡をすぐ始めるか、演出が終わってから始めるか選べる（deferChaseUntilCutDone）
+
+     2) 追跡中はゴーストをプレイヤーへ移動させる
+        ・Update 中、isChasing=true の間だけ動く
+        ・水平移動のみ（Yは無視）
+        ・stopDistance より近い時は止めてめり込みを防ぐ
+        ・向きをプレイヤー方向へ向けつつ前進する
+
+     3) 追跡開始/終了で「怒りエフェクト」を出す
+        ・追跡開始時に angryEffectPrefab を生成して表示する
+        ・追跡終了時に消す（effectGraceSecondsOnStop で少し残すことも可能）
+        ・parentEffectToGhost=true なら親子付け、false なら毎フレーム位置同期
+
+     4) 追跡中に「詰まり」状態になったら解除する（Unstuck）
+        ・一定時間ほとんど動いていない＝詰まり と判定する
+        ・前方に障害物があれば手前へ押し出す
+        ・それでもダメなら少し前へワープする
+        ・最終手段として一瞬だけ Collider を Trigger 化して通り抜ける（usePhaseThrough=true）
+
+     カメラ演出について（CutLookAtGhostAndZoomRoutine）：
+     ・mainCamera は Transform を絶対に変更しない（enabled の ON/OFF だけ）
+     ・lookCamera を一時的に有効化して、以下を行う
+        ① 幽霊の方向へ向ける（lookToGhostSeconds）
+        ② 幽霊へ寄る（zoomSeconds / stopDistanceFromGhost）
+        ③ 少し保持（holdSeconds）
+        ④ deferChaseUntilCutDone=true の場合、このタイミングで追跡を開始する
+        ⑤ 追跡開始後も sub を postChaseReturnSeconds だけ維持する
+        ⑥ mainCamera に戻す
+
+     「追跡をやめる」条件について：
+     ・chaseForeverAfterTriggered=true なら、OnTriggerExit では追跡を止めない
+     ・false の時だけエリア外で追跡終了する
+*/
+
 public class PlayerChase : MonoBehaviour
 {
     // ================== 参照 ==================
@@ -146,7 +191,9 @@ public class PlayerChase : MonoBehaviour
     // ================== メインループ ==================
     private void Update()
     {
-        // 追従移動
+        //================
+        // 追従移動（追跡中だけ）
+        //================
         if (isChasing && Player && Ghost)
         {
             Vector3 toPlayer = Player.position - Ghost.position;
@@ -167,7 +214,9 @@ public class PlayerChase : MonoBehaviour
             }
         }
 
+        //================
         // 怒りエフェクト追従＆停止処理
+        //================
         if (angryEffectInstance)
         {
             if (!parentEffectToGhost && Ghost)
@@ -191,11 +240,19 @@ public class PlayerChase : MonoBehaviour
             }
         }
 
+        //================
         // 詰まり検知＆解除
+        //================
         UnstuckTick(Time.deltaTime);
     }
 
     // ================== 怒りエフェクト ==================
+    /*
+         SpawnAngryEffect
+         ・追跡開始時に呼ぶ
+         ・Prefabが設定されていれば生成して表示する
+         ・既に存在する場合は Particle をリスタートする
+    */
     private void SpawnAngryEffect()
     {
         if (!angryEffectPrefab || !Ghost) return;
@@ -229,6 +286,12 @@ public class PlayerChase : MonoBehaviour
         effectStopTimer = effectGraceSecondsOnStop;
     }
 
+    /*
+         BeginStopAngryEffect
+         ・追跡終了時に呼ぶ
+         ・effectGraceSecondsOnStop が 0 なら即消し
+         ・>0 ならタイマーで遅延消し
+    */
     private void BeginStopAngryEffect()
     {
         if (angryEffectInstance)
@@ -246,12 +309,30 @@ public class PlayerChase : MonoBehaviour
     }
 
     // ================== カメラ演出 ==================
+    /*
+         StartCutLookAtGhostAndZoom
+         ・演出の入口
+         ・必要な参照が揃っていて、演出が走っていなければ開始する
+    */
     private void StartCutLookAtGhostAndZoom()
     {
         if (cutRunning || !lookCamera || !mainCamera || !Ghost) return;
         StartCoroutine(CutLookAtGhostAndZoomRoutine());
     }
 
+    /*
+         CutLookAtGhostAndZoomRoutine
+
+         ① mainCamera OFF / lookCamera ON
+         ② lookCamera を幽霊方向へ向ける
+         ③ lookCamera を幽霊に寄せる
+         ④ holdSeconds だけ保持
+         ⑤ deferChaseUntilCutDone=true の時、ここで追跡を開始する
+         ⑥ 追跡開始後も postChaseReturnSeconds だけサブで見せる
+         ⑦ lookCamera OFF / mainCamera ON に戻す
+
+         ※ mainCamera の Transform は触らない（位置を記録するだけ）
+    */
     private IEnumerator CutLookAtGhostAndZoomRoutine()
     {
         cutRunning = true;
@@ -304,18 +385,18 @@ public class PlayerChase : MonoBehaviour
         // ③ 保持（静止見せ。不要なら0でスキップ）
         if (holdSeconds > 0f) yield return new WaitForSeconds(holdSeconds);
 
-        // ④ ★ここで追跡開始★（＝メイン復帰の前に危機感を作る）
+        // ④ ★ここで追跡開始★
         if (deferChaseUntilCutDone)
         {
             isChasing = true;
             SpawnAngryEffect();
         }
 
-        // ⑤ 追跡を postChaseReturnSeconds だけサブで見せ続ける
+        // ⑤ サブを維持して“追跡開始直後の怖さ”を見せる
         float wait = Mathf.Max(0f, postChaseReturnSeconds);
         if (wait > 0f) yield return new WaitForSeconds(wait);
 
-        // ⑥ メイン復帰（操作感を戻す）
+        // ⑥ メイン復帰
         lookCamera.enabled = false;
         mainCamera.enabled = true;
 
@@ -323,6 +404,11 @@ public class PlayerChase : MonoBehaviour
     }
 
     // ================== Unstuck 実装 ==================
+    /*
+         UnstuckTick
+         ・追跡中だけ判定する
+         ・移動速度が一定以下の状態が stuckCheckSeconds 続いたら TryUnstuck を実行
+    */
     private void UnstuckTick(float dt)
     {
         if (!isChasing) { _stuckTimer = 0f; _lastPos = transform.position; return; }
@@ -344,6 +430,12 @@ public class PlayerChase : MonoBehaviour
         _lastPos = transform.position;
     }
 
+    /*
+         TryUnstuck
+         ・前方に障害物があるなら「手前に押し出す」→ダメなら「面の向こうへ軽ワープ」
+         ・前方に何も無いなら「少し前へワープ」
+         ・最終手段：一定秒だけ Trigger 化して通り抜ける
+    */
     private void TryUnstuck()
     {
         if (!Ghost) return;
@@ -372,7 +464,7 @@ public class PlayerChase : MonoBehaviour
             MoveTo(warp);
         }
 
-        // ④ それでもダメなら一瞬だけ Trigger 化して通過
+        // ④ 最終手段：一瞬だけ Trigger 化して通過
         if (usePhaseThrough && !_isPhasing)
             StartCoroutine(PhaseThroughCoroutine());
     }
@@ -383,26 +475,33 @@ public class PlayerChase : MonoBehaviour
         else Ghost.position = targetPos;
     }
 
+    /*
+         PhaseThroughCoroutine
+         ・_ghostCol を一定時間だけ Trigger にする
+         ・壁に引っかかって止まる最悪ケースの保険
+    */
     private IEnumerator PhaseThroughCoroutine()
     {
         if (!_ghostCol) yield break;
         _isPhasing = true;
 
         bool originalTrigger = _ghostCol.isTrigger;
-        _ghostCol.isTrigger = true;              // ゴースト化
+        _ghostCol.isTrigger = true;
         yield return new WaitForSeconds(phaseDuration);
-        _ghostCol.isTrigger = originalTrigger;   // 復帰
+        _ghostCol.isTrigger = originalTrigger;
 
         _isPhasing = false;
     }
 
     // ================== 便利メソッド（任意） ==================
+    // 外部から強制的に追跡開始させたい時用
     public void ForceStartChase()
     {
         isChasing = true;
         SpawnAngryEffect();
     }
 
+    // 外部から強制的に追跡停止させたい時用
     public void ForceStopChase()
     {
         isChasing = false;

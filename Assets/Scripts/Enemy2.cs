@@ -3,31 +3,48 @@ using UnityEngine;
 public class Enemy2 : MonoBehaviour
 {
     [Header("Movement Settings")]
-    [SerializeField] private float _playerBaseSpeed = 5f; //プレイヤーの移動速度
-    [SerializeField] private float _lifetime = 10f;       //エネミーの寿命
-    [SerializeField] private float _rotationSpeed = 180f;//振り返る角度
-    [SerializeField] private float _enemySpeed = 1.3f;//エネミーのスピード倍率
-    [SerializeField] private float _rayDistance = 1.5f; //オブジェクトの検知範囲
+    [SerializeField] private float _playerBaseSpeed = 5f; // プレイヤー基準速度（計算用）
+    [SerializeField] private float _lifetime = 10f;       // 生成されてから消えるまでの時間（秒）
+    [SerializeField] private float _rotationSpeed = 180f; // 旋回速度（度/秒）
+    [SerializeField] private float _enemySpeed = 1.3f;    // エネミー速度倍率（プレイヤー基準×倍率）
+    [SerializeField] private float _rayDistance = 1.5f;   // 前方レイの検知距離（障害物検知用）
 
     private Rigidbody _rb;
-    private float _speed;//エネミーの総合的なスピード
-    private float _timer;//寿命をカウントするためのもの
-    private bool _isRotation = false;//回転中かどうか
-    private int _turnDirection = 1;// -1=左, 1=右
-    private Quaternion _targetRot;// 旋回先の角度
+
+    private float _speed;               // 実際に使う移動速度（playerBaseSpeed×enemySpeed）
+    private float _timer;               // 寿命カウント（0になったら消える）
+
+    private bool _isRotation = false;   // trueの間は旋回中（前進しない）
+    private int _turnDirection = 1;     // -1=左, 1=右（回避方向）
+    private Quaternion _targetRot;      // 旋回先の角度
 
     private void Start()
     {
+        //================
+        // Rigidbody 取得
+        //================
         _rb = GetComponent<Rigidbody>();
 
-        _speed = _playerBaseSpeed * _enemySpeed;//速度計算　プレイヤー速度*倍率
+        //================
+        // 移動速度の確定
+        // プレイヤー基準速度 × エネミー倍率
+        //================
+        _speed = _playerBaseSpeed * _enemySpeed;
 
-        _timer = _lifetime;//初期化
+        //================
+        // 寿命タイマー初期化
+        //================
+        _timer = _lifetime;
     }
 
     private void Update()
     {
-        _timer -= Time.deltaTime;//1秒ごとにカウントを減らして、0になったら消滅
+        //================
+        // 寿命の減算
+        // 0以下になったら自身を破棄する
+        //================
+        _timer -= Time.deltaTime;
+
         if (_timer <= 0f)
         {
             Destroy(gameObject);
@@ -36,38 +53,69 @@ public class Enemy2 : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (_isRotation)//回転中
+        //================
+        // 旋回中は「回転だけ」やる（前進しない）
+        //================
+        if (_isRotation)
         {
-            // 旋回処理
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, _targetRot, _rotationSpeed * Time.fixedDeltaTime);
+            // 現在角度 → 目標角度へ、一定速度で回す
+            transform.rotation = Quaternion.RotateTowards(
+                transform.rotation,
+                _targetRot,
+                _rotationSpeed * Time.fixedDeltaTime
+            );
 
             // 目標角度にほぼ到達したら旋回終了
-            if (Quaternion.Angle(transform.rotation, _targetRot) < 1f)
-            {
-                _isRotation = false;
-            }
+            if (Quaternion.Angle(transform.rotation, _targetRot) < 1f) _isRotation = false;
 
-            return; // 旋回中は前進しない
+            return;
         }
 
-        if (Physics.Raycast(transform.position, transform.forward, out RaycastHit hit, _rayDistance))//前方にレイの生成
+        //================
+        // 前方にレイを飛ばして障害物を検知する
+        //================
+        if (Physics.Raycast(transform.position, transform.forward, out RaycastHit hit, _rayDistance))
         {
-            if (hit.collider.CompareTag("Furniture"))//ヒットしたコライダーのタグが一致したら
+            //================
+            // 家具に当たりそうなら、左右ランダムに回避方向を決める
+            //================
+            if (hit.collider.CompareTag("Furniture"))
             {
-                _turnDirection = Random.Range(0, 2) == 0 ? 1 : -1; //左右ランダムに回避できるように 1 = 右, -1 = 左
+                // 左右ランダム（0なら右、1なら左）
+                _turnDirection = Random.Range(0, 2) == 0 ? 1 : -1;
 
-                // 直角方向を計算している
-                _targetRot = Quaternion.LookRotation(Vector3.Cross(transform.forward, Vector3.up).normalized * _turnDirection, Vector3.up);
+                /*
+                    回避方向の目標角度を作る
+
+                    ・transform.forward と Vector3.up の外積で「横方向」を作る
+                    ・それに turnDirection（左/右）を掛けて左右を切り替える
+                    ・LookRotation で「その方向を向く回転」にする
+                */
+                _targetRot = Quaternion.LookRotation(
+                    Vector3.Cross(transform.forward, Vector3.up).normalized * _turnDirection,
+                    Vector3.up
+                );
             }
-            _isRotation = true;//回避動作に入る
-            return;//旋回中は移動しないように
+
+            //================
+            // 回避行動に入る（旋回中フラグON）
+            //================
+            _isRotation = true;
+            return;
         }
-        _rb.MovePosition(_rb.position + transform.forward * _speed * Time.fixedDeltaTime);//前進し続ける
+
+        //================
+        // 障害物が無いときは前進し続ける
+        //================
+        _rb.MovePosition(_rb.position + transform.forward * _speed * Time.fixedDeltaTime);
     }
 
     private void OnCollisionEnter(Collision collision)
     {
-        Vector3 reflectDir = Vector3.Reflect(transform.forward, collision.contacts[0].normal);//反射のベクトル計算
-        transform.rotation = Quaternion.LookRotation(reflectDir, Vector3.up);//反射方向に回転
+        //================
+        // 衝突したら進行方向を反射させて向きを変える
+        //================
+        Vector3 reflectDir = Vector3.Reflect(transform.forward, collision.contacts[0].normal);
+        transform.rotation = Quaternion.LookRotation(reflectDir, Vector3.up);
     }
 }

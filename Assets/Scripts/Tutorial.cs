@@ -6,38 +6,61 @@ using TMPro;
 
 public class Tutorial : MonoBehaviour
 {
+    // ============================================================
+    // Tutorial.cs
+    // ============================================================
+    //
+    // 目的
+    // ・序盤の導線（前段チュートリアル：移動→視点→ダッシュ）を提示
+    // ・ドアがロック中の入力に反応して「開かない」メッセージを出す
+    // ・進行度(HintText.ProgressStage)に応じてドアを解錠/維持する
+    // ・幽霊スポーン開始（Step2後ディレイ、または外部強制）
+    // ・幽霊初見/State2初見/隠れる初見などでパネル表示（TimeScale=0で停止）
+    // ・ミッションテキスト（別UI）で次の目的を表示
+    // ・Attack連打で前段チュートリアルをスキップ可能
+    //
+    // 重要：競合対策（テキスト表示）
+    // ・_typingToken で「最新のテキスト要求」だけが表示を継続できる
+    // ・後から来た ShowOneShot / Step1 / HintTutorial 等が優先される
+    //
+    // 2部屋目以降
+    // ・StopTutorialForSecondRoom() を呼ぶと、このコンポーネントごと停止する
+    //
+    // ============================================================
+
     // ========== メインテキスト ==========
     [Header("メインテキスト")]
-    public TextMeshProUGUI BottomText;
-    public TextMeshProUGUI TutoriaSkipText;
-    public float CharsPerSecond = 40f;
-    public float LineInterval = 0.6f;
-    public bool HideWhenDone = true;
+    public TextMeshProUGUI BottomText;        // 画面下の会話テキスト
+    public TextMeshProUGUI TutoriaSkipText;   // 「連打でスキップ」などの表示
+    public float CharsPerSecond = 40f;        // 文字送り速度
+    public float LineInterval = 0.6f;         // 行間ウェイト
+    public bool HideWhenDone = true;          // 打ち終わったら非表示にするか
 
+    // Step1（導入）と Step3（幽霊が湧いたら）で出す台詞セット
     [TextArea] public string[] Step1Lines = { "……ここはどこだろう。", "さっきまでの記憶が曖昧だ。", "とにかく、出口を探さないと。" };
     [TextArea] public string[] Step3Lines = { "……何か音がしたぞ！", "周りを探してみよう。" };
     private Coroutine _typing;
 
-    // 「どのリクエストが最新か」を表すトークン
+    // 「どのリクエストが最新か」を表すトークン（コルーチン競合回避）
     private int _typingToken = 0;
 
     // ========== メッセージ ==========
     [Header("ロック/解錠メッセージ")]
     [TextArea] public string DoorLockedMessage = "ドアはあかないようだ…";
     [TextArea] public string DoorUnlockedMessage = "ドアが開いたようだ";
-    private bool _didAnnounceDoorUnlocked = false;
+    private bool _didAnnounceDoorUnlocked = false; // 解錠通知は1回だけ
 
     // ========== 進行度/HINT ==========
     [Header("進行度参照")]
-    public HintText HintRef;
-    public bool AutoFindHintRef = true;
-    public int MinProgressToEnableDoor = 1;
+    public HintText HintRef;                 // 進行度と各種イベント元
+    public bool AutoFindHintRef = true;      // 自動取得するか
+    public int MinProgressToEnableDoor = 1;  // ここ以上でドア解錠扱い
 
     // ========== ドア制御 ==========
     [Header("制御対象（OpenDoor のみ）")]
     public List<OpenDoor> DoorScripts = new();
-    private int _lastAppliedProgress = int.MinValue;
-    private bool _doorUnlockedOnce = false; // 一度でも到達したら永続で解錠扱い
+    private int _lastAppliedProgress = int.MinValue; // 進行度が変わったら反映
+    private bool _doorUnlockedOnce = false;          // 一度解錠したら永続解錠扱い
 
     // ========== ドア入力フック ==========
     [Header("ドア：ロック時の入力フック")]
@@ -45,15 +68,15 @@ public class Tutorial : MonoBehaviour
     public float DoorInteractDistance = 1.6f;
     public bool DoorRequireFacingSide = false;
     [Range(-1f, 1f)] public float DoorFacingDotThreshold = 0f;
-    public float DoorLockedCooldown = 1.0f;
+    public float DoorLockedCooldown = 1.0f; // 「開かない」連打防止
     private float _doorMsgCD = 0f;
 
     private InputSystem_Actions _input;
 
     // ========== 初見パネル ==========
     [Header("初見チュートリアル画像")]
-    public GameObject Step4Panel_StateAny;
-    public GameObject Step5Panel_State2;
+    public GameObject Step4Panel_StateAny; // 幽霊初見
+    public GameObject Step5Panel_State2;   // State2初見
     private bool _didStep4 = false;
     private bool _didStep5 = false;
 
@@ -61,8 +84,8 @@ public class Tutorial : MonoBehaviour
     public HideCroset HideRef;
     public GameObject HidePanel;
     private bool _didHidePanel = false;
-    private bool _pendingHidePanel = false;
-    private bool _pauseGate = false;
+    private bool _pendingHidePanel = false; // パネル表示要求だけ先に来た場合に保留
+    private bool _pauseGate = false;        // パネル表示中の入力ゲート
 
     // ========== スポーン/Step3 ==========
     [Header("幽霊スポナー（EnemyAI）")]
@@ -70,7 +93,7 @@ public class Tutorial : MonoBehaviour
     public float StartSpawnDelayAfterStep2 = 2f;
     private bool _didStep2 = false;
     private bool _didStep3 = false;
-    private bool _step3TextShown = false;
+    private bool _step3TextShown = false; // Step3テキストは1回
 
     // ========== 前段チュートリアル ==========
     [Header("前段チュートリアル（移動／視点／ダッシュ）")]
@@ -106,7 +129,7 @@ public class Tutorial : MonoBehaviour
     public bool EnableAttackSkip = true;
     public int AttackSkipRequired = 3;
     public float AttackSkipWindow = 2.0f;
-    public float SkipDoneHoldSeconds = 2.0f; // スキップ後「準備完了。」を表示しておく時間（Realtime）
+    public float SkipDoneHoldSeconds = 2.0f; // スキップ後「準備完了。」を出す時間（Realtime）
 
     private int _attackSkipCount = 0;
     private float _attackSkipTimer = 0f;
@@ -248,6 +271,7 @@ public class Tutorial : MonoBehaviour
     // ========== ライフサイクル ==========
     private void Awake()
     {
+        // HintRef を自動で探す（必要なら非アクティブも対象）
         if (AutoFindHintRef && !HintRef)
         {
 #if UNITY_2023_1_OR_NEWER
@@ -266,6 +290,7 @@ public class Tutorial : MonoBehaviour
         _input.Player.Enable();
         _input.UI.Enable();
 
+        // Hint側イベントを受け取る（初見パネル/進行/ヒント表示など）
         if (HintRef)
         {
             HintRef.OnFirstGhostSeen.AddListener(Step4_ShowPanel);
@@ -275,10 +300,13 @@ public class Tutorial : MonoBehaviour
             HintRef.OnHintTutorialLinesRequested.AddListener(OnHintTutorialLinesRequested);
         }
 
+        // 隠れ初見パネル
         if (HideRef) HideRef.OnFirstHidePromptShown.AddListener(ShowHidePanelOnce);
 
+        // 前段チュートリアル開始
         if (EnableBasicTutorial) _basicCo = StartCoroutine(CoRunBasicTutorial());
 
+        // ミッション開始
         if (EnableDoorMission) StartDoorMissionIfNeeded();
 
         // 幽霊スポナーのイベント登録（テキスト演出用）
@@ -294,6 +322,7 @@ public class Tutorial : MonoBehaviour
 
     private void OnDisable()
     {
+        // Hint側イベント解除
         if (HintRef)
         {
             HintRef.OnFirstGhostSeen.RemoveListener(Step4_ShowPanel);
@@ -304,14 +333,14 @@ public class Tutorial : MonoBehaviour
         }
         if (HideRef) HideRef.OnFirstHidePromptShown.RemoveListener(ShowHidePanelOnce);
 
+        // 入力無効化
         if (_input != null)
         {
             _input.Player.Disable();
             _input.UI.Disable();
         }
 
-        // 他システムの timeScale を勝手にいじらないようにここでは触らない
-
+        // スポナー解除
         if (Spawners != null)
         {
             for (int i = 0; i < Spawners.Count; i++)
@@ -327,6 +356,7 @@ public class Tutorial : MonoBehaviour
         try
         {
             if (_basicCo != null) { StopCoroutine(_basicCo); _basicCo = null; }
+
             if (_input != null)
             {
                 _input.Player.Disable();
@@ -340,33 +370,38 @@ public class Tutorial : MonoBehaviour
 
     private void Start()
     {
+        // UI初期化
         if (BottomText) { BottomText.text = ""; BottomText.gameObject.SetActive(false); }
         if (TutoriaSkipText) TutoriaSkipText.enabled = (EnableBasicTutorial && !_basicDone);
         if (Step4Panel_StateAny) Step4Panel_StateAny.SetActive(false);
         if (Step5Panel_State2) Step5Panel_State2.SetActive(false);
         if (HidePanel) HidePanel.SetActive(false);
 
-        // 最初は湧き止めておく
+        // 最初はスポーン停止
         if (Spawners != null)
             for (int i = 0; i < Spawners.Count; i++)
                 if (Spawners[i]) Spawners[i].StopSpawning();
 
+        // ドアの状態を進行度で反映
         ApplyDoorEnableByProgress(HintRef ? HintRef.ProgressStage : 0);
 
-        // 前段チュートリアルが無効 or すでに完了しているときだけ Step1 をここで呼ぶ
+        // 前段が無い or 完了済みならすぐ Step1
         if (!EnableBasicTutorial || _basicDone)
         {
             Step1();
         }
 
+        // Hint由来のチュートリアルテキストが溜まっていれば出す
         if (_queuedHintTutorials.Count > 0 && !_pauseGate && IsEventAllowed() && _typing == null)
         {
             var pending = _queuedHintTutorials.Dequeue();
             ShowHintTutorialLinesNow(pending);
         }
 
+        // ミッションUI初期化
         if (MissionText) { MissionText.text = ""; MissionText.gameObject.SetActive(false); }
 
+        // ライトはミッション3まで隠す設定なら消す
         if (HideLightsUntilMission3 && LightsToToggle != null)
             for (int i = 0; i < LightsToToggle.Count; i++)
                 if (LightsToToggle[i]) LightsToToggle[i].SetActive(false);
@@ -374,6 +409,7 @@ public class Tutorial : MonoBehaviour
 
     private void Update()
     {
+        // Player参照が無いときはタグで拾う
         if (!Player)
         {
 #if UNITY_2023_1_OR_NEWER
@@ -384,13 +420,17 @@ public class Tutorial : MonoBehaviour
             Player = p ? p.transform : null;
         }
 
+        // Attack連打スキップ処理
         HandleAttackSkip();
 
+        // 進行度が変わったらドア反映
         if (HintRef && HintRef.ProgressStage != _lastAppliedProgress)
             ApplyDoorEnableByProgress(HintRef.ProgressStage);
 
+        // ロック中ドアに対する入力メッセージ
         if (!_pauseGate) HandleLockedDoorTapFeedback();
 
+        // ミッション3（声を聞いて次へ）中、解錠ドアに触れたら完了扱い
         if (EnableDoorMission && _doorMission == DoorMissionStage.HearVoiceGoNext && !_pauseGate && IsEventAllowed())
             TryCompleteDoorMissionByEnabledDoorInteract();
     }
@@ -401,6 +441,7 @@ public class Tutorial : MonoBehaviour
         if (!EnableAttackSkip) return;
         if (_input == null || !_input.Player.enabled) return;
 
+        // 前段が走ってないならスキップ処理は無効化
         if (!(EnableBasicTutorial && !_basicDone))
         {
             _attackSkipCount = 0;
@@ -408,12 +449,14 @@ public class Tutorial : MonoBehaviour
             return;
         }
 
+        // ウィンドウタイマー
         if (_attackSkipTimer > 0f)
         {
             _attackSkipTimer -= Time.deltaTime;
             if (_attackSkipTimer <= 0f) { _attackSkipTimer = 0f; _attackSkipCount = 0; }
         }
 
+        // Attack押下カウント
         if (_input.Player.Attack.WasPressedThisFrame())
         {
             if (_attackSkipTimer <= 0f)
@@ -427,6 +470,7 @@ public class Tutorial : MonoBehaviour
                 _attackSkipCount++;
             }
 
+            // 規定回数でスキップ
             if (_attackSkipCount >= Mathf.Max(1, AttackSkipRequired))
             {
                 ForceSkipBasicTutorialNow();
@@ -486,8 +530,11 @@ public class Tutorial : MonoBehaviour
     {
         if (!IsEventAllowed()) return;
         if (!Player) return;
+
+        // クールダウン中は何もしない
         if (_doorMsgCD > 0f) { _doorMsgCD -= Time.deltaTime; return; }
 
+        // ロック中ドアの「触ろうとした入力」
         bool pressed =
             _input.Player.DoorOpen.WasPressedThisFrame() ||
             _input.Player.Interact.WasPressedThisFrame() ||
@@ -495,6 +542,7 @@ public class Tutorial : MonoBehaviour
 
         if (!pressed) return;
 
+        // 近いロックドアがあればメッセージを出す
         for (int i = 0; i < DoorScripts.Count; i++)
         {
             var od = DoorScripts[i];
@@ -507,6 +555,7 @@ public class Tutorial : MonoBehaviour
 
             if (Vector3.Distance(Player.position, od.transform.position) > DoorInteractDistance) continue;
 
+            // 必要なら「ドアの正面側にいるか」チェック
             if (DoorRequireFacingSide)
             {
                 Vector3 toPlayer = (Player.position - od.transform.position).normalized;
@@ -514,15 +563,16 @@ public class Tutorial : MonoBehaviour
                 if (dot < DoorFacingDotThreshold) continue;
             }
 
+            // 今の表示を中断して「開かない」表示
             SkipCurrentTyping();
             ShowOneShot(DoorLockedMessage);
             _doorMsgCD = DoorLockedCooldown;
 
-            // ミッション進行
+            // ミッション：ドア確認→幽霊探しへ
             if (EnableDoorMission && _doorMission == DoorMissionStage.DoorCheck)
                 AdvanceDoorMissionTo(DoorMissionStage.FindGhost);
 
-            // Step3 の予約（初回だけ）
+            // Step2扱い（初回だけ）→ 少し待ってスポーン開始へ
             if (!_didStep2)
             {
                 _didStep2 = true;
@@ -534,7 +584,9 @@ public class Tutorial : MonoBehaviour
 
     private IEnumerator CoAfterStep2_StartStep3()
     {
+        // BottomTextが消えるのを待つ（演出の順番保証）
         while (BottomText && BottomText.gameObject.activeSelf) yield return null;
+
         yield return new WaitForSeconds(StartSpawnDelayAfterStep2);
         DoStep3();
     }
@@ -552,7 +604,6 @@ public class Tutorial : MonoBehaviour
     }
 
     // 幽霊が初めて湧いた時のコールバック
-    // ここでは Step3Lines のテキストだけやる
     private void OnAnyGhostSpawned_FirstTime()
     {
         if (!IsEventAllowed()) return;
@@ -579,8 +630,11 @@ public class Tutorial : MonoBehaviour
     {
         if (!IsEventAllowed() || _didStep4 || _pauseGate) return;
         _didStep4 = true;
+
+        // 幽霊初見パネル
         StartCoroutine(CoShowPausePanel(Step4Panel_StateAny));
 
+        // ミッション：幽霊探し→声を聞いて次へ
         if (EnableDoorMission && _doorMission == DoorMissionStage.FindGhost)
             AdvanceDoorMissionTo(DoorMissionStage.HearVoiceGoNext);
     }
@@ -589,6 +643,8 @@ public class Tutorial : MonoBehaviour
     {
         if (!IsEventAllowed() || _didStep5 || _pauseGate) return;
         _didStep5 = true;
+
+        // State2初見パネル
         StartCoroutine(CoShowPausePanel(Step5Panel_State2));
 
         _heardVoice = true;
@@ -599,6 +655,8 @@ public class Tutorial : MonoBehaviour
     public void ShowHidePanelOnce()
     {
         if (_didHidePanel) return;
+
+        // パネル表示中などは保留して後で出す
         if (_pauseGate || !IsEventAllowed()) { _pendingHidePanel = true; return; }
 
         _didHidePanel = true;
@@ -611,22 +669,27 @@ public class Tutorial : MonoBehaviour
 
         _pauseGate = true;
 
+        // 表示＆（任意で）音停止
         panel.SetActive(true);
         _prevListenerPause = AudioListener.pause;
         if (PauseAudioWhilePanel) AudioListener.pause = true;
 
+        // ゲーム停止（TimeScale=0）
         float prevScale = Time.timeScale;
         Time.timeScale = 0f;
 
+        // クリック待ち（UI.Click）
         yield return null;
         while (!_input.UI.Click.WasPressedThisFrame()) yield return null;
 
+        // 閉じる＆復帰
         panel.SetActive(false);
         if (PauseAudioWhilePanel) AudioListener.pause = _prevListenerPause;
 
         Time.timeScale = prevScale;
         _pauseGate = false;
 
+        // 保留していた HidePanel を出す（条件OKなら）
         if (_pendingHidePanel && IsEventAllowed())
         {
             _pendingHidePanel = false;
@@ -642,9 +705,12 @@ public class Tutorial : MonoBehaviour
     private void ApplyDoorEnableByProgress(int progress)
     {
         _lastAppliedProgress = progress;
+
+        // 進行度で解錠扱いか
         bool unlockedByProgress = progress >= MinProgressToEnableDoor;
         if (unlockedByProgress) _doorUnlockedOnce = true;
 
+        // 一度でも解錠に到達したら、以後は永続解錠
         bool doorShouldBeUnlocked = _doorUnlockedOnce;
 
         bool anyJustUnlocked = false;
@@ -659,13 +725,16 @@ public class Tutorial : MonoBehaviour
             bool hadProperty = true;
             try
             {
+                // OpenDoorが IsLocked / SetLocked を持つ想定
                 bool lockedNow = od.IsLocked;
                 bool wantLocked = !doorShouldBeUnlocked;
+
                 if (lockedNow != wantLocked) od.SetLocked(wantLocked);
                 if (lockedNow && !wantLocked) anyJustUnlocked = true;
             }
             catch
             {
+                // IsLocked/SetLocked が無い場合は enabled で代用
                 hadProperty = false;
             }
 
@@ -677,6 +746,7 @@ public class Tutorial : MonoBehaviour
             }
         }
 
+        // 解錠通知（1回だけ）
         if ((unlockedByProgress || doorShouldBeUnlocked) && anyJustUnlocked && !_didAnnounceDoorUnlocked && !_pauseGate)
         {
             ShowOneShot(string.IsNullOrEmpty(DoorUnlockedMessage) ? "ドアが開いたようだ" : DoorUnlockedMessage);
@@ -689,19 +759,25 @@ public class Tutorial : MonoBehaviour
     // ========== Hint連携 ==========
     private void OnHintAllRevealed(string id)
     {
-        if (id == "state1.element0") { /* 必要なら台詞 */ }
+        if (id == "state1.element0")
+        {
+            // 必要ならここに反応処理を追加できる（現状は空）
+        }
     }
 
     private void OnHintTutorialLinesRequested(string[] lines)
     {
+        // 空なら無視
         if (!HasAnyContent(lines)) return;
 
+        // 今表示できないならキューへ
         if (!IsEventAllowed() || _pauseGate || _typing != null)
         {
             _queuedHintTutorials.Enqueue(DuplicateLines(lines));
             return;
         }
 
+        // すぐ表示
         ShowHintTutorialLinesNow(lines);
     }
 
@@ -738,7 +814,10 @@ public class Tutorial : MonoBehaviour
     // ========== ミッションUI ==========
     private void StartDoorMissionIfNeeded()
     {
+        // すでに始まっていたら何もしない
         if (_doorMission != DoorMissionStage.None) return;
+
+        // 前段中はミッション開始しない
         if (EnableBasicTutorial && !_basicDone) return;
 
         _doorMission = DoorMissionStage.DoorCheck;
@@ -748,14 +827,18 @@ public class Tutorial : MonoBehaviour
     private void AdvanceDoorMissionTo(DoorMissionStage next)
     {
         _doorMission = next;
+
         switch (_doorMission)
         {
             case DoorMissionStage.FindGhost:
-                ShowMissionText(Mission_FindGhost); break;
+                ShowMissionText(Mission_FindGhost);
+                break;
+
             case DoorMissionStage.HearVoiceGoNext:
                 ShowMissionText(Mission_HearVoiceGoNext);
                 if (HideLightsUntilMission3) ActivateLightsAfterMission3();
                 break;
+
             case DoorMissionStage.AllDone:
                 ShowMissionText(Mission_AllDone);
                 if (MissionHideWhenDone && MissionText) StartCoroutine(CoHideMissionAfter(MissionLineInterval));
@@ -767,7 +850,9 @@ public class Tutorial : MonoBehaviour
     {
         if (_stoppedForSecondRoom) return;
         if (!MissionText || string.IsNullOrEmpty(line)) return;
+
         if (_typingMission != null) { StopCoroutine(_typingMission); _typingMission = null; }
+
         MissionText.gameObject.SetActive(true);
         _typingMission = StartCoroutine(CoTypeOne_Mission(line));
     }
@@ -775,15 +860,25 @@ public class Tutorial : MonoBehaviour
     private IEnumerator CoTypeOne_Mission(string text)
     {
         MissionText.text = "";
-        if (MissionCharsPerSecond <= 0f) { MissionText.text = text; yield break; }
+
+        // 0以下なら即表示
+        if (MissionCharsPerSecond <= 0f)
+        {
+            MissionText.text = text;
+            yield break;
+        }
+
         float interval = 1f / MissionCharsPerSecond;
-        float acc = 0f; int i = 0;
+        float acc = 0f;
+        int i = 0;
+
         while (i < text.Length)
         {
             acc += Time.deltaTime;
             while (acc >= interval && i < text.Length)
             {
-                acc -= interval; i++;
+                acc -= interval;
+                i++;
                 MissionText.text = text.Substring(0, i);
             }
             yield return null;
@@ -804,6 +899,7 @@ public class Tutorial : MonoBehaviour
 
         if (!pressed || !Player) return;
 
+        // 解錠ドアに触れたらミッション完了
         for (int i = 0; i < DoorScripts.Count; i++)
         {
             var od = DoorScripts[i];
@@ -811,6 +907,7 @@ public class Tutorial : MonoBehaviour
 
             bool unlocked = true;
             try { unlocked = !od.IsLocked; } catch { unlocked = od.enabled; }
+
             if (!unlocked) continue;
 
             if (Vector3.Distance(Player.position, od.transform.position) > DoorInteractDistance) continue;
@@ -892,6 +989,7 @@ public class Tutorial : MonoBehaviour
     private IEnumerator CoTypeOne(string text, int token)
     {
         BottomText.text = "";
+
         if (CharsPerSecond <= 0f)
         {
             if (token == _typingToken)
@@ -900,13 +998,16 @@ public class Tutorial : MonoBehaviour
         }
 
         float interval = 1f / CharsPerSecond;
-        float acc = 0f; int i = 0;
+        float acc = 0f;
+        int i = 0;
+
         while (i < text.Length && token == _typingToken)
         {
             acc += Time.deltaTime;
             while (acc >= interval && i < text.Length && token == _typingToken)
             {
-                acc -= interval; i++;
+                acc -= interval;
+                i++;
                 BottomText.text = text.Substring(0, i);
             }
             yield return null;
@@ -921,13 +1022,16 @@ public class Tutorial : MonoBehaviour
 
         _basicRunning = true;
 
+        // 視点計測のために初期回転を保存
         if (CameraTransform) _basicPrevCamRot = CameraTransform.rotation;
         yield return null;
 
         // この前段チュートリアル中のテキスト用トークン
         int token = ++_typingToken;
 
-        // 移動
+        // -------------------------
+        // 1) 移動
+        // -------------------------
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
         BottomText.gameObject.SetActive(true);
         yield return StartCoroutine(CoTypeOne(BasicMoveText, token));
@@ -939,28 +1043,43 @@ public class Tutorial : MonoBehaviour
         while (true)
         {
             if (_basicDone) { _basicRunning = false; yield break; }
-            bool moving = PlayerCtrl ? PlayerCtrl.IsMovingNow : (_input.Player.Move.ReadValue<Vector2>() != Vector2.zero);
 
+            // PlayerController があればそっちを優先、無ければ入力で判定
+            bool moving = PlayerCtrl
+                ? PlayerCtrl.IsMovingNow
+                : (_input.Player.Move.ReadValue<Vector2>() != Vector2.zero);
+
+            // 移動距離積算（Yは無視）
             if (Player)
             {
                 Vector3 cur = Player.position;
-                Vector3 delta = cur - _basicMovePrevPos; delta.y = 0f;
+                Vector3 delta = cur - _basicMovePrevPos;
+                delta.y = 0f;
+
                 float step = Mathf.Min(delta.magnitude, BasicMoveMaxStepPerFrame);
                 if (!BasicMoveCountOnlyWhenInput || moving) _basicMoveTotal += step;
+
                 _basicMovePrevPos = cur;
             }
 
-            if (moving) moveTimer += Time.deltaTime; else moveTimer = 0f;
+            // 一定時間動いている＋累計距離を満たしたらクリア
+            if (moving) moveTimer += Time.deltaTime;
+            else moveTimer = 0f;
+
             if (moveTimer >= BasicMoveMinDuration && _basicMoveTotal >= BasicMoveTotalDistanceRequired) break;
             yield return null;
         }
 
-        // 視点
+        // -------------------------
+        // 2) 視点
+        // -------------------------
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
         BottomText.gameObject.SetActive(true);
         yield return StartCoroutine(CoTypeOne(BasicLookText, token));
 
-        _basicAccYaw = 0f; _basicAccPitch = 0f;
+        _basicAccYaw = 0f;
+        _basicAccPitch = 0f;
+
         while (true)
         {
             if (_basicDone) { _basicRunning = false; yield break; }
@@ -969,6 +1088,7 @@ public class Tutorial : MonoBehaviour
             {
                 Quaternion cur = CameraTransform.rotation;
 
+                // forwardベクトルから yaw/pitch の変化を積算
                 Vector3 fPrev = _basicPrevCamRot * Vector3.forward;
                 Vector3 fCur = cur * Vector3.forward;
 
@@ -989,31 +1109,43 @@ public class Tutorial : MonoBehaviour
             yield return null;
         }
 
-        // ダッシュ
+        // -------------------------
+        // 3) ダッシュ
+        // -------------------------
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
         BottomText.gameObject.SetActive(true);
         yield return StartCoroutine(CoTypeOne(BasicDashText, token));
 
         float dashTimer = 0f;
         float decayPerSec = 0.5f;
+
         while (true)
         {
             if (_basicDone) { _basicRunning = false; yield break; }
+
             bool dashing = PlayerCtrl ? PlayerCtrl.IsDashingNow : false;
-            if (dashing) dashTimer += Time.deltaTime; else dashTimer = Mathf.Max(0f, dashTimer - Time.deltaTime * decayPerSec);
+
+            // ダッシュしている間だけ加算。してない時は少し減衰させる（誤差に強い）
+            if (dashing) dashTimer += Time.deltaTime;
+            else dashTimer = Mathf.Max(0f, dashTimer - Time.deltaTime * decayPerSec);
+
             if (dashTimer >= BasicDashMinDuration) break;
             yield return null;
         }
 
-        // 完了表示
+        // -------------------------
+        // 4) 完了
+        // -------------------------
         if (_typing != null) { StopCoroutine(_typing); _typing = null; }
         BottomText.gameObject.SetActive(true);
         BottomText.text = BasicDoneText;
 
         _basicDone = true;
         _basicRunning = false;
+
         if (TutoriaSkipText) TutoriaSkipText.enabled = false;
 
+        // 保留していた HidePanel があれば出す
         if (_pendingHidePanel)
         {
             _pendingHidePanel = false;
@@ -1024,6 +1156,7 @@ public class Tutorial : MonoBehaviour
             }
         }
 
+        // 本編の導入へ
         Step1();
         if (EnableDoorMission) StartDoorMissionIfNeeded();
     }

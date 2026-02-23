@@ -2,18 +2,35 @@ using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
-public class Item : MonoBehaviour
 
+/*
+     本アイテムの調査表示スクリプト
+     ・プレイヤーが本に近づくと「調べる」UIを表示
+     ・Interact押下で対応するSpriteを表示（トグル）
+     ・同じ本をもう一度押すと非表示
+*/
+
+public class Item : MonoBehaviour
 {
+    //================
+    // Inspector参照（本）
+    //================
+
     public GameObject Book1;
     public GameObject Book2;
     public GameObject Book3;
     public GameObject Book4;
     public GameObject Book5;
+
     public Transform Player;
     public float CheckDistance = 1.5f;
+
     public InputSystem_Actions input;
     public TextMeshProUGUI text;
+
+    //================
+    // Sprite表示設定
+    //================
 
     [Header("Sprites")]
     public UnityEngine.UI.Image TargetImage;
@@ -23,48 +40,73 @@ public class Item : MonoBehaviour
     public Sprite Book4Sprite;
     public Sprite Book5Sprite;
 
+    //================
+    // Unity Lifecycle
+    //================
+
     private void Awake()
     {
         input = new InputSystem_Actions();
     }
+
     private void OnEnable()
     {
         input.Player.Enable();
     }
+
     private void Start()
     {
+        // 初期状態では画像は非表示
         TargetImage.enabled = false;
     }
 
+    //================
+    // Update
+    //================
+
     void Update()
     {
-        //各本に近づいて確認するとアイテムの情報を確認することができる
+        //================
+        // 距離チェック（各本）
+        //================
+
+        // プレイヤーと各本との距離を測る
         float disanceBook1 = Vector3.Distance(Player.transform.position, Book1.transform.position);
         float disanceBook2 = Vector3.Distance(Player.transform.position, Book2.transform.position);
         float disanceBook3 = Vector3.Distance(Player.transform.position, Book3.transform.position);
         float disanceBook4 = Vector3.Distance(Player.transform.position, Book4.transform.position);
         float disanceBook5 = Vector3.Distance(Player.transform.position, Book5.transform.position);
 
-        //どれかしらのアイテムに近づいたときにテキスト表示--------------------------------------------------------------------
+        //================
+        // 近づいたら「調べる」テキスト表示
+        //================
+
+        // どれか1冊でも範囲内ならテキストを表示
         if (disanceBook1 < CheckDistance || disanceBook2 < CheckDistance || disanceBook3 < CheckDistance || disanceBook4 < CheckDistance || disanceBook5 < CheckDistance)
         {
             text.gameObject.SetActive(true);
         }
         else
-
         {
+            // 範囲外なら画像とテキストを非表示
             TargetImage.enabled = false;
             text.gameObject.SetActive(false);
         }
-        //--------------------------------------------------------------------------------------------------------------------
 
-        // 追加：このフレームで「押された瞬間」だけを見る（押しっぱなしや離した瞬間を拾わない）
+        //================
+        // 入力（押された瞬間のみ判定）
+        //================
+
+        // 押しっぱなしではなく、このフレームで押された瞬間だけ取得
         bool pressed = input.Player.Interact.WasPerformedThisFrame();
 
-        //book1のアイテム確認-------------------------------------------------------------------------------------------------
+        //================
+        // Book1 調査処理（トグル）
+        //================
+
         if (disanceBook1 < CheckDistance && pressed)
         {
-            // 同じ本が既に表示中なら非表示、それ以外はこの本を表示（トグル動作）
+            // 同じ本が既に表示中なら非表示、それ以外は表示する
             if (TargetImage.enabled && TargetImage.sprite == Book1Sprite)
             {
                 TargetImage.enabled = false;
@@ -75,7 +117,11 @@ public class Item : MonoBehaviour
                 TargetImage.enabled = true;
             }
         }
-        //book2のアイテム確認-------------------------------------------------------------------------------------------------
+
+        //================
+        // Book2 調査処理（トグル）
+        //================
+
         else if (disanceBook2 < CheckDistance && pressed)
         {
             if (TargetImage.enabled && TargetImage.sprite == Book2Sprite)
@@ -88,7 +134,11 @@ public class Item : MonoBehaviour
                 TargetImage.enabled = true;
             }
         }
-        //book3のアイテム確認-------------------------------------------------------------------------------------------------
+
+        //================
+        // Book3 調査処理（トグル）
+        //================
+
         else if (disanceBook3 < CheckDistance && pressed)
         {
             if (TargetImage.enabled && TargetImage.sprite == Book3Sprite)
@@ -101,7 +151,11 @@ public class Item : MonoBehaviour
                 TargetImage.enabled = true;
             }
         }
-        //book4のアイテム確認-------------------------------------------------------------------------------------------------
+
+        //================
+        // Book4 調査処理（トグル）
+        //================
+
         else if (disanceBook4 < CheckDistance && pressed)
         {
             if (TargetImage.enabled && TargetImage.sprite == Book4Sprite)
@@ -114,7 +168,11 @@ public class Item : MonoBehaviour
                 TargetImage.enabled = true;
             }
         }
-        //book5のアイテム確認-------------------------------------------------------------------------------------------------
+
+        //================
+        // Book5 調査処理（トグル）
+        //================
+
         else if (disanceBook5 < CheckDistance && pressed)
         {
             if (TargetImage.enabled && TargetImage.sprite == Book5Sprite)

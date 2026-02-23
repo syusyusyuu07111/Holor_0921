@@ -4,57 +4,112 @@ using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
 
+/*
+     このスクリプトがやること
+
+     1) オプションメニューを「開く/閉じる」する
+        ・入力：UI.Option（Esc / Tab を想定）
+        ・MenuWindow の SetActive を切り替える
+
+     2) メニューが開いている間は「ポーズ」する
+        ・Time.timeScale = 0
+        ・PauseTargets を enabled=false
+        ・TPSCamera の操作を止める（ControlEnable=false）
+        ・カーソルを表示＆ロック解除
+
+     3) メニューが閉じたら「復帰」する
+        ・Time.timeScale を元に戻す
+        ・PauseTargets を enabled=true
+        ・TPSCamera の操作を戻す（ControlEnable=true）
+        ・ゲーム中シーンならカーソルロックに戻す
+
+     4) メニュー内の設定項目を操作できる
+        ・InvertX / InvertY：視点反転（TPSCameraへ反映）
+        ・FullScreen：スクリーンモード（Screen.fullScreenへ反映）
+        ・Sensitivity：感度（TPSCameraのRotateSpeedへ反映）
+        ・GameEnd：ゲーム終了
+
+     5) 操作方法が2系統ある
+        ・マウス：
+          - クリックで各トグルをON/OFF
+          - 感度バーはクリック/ドラッグで変更
+          - GameEnd はホバー色が変わる
+        ・ゲームパッド/キーボード：
+          - Move上下で項目選択（currentIndex）
+          - Move左右で値変更
+*/
+
 public class Option : MonoBehaviour
 {
+    //================
+    // InputSystem
+    //================
     public InputSystem_Actions input;
 
     [Header("このシーンはインゲーム中として扱う？")]
     public bool IsGameplayScene = true;
 
-    // ===== メニュー本体 =====
-    public bool MenuOn = false;
-    public GameObject MenuWindow;
+    //================
+    // Menu
+    //================
+    public bool MenuOn = false;                       // メニューが開いているか
+    public GameObject MenuWindow;                     // 表示するメニュー本体
 
-    // --- ポーズ管理 ---
-    private float _prevTimeScale = 1f;
+    //================
+    // Pause
+    //================
+    private float _prevTimeScale = 1f;                // ポーズ前のTimeScaleを保存
 
     [Header("一時停止中は止めたいスクリプトたち")]
-    public MonoBehaviour[] PauseTargets;
+    public MonoBehaviour[] PauseTargets;              // ポーズ中に止めるコンポーネント
 
-    // ===== 設定状態 =====
-    public bool InvertX = false;   // 視点操作左右反転
-    public bool InvertY = false;   // 視点操作上下反転
+    //================
+    // Option Values
+    //================
+    public bool InvertX = false;                      // 視点操作左右反転
+    public bool InvertY = false;                      // 視点操作上下反転
 
-    // FullScreen == true  → UIの「ON」側が赤い（ウィンドウ表示したい）
-    // FullScreen == false → UIの「OFF」側が赤い（フルスクリーンにしたい）
+    /*
+         FullScreen の意味（UI上の意味）
+         FullScreen == true  → UIの「ON」側が赤い（ウィンドウ表示したい）
+         FullScreen == false → UIの「OFF」側が赤い（フルスクリーンにしたい）
+
+         実際の Screen.fullScreen とは反転関係で扱っている
+         ApplyScreenMode では Screen.fullScreen = !FullScreen を設定する
+    */
     public bool FullScreen = true;
 
-    // ===== カメラ参照 =====
-    public TPSCamera CameraController;
+    //================
+    // Camera Reference
+    //================
+    public TPSCamera CameraController;                // 設定を反映するカメラ
 
-    // ===== 感度（0〜1）=====
-    private float _sensitivity01 = 0f;
-    public float SensitivityStep = 0.05f;
+    //================
+    // Sensitivity (0-1)
+    //================
+    private float _sensitivity01 = 0f;                // 0〜1で保持する感度値
+    public float SensitivityStep = 0.05f;             // パッド操作での増減量
 
-    // ===== 感度バー関連 =====
+    //================
+    // Sensitivity Bar UI
+    //================
     [Header("感度バー関連（Xの範囲を数値で指定）")]
-    public RectTransform SensitivityHandle;    // ハンドル
+    public RectTransform SensitivityHandle;           // 感度バーのハンドル
 
-    // ハンドルの「見た目上」のX範囲（親の anchoredPosition.x）
-    public float HandleMinX = -100f;
-    public float HandleMaxX = 100f;
+    public float HandleMinX = -100f;                  // ハンドルの見た目上の左端
+    public float HandleMaxX = 100f;                   // ハンドルの見た目上の右端
+    public float HandleVisualOffsetX = 0f;            // マウス位置補正
 
-    // マウス位置からハンドルを置くときの補正
-    public float HandleVisualOffsetX = 0f;
-
-    private RectTransform _handleParent;
-    private float _handleBaseY;
-    private bool _isDraggingSensitivity = false;
+    private RectTransform _handleParent;              // ハンドルの親（ローカル座標計算に使う）
+    private float _handleBaseY;                       // ハンドルのYは固定（Xだけ動かす）
+    private bool _isDraggingSensitivity = false;      // 感度バーをドラッグ中か
 
     [Header("Drag Settings")]
-    public float SensitivityDragMaxDistanceY = 999f;
+    public float SensitivityDragMaxDistanceY = 999f;  // 今は使っていないが拡張用に残している
 
-    // ===== 表示画像（赤/白切り替えする画像）=====
+    //================
+    // Toggle Display Images (Red/White)
+    //================
     [Header("Toggle Display Images")]
     public Image InvertX_OnImage;
     public Image InvertX_OffImage;
@@ -67,6 +122,9 @@ public class Option : MonoBehaviour
     public Color ActiveColor = Color.red;
     public Color InactiveColor = Color.white;
 
+    //================
+    // Click Areas
+    //================
     [Header("Toggle Hit Rects (Click Areas)")]
     public RectTransform InvertX_OnHit;
     public RectTransform InvertX_OffHit;
@@ -76,23 +134,51 @@ public class Option : MonoBehaviour
     public RectTransform FullScreen_OffHit;
 
     public RectTransform GameEndHit;
-    private bool _gameEndHover = false;
+    private bool _gameEndHover = false;               // GameEndにマウスが乗っているか
 
+    //================
+    // ESC/Tab Hint Text
+    //================
     [Header("ESCヒント用テキスト (TMP)")]
     public TMP_Text EscHintText;
 
-    // 0 = 左右反転 / 1 = 上下反転 / 2 = スクリーンモード / 3 = マウス感度
+    //================
+    // Gamepad Navigation
+    //================
+    /*
+         currentIndex の意味（パッド/キーボード操作）
+         0 = 左右反転（InvertX）
+         1 = 上下反転（InvertY）
+         2 = スクリーンモード（FullScreen）
+         3 = マウス感度（Sensitivity）
+    */
     private int currentIndex = 0;
+
+    // 連続入力を1回だけにするためのフラグ（押しっぱなし対策）
     private bool _didMoveRight, _didMoveLeft, _didMoveUp, _didMoveDown;
 
+    //================
+    // UI Camera
+    //================
     private Canvas _canvas;
     private Camera _uiCamera;
 
+    //================
+    // Awake
+    //================
     private void Awake()
     {
         input = new InputSystem_Actions();
 
-        // Canvas / UIカメラ
+        //================
+        // Canvas / UI Camera を決める
+        //================
+        /*
+             RectTransformUtility で ScreenPoint を判定する時に
+             どのCameraを渡すかが必要になる
+             ・Overlayなら camera=null
+             ・それ以外なら canvas.worldCamera（なければ Camera.main）
+        */
         _canvas = GetComponentInParent<Canvas>();
         if (_canvas != null)
         {
@@ -112,14 +198,22 @@ public class Option : MonoBehaviour
             _uiCamera = Camera.main;
         }
 
+        //================
+        // メニュー初期状態
+        //================
         MenuOn = false;
         if (MenuWindow)
             MenuWindow.SetActive(false);
 
+        //================
+        // カメラ設定を読み込み
+        //================
         SyncFromCamera();
         SyncSensitivityFromCamera();
 
-        // ハンドル親＆基準Y取得
+        //================
+        // 感度ハンドル初期化
+        //================
         if (SensitivityHandle)
         {
             _handleParent = SensitivityHandle.parent as RectTransform;
@@ -128,12 +222,22 @@ public class Option : MonoBehaviour
 
         UpdateSensitivityHandlePosition();
 
+        //================
+        // UI表示更新
+        //================
         RefreshColors();
         RefreshGameEndColor();
         RefreshEscHint();
+
+        //================
+        // カーソル初期状態
+        //================
         ApplyCursorStateInitial();
     }
 
+    //================
+    // OnEnable / OnDisable
+    //================
     private void OnEnable()
     {
         if (input == null)
@@ -141,16 +245,21 @@ public class Option : MonoBehaviour
             input = new InputSystem_Actions();
         }
 
-        // ---- Optionアクションのバインド調整 ----
-        // InputActionsアセット側で UI/Option に
-        //  ・<Keyboard>/escape
-        //  ・<Keyboard>/tab
-        // の2つをバインドしておく前提。
+        //================
+        // WebGL の Escape 対策
+        //================
+        /*
+             InputActions側で UI/Option に
+             ・<Keyboard>/escape
+             ・<Keyboard>/tab
+             を両方バインドしている前提
+
+             WebGLでは Escape が扱いづらい場合があるので
+             Escape のバインドを無効にし Tab だけにする
+        */
         var optionAction = input.UI.Option;
 
 #if UNITY_WEBGL && !UNITY_EDITOR
-        // WebGL では Escape バインドだけ無効にして、
-        // Tab だけが有効になるようにする
         optionAction.Disable();
 
         for (int i = 0; i < optionAction.bindings.Count; i++)
@@ -177,48 +286,62 @@ public class Option : MonoBehaviour
         }
     }
 
+    //================
+    // Update
+    //================
     private void Update()
     {
-        // メニュー開閉
+        //================
+        // メニュー開閉（押した瞬間だけ）
+        //================
         if (input.UI.Option.WasPressedThisFrame())
         {
             ToggleMenu();
         }
 
+        // メニューが閉じているなら、以降のUI操作はしない
         if (!MenuOn)
         {
             _isDraggingSensitivity = false;
             return;
         }
 
-        // ===== マウス入力 =====
+        //================
+        // マウス操作
+        //================
         if (Mouse.current != null)
         {
             Vector2 mousePos = Mouse.current.position.ReadValue();
 
+            // GameEndのホバー色更新
             UpdateGameEndHover(mousePos);
 
+            // クリック開始：トグル判定 / 感度ドラッグ開始判定
             if (Mouse.current.leftButton.wasPressedThisFrame)
             {
                 TryClickToggles(mousePos);
                 TryBeginSensitivityDrag(mousePos);
             }
 
+            // ドラッグ中：感度更新
             if (Mouse.current.leftButton.isPressed && _isDraggingSensitivity)
             {
                 UpdateSensitivityByPointerDrag(mousePos);
             }
 
+            // クリック終了：ドラッグ終了
             if (Mouse.current.leftButton.wasReleasedThisFrame)
             {
                 _isDraggingSensitivity = false;
             }
         }
 
-        // ===== ゲームパッド/キーボード =====
+        //================
+        // ゲームパッド/キーボード操作
+        //================
         Vector2 move = input.Player.Move.ReadValue<Vector2>();
 
-        // 上
+        // 上：項目を上へ（-1相当）
         if (move.y > 0.5f)
         {
             if (!_didMoveUp)
@@ -229,7 +352,7 @@ public class Option : MonoBehaviour
         }
         else _didMoveUp = false;
 
-        // 下
+        // 下：項目を下へ（+1相当）
         if (move.y < -0.5f)
         {
             if (!_didMoveDown)
@@ -240,7 +363,7 @@ public class Option : MonoBehaviour
         }
         else _didMoveDown = false;
 
-        // 右
+        // 右：値を右方向へ
         if (move.x > 0.5f)
         {
             if (!_didMoveRight)
@@ -251,7 +374,7 @@ public class Option : MonoBehaviour
         }
         else _didMoveRight = false;
 
-        // 左
+        // 左：値を左方向へ
         if (move.x < -0.5f)
         {
             if (!_didMoveLeft)
@@ -263,7 +386,13 @@ public class Option : MonoBehaviour
         else _didMoveLeft = false;
     }
 
-    // カーソル初期状態
+    //================
+    // Cursor
+    //================
+    /*
+         シーン開始時（またはメニューを閉じた時）に
+         カーソル状態をゲーム側の仕様に合わせる
+    */
     private void ApplyCursorStateInitial()
     {
         if (IsGameplayScene)
@@ -278,7 +407,16 @@ public class Option : MonoBehaviour
         }
     }
 
-    // メニューオンオフ
+    //================
+    // Menu Toggle
+    //================
+    /*
+         メニューを開閉する
+
+         ・MenuWindowの表示切替
+         ・Pause状態切替（TimeScale / 対象スクリプト / カーソル）
+         ・メニューを開いた瞬間はカメラから設定を読み直してUIを同期
+    */
     private void ToggleMenu()
     {
         MenuOn = !MenuOn;
@@ -287,19 +425,27 @@ public class Option : MonoBehaviour
 
         ApplyPauseState(MenuOn);
 
+        // パッド入力の押しっぱなし判定をリセット
         _didMoveRight = _didMoveLeft = _didMoveUp = _didMoveDown = false;
+
+        // 感度ドラッグも一旦切る
         _isDraggingSensitivity = false;
 
         if (MenuOn)
         {
+            // 開いた瞬間：カメラ設定を読み直す
             SyncFromCamera();
             SyncSensitivityFromCamera();
+
+            // 1フレーム後にUI更新（Layout更新の都合）
             StartCoroutine(RepositionNextFrame());
+
             RefreshColors();
             RefreshGameEndColor();
         }
         else
         {
+            // 閉じた瞬間：ホバー解除
             _gameEndHover = false;
             RefreshGameEndColor();
         }
@@ -307,7 +453,22 @@ public class Option : MonoBehaviour
         RefreshEscHint();
     }
 
-    // ポーズ
+    //================
+    // Pause / Resume
+    //================
+    /*
+         pause=true  の時：
+         ・TimeScaleを0にして停止
+         ・カメラ操作を止める
+         ・PauseTargetsを止める
+         ・カーソルを表示する
+
+         pause=false の時：
+         ・TimeScaleを戻す
+         ・カメラ操作を戻す
+         ・PauseTargetsを戻す
+         ・ゲーム中シーンならカーソルをロックに戻す
+    */
     private void ApplyPauseState(bool pause)
     {
         if (pause)
@@ -353,7 +514,14 @@ public class Option : MonoBehaviour
         }
     }
 
-    // カメラ→オプション
+    //================
+    // Sync: Camera -> Option
+    //================
+    /*
+         カメラの現在設定をオプション側へ反映する
+         ・InvertX / InvertY を読み取る
+         ・FullScreenは Screen.fullScreen の反転で持つ（UI仕様）
+    */
     private void SyncFromCamera()
     {
         if (CameraController)
@@ -367,7 +535,12 @@ public class Option : MonoBehaviour
 #endif
     }
 
-    // オプション→カメラ
+    //================
+    // Sync: Option -> Camera
+    //================
+    /*
+         オプションの InvertX / InvertY をカメラへ反映する
+    */
     private void SyncToCamera()
     {
         if (!CameraController) return;
@@ -376,6 +549,13 @@ public class Option : MonoBehaviour
         CameraController.InvertY = InvertY;
     }
 
+    //================
+    // Screen Mode Apply
+    //================
+    /*
+         UI仕様の FullScreen を、実際の Screen.fullScreen に反映する
+         Screen.fullScreen は FullScreen の反転でセットする
+    */
     private void ApplyScreenMode()
     {
 #if !UNITY_EDITOR
@@ -383,6 +563,14 @@ public class Option : MonoBehaviour
 #endif
     }
 
+    //================
+    // Quit Game
+    //================
+    /*
+         ゲーム終了
+         ・Editorなら再生停止
+         ・Buildなら Application.Quit
+    */
     private void QuitGame()
     {
 #if UNITY_EDITOR
@@ -392,7 +580,12 @@ public class Option : MonoBehaviour
 #endif
     }
 
-    // GameEnd hover
+    //================
+    // GameEnd Hover
+    //================
+    /*
+         GameEndボタンにマウスが乗ったか判定して色を変える
+    */
     private void UpdateGameEndHover(Vector2 mousePos)
     {
         if (GameEndHit == null || GameEndImage == null)
@@ -420,6 +613,12 @@ public class Option : MonoBehaviour
         GameEndImage.color = _gameEndHover ? ActiveColor : InactiveColor;
     }
 
+    //================
+    // ESC/Tab Hint Text
+    //================
+    /*
+         WebGLはEscが無効化される想定なので表示もTabだけにする
+    */
     private void RefreshEscHint()
     {
         if (!EscHintText) return;
@@ -435,7 +634,14 @@ public class Option : MonoBehaviour
             : $"{keyLabel}でオプション開く";
     }
 
-    // トグルクリック
+    //================
+    // Toggle Click
+    //================
+    /*
+         マウスクリックで各項目を切り替える
+         ・当たったHitRectに応じて bool を切り替える
+         ・必要なら Camera / Screen に反映する
+    */
     private void TryClickToggles(Vector2 mousePos)
     {
         bool Hit(RectTransform rt)
@@ -456,9 +662,15 @@ public class Option : MonoBehaviour
         if (Hit(GameEndHit)) { QuitGame(); return; }
     }
 
-    // =========================================================================
-    // マウス座標 → ハンドル親のローカルX に変換
-    // =========================================================================
+    //================
+    // Sensitivity: Mouse -> LocalX
+    //================
+    /*
+         Screen座標のマウス位置を、ハンドル親のローカル座標に変換する
+         戻り値：
+         ・true なら localX が有効
+         ・false なら変換失敗（親が無い等）
+    */
     private bool TryGetHandleLocalXFromMouse(Vector2 mousePos, out float localX)
     {
         localX = 0f;
@@ -479,25 +691,31 @@ public class Option : MonoBehaviour
         return true;
     }
 
-    // =========================================================================
-    // ローカルXから感度＆ハンドル位置を更新
-    // =========================================================================
+    //================
+    // Sensitivity: LocalX -> Sensitivity + Handle
+    //================
+    /*
+         ローカルXから次を更新する
+         ・_sensitivity01（0〜1）
+         ・CameraController.RotateSpeed（Min〜MaxへLerp）
+         ・SensitivityHandleの表示位置（Xだけ）
+    */
     private void ApplySensitivityFromLocalX(float localX)
     {
         if (SensitivityHandle == null || HandleMaxX <= HandleMinX)
             return;
 
-        // マウス位置にオフセットを足した「見た目のX」
+        // 見た目上のX（クリック位置＋補正）
         float visualX = localX + HandleVisualOffsetX;
 
-        // 見た目のXを範囲内にクランプ
+        // 表示範囲に収める
         visualX = Mathf.Clamp(visualX, HandleMinX, HandleMaxX);
 
-        // 0〜1 に正規化
+        // 0〜1に正規化して保存
         float t = Mathf.InverseLerp(HandleMinX, HandleMaxX, visualX);
         _sensitivity01 = Mathf.Clamp01(t);
 
-        // カメラ回転速度に反映
+        // カメラへ反映（回転速度）
         if (CameraController)
         {
             float newSpeed = Mathf.Lerp(
@@ -508,14 +726,19 @@ public class Option : MonoBehaviour
             CameraController.SetRotateSpeedFromOption(newSpeed);
         }
 
-        // ハンドル位置反映
+        // ハンドル表示位置へ反映
         SensitivityHandle.anchoredPosition = new Vector2(
             visualX,
             _handleBaseY
         );
     }
 
-    // クリック開始：その位置にジャンプ＋ドラッグ開始
+    //================
+    // Sensitivity: Drag Begin
+    //================
+    /*
+         クリックした位置にハンドルをジャンプさせて、そのままドラッグ開始する
+    */
     private void TryBeginSensitivityDrag(Vector2 mousePos)
     {
         if (TryGetHandleLocalXFromMouse(mousePos, out float localX))
@@ -529,7 +752,12 @@ public class Option : MonoBehaviour
         }
     }
 
-    // ドラッグ中：毎フレームマウスXに追従
+    //================
+    // Sensitivity: Drag Update
+    //================
+    /*
+         ドラッグ中は毎フレームマウスXに追従させて感度を更新する
+    */
     private void UpdateSensitivityByPointerDrag(Vector2 mousePos)
     {
         if (!_isDraggingSensitivity)
@@ -541,7 +769,13 @@ public class Option : MonoBehaviour
         }
     }
 
-    // カメラのRotateSpeed→0〜1に変換
+    //================
+    // Sensitivity: Camera -> 0..1
+    //================
+    /*
+         カメラの RotateSpeed を 0〜1 に変換して _sensitivity01 に入れる
+         ・MinRotateSpeed〜MaxRotateSpeed の範囲で InverseLerp
+    */
     private void SyncSensitivityFromCamera()
     {
         if (!CameraController)
@@ -562,7 +796,12 @@ public class Option : MonoBehaviour
         _sensitivity01 = Mathf.Clamp01(_sensitivity01);
     }
 
-    // 0〜1の感度値からハンドル位置を決定
+    //================
+    // Sensitivity: 0..1 -> Handle Position
+    //================
+    /*
+         _sensitivity01 からハンドルXを決めて、表示位置を更新する
+    */
     private void UpdateSensitivityHandlePosition()
     {
         if (!SensitivityHandle || HandleMaxX <= HandleMinX)
@@ -578,6 +817,13 @@ public class Option : MonoBehaviour
         );
     }
 
+    //================
+    // UI Layout Wait
+    //================
+    /*
+         メニューを開いた瞬間はUIのRectが確定していないことがあるので
+         1フレーム待ってからハンドル位置を更新する
+    */
     private IEnumerator RepositionNextFrame()
     {
         yield return null;
@@ -585,6 +831,14 @@ public class Option : MonoBehaviour
         UpdateSensitivityHandlePosition();
     }
 
+    //================
+    // Gamepad: Right / Left
+    //================
+    /*
+         currentIndex に応じて右/左の操作内容を変える
+         0/1/2 はトグル切替
+         3 は感度を増減
+    */
     private void HandleRight()
     {
         switch (currentIndex)
@@ -607,6 +861,13 @@ public class Option : MonoBehaviour
         }
     }
 
+    //================
+    // Sensitivity: Step Change
+    //================
+    /*
+         パッド操作で _sensitivity01 を step分だけ増減し
+         カメラへ回転速度を反映して、ハンドル表示も更新する
+    */
     private void ChangeSensitivity(float delta01)
     {
         if (!CameraController) return;
@@ -623,6 +884,13 @@ public class Option : MonoBehaviour
         UpdateSensitivityHandlePosition();
     }
 
+    //================
+    // UI: Colors
+    //================
+    /*
+         各トグルのON/OFFに応じて色を更新する
+         ・ActiveColor（赤）/ InactiveColor（白）
+    */
     private void RefreshColors()
     {
         if (InvertX_OnImage)

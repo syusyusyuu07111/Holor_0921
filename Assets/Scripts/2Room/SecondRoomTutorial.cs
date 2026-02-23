@@ -1,144 +1,185 @@
+﻿/*
+このスクリプトは「プレイヤーが2つ目の部屋に入った後のチュートリアル進行」を管理します。
+
+主な役割
+・プレイヤーの位置（X座標）で「2部屋目に入った」タイミングを判定する
+・2部屋目に入ったら、1部屋目チュートリアルを停止しつつ幽霊スポーンだけ維持する
+・チュートリアルを段階（Step1〜4）で進め、セリフUIとミッションUIを更新する
+・本を調べ終わったらチュートリアル2へ進める
+・幽霊のつぶやきヒント収集（HintText）の進捗をミッション表示に反映する
+・絵パズル（PaintingPuzzleManager）が完成したら次のミッションへ自動遷移する
+・セリフはタイプライター演出で表示し、一定時間後に消える（ミッションは基本残す）
+
+進行ステップ
+0: まだ何もしていない
+1: 部屋に入った時のセリフ + 「本を調べて情報を集めよう」ミッション
+2: 「幽霊のつぶやきからヒントを集めよう」ミッション（進捗 〇/〇 を表示）
+3: 「幽霊が好きな絵を集めよう」ミッション
+4: 「幽霊に絵を渡そう」ミッション
+
+ルール（コメント方針）
+・クラス冒頭に「何をするスクリプトか」を説明する
+・メソッドごとに「何をするメソッドか」を説明する
+・メソッド内部でも、処理のまとまりごとに「何をしているか」を説明する
+*/
+
 using System.Collections;
 using TMPro;
 using UnityEngine;
 
-// �v���C���[��2�ڂ̕����ɂ���Ƃ��ɏo��`���[�g���A���ł�
+// プレイヤーが2つ目の部屋にいるときに出るチュートリアルです
 public class SecondRoomTutorial : MonoBehaviour
 {
-    // �v���C���[�I�u�W�F�N�g�i�C���X�y�N�^�[�ŃZ�b�g�j
+    // プレイヤーオブジェクト（インスペクターでセット）
     public GameObject Player;
 
-    // ��ڂ̕����̃`���[�g���A���i�C���X�y�N�^�[�ŃA�T�C���j
+    // 一つ目の部屋のチュートリアル（インスペクターでアサイン）
     [SerializeField] private Tutorial firstRoomTutorial;
 
-    [Header("�G�p�Y���Ǘ��i�C���X�y�N�^�[�ŃA�T�C���j")]
+    [Header("絵パズル管理（インスペクターでアサイン）")]
     [SerializeField] private PaintingPuzzleManager paintingPuzzleManager;
 
-    [Header("�H��q���g�A�g�iHintText ���A�T�C���j")]
+    [Header("幽霊ヒント連携（HintText をアサイン）")]
     [SerializeField] private HintText hintText;
 
-    // �ǂ̈ʒu���z������`���[�g���A�����o����
+    // どの位置を越えたらチュートリアルを出すか
     public float triggerPosX = -3.3f;
 
-    // �`���[�g���A�����o�����Ԃ��ǂ����i�t���O�j
+    // チュートリアルを出せる状態かどうか（フラグ）
     private bool canShowTutorial = false;
 
-    // �u�v���C���[��2�ڂ̕����ɂ��邩�ǂ����v���O���猩���悤�ɂ���t���O
+    // 「プレイヤーが2つ目の部屋にいるかどうか」を外から見れるようにするフラグ
     public bool IsPlayerInSecondRoom { get; private set; } = false;
 
-    // ���ǂ̃`���[�g���A���X�e�b�v��
-    // 0 = �܂�����
-    // 1 = �`���[�g���A��1�i�����ɓ������Ƃ��̂Ԃ₫�{�{�𒲂ׂ悤�j
-    // 2 = �`���[�g���A��2�i�H��̂Ԃ₫����q���g���W�߂悤�j
-    // 3 = �`���[�g���A��3�i�W�߂��q���g�����ƂɗH�삪�D���ȊG���W�߂�~�b�V�����j
-    // 4 = �`���[�g���A��4�i�����̊G���W�ߏI��������ƁA�H��ɊG��n���~�b�V�����j
+    // 今どのチュートリアルステップか
+    // 0 = まだ何も
+    // 1 = チュートリアル1（部屋に入ったときのつぶやき＋本を調べよう）
+    // 2 = チュートリアル2（幽霊のつぶやきからヒントを集めよう）
+    // 3 = チュートリアル3（集めたヒントをもとに幽霊が好きな絵を集めるミッション）
+    // 4 = チュートリアル4（正解の絵を集め終わったあと、幽霊に絵を渡すミッション）
     private int tutorialStep = 0;
 
-    // �{��S�����׏I��������ǂ����i���̃X�N���v�g���� true �ɂ��Ă��炤�z��j
+    // 本を全部調べ終わったかどうか（他のスクリプトから true にしてもらう想定）
     public bool isBookChecked = false;
 
-    // �O����u�X�C�C�x���g�𔭐������Ă������v������p
-    // �i�G���W�߂�~�b�V�����ȍ~�Ȃ�OK�j
+    // 外から「蝋燭イベントを発生させていいか」を見る用
+    // （絵を集めるミッション以降ならOK）
     public bool CanTriggerCandleEvent
     {
         get { return tutorialStep >= 3; }
     }
 
-    // �\������e�L�X�g�i�Z���t�E�~�b�V�����j
+    // 表示するテキスト（セリフ・ミッション）
     public TextMeshProUGUI Saytext;
     public TextMeshProUGUI missiontext;
 
-    // �e�L�X�g�^�C�v���̃R���[�`����ێ�
+    // テキストタイプ中のコルーチンを保持
     private Coroutine sayCoroutine;
     private Coroutine missionCoroutine;
 
-    // ��������̃X�s�[�h
+    // 文字送りのスピード
     public float typeSpeed = 0.03f;
 
-    // �Z���t�̍s�Ԃ̑҂����ԁi���b���u���Ď��̃Z���t�ɍs�� & TypeText �̕\���ێ����ԁj
+    // セリフの行間の待ち時間（何秒か置いて次のセリフに行く & TypeText の表示保持時間）
     public float sayLineInterval = 0.6f;
 
-    // 2�ڂ̕����ɓ������Ƃ��́u�Ԃ₫�Z���t�v�����X�g�ŊǗ�
-    [Header("2�ڂ̕����ɓ������Ƃ��̃Z���t(���Ԃɕ\��)")]
+    // 2つ目の部屋に入ったときの「つぶやきセリフ」をリストで管理
+    [Header("2つ目の部屋に入ったときのセリフ(順番に表示)")]
     [TextArea]
     public string[] enterRoomSayLines =
     {
-        "�����̕����͉����낤�B",
-        "����������ׂĂ݂悤�I"
+        "ここの部屋は何だろう。",
+        "部屋をしらべてみよう！"
     };
 
-    // �H��̂Ԃ₫�~�b�V�����i�`���[�g���A��2�j���i�s�����ǂ���
+    // 幽霊のつぶやきミッション（チュートリアル2）が進行中かどうか
     public bool IsGhostWhisperMissionActive
     {
         get { return tutorialStep == 2; }
     }
 
-    // �H��Ԃ₫�~�b�V�����̃x�[�X�e�L�X�g
-    private const string HintMissionBaseText = "�~�b�V�����F�H��̂Ԃ₫����q���g���W�߂悤�B";
+    // 幽霊つぶやきミッションのベーステキスト
+    private const string HintMissionBaseText = "ミッション：幽霊のつぶやきからヒントを集めよう。";
 
+    /// <summary>
+    /// 参照が入っているかなど、初期状態のチェックを行う
+    /// </summary>
     private void Start()
     {
         Debug.Log($"[SecondRoomTutorial] Start. Time.timeScale={Time.timeScale}");
 
+        // UI参照や依存参照のチェック（動かない原因の切り分け用）
         if (Saytext == null)
-            Debug.LogWarning("[SecondRoomTutorial] Saytext ���A�T�C������Ă��܂���");
+            Debug.LogWarning("[SecondRoomTutorial] Saytext がアサインされていません");
         if (missiontext == null)
-            Debug.LogWarning("[SecondRoomTutorial] missiontext ���A�T�C������Ă��܂���");
+            Debug.LogWarning("[SecondRoomTutorial] missiontext がアサインされていません");
         if (firstRoomTutorial == null)
-            Debug.LogWarning("[SecondRoomTutorial] firstRoomTutorial ���A�T�C������Ă��܂���");
+            Debug.LogWarning("[SecondRoomTutorial] firstRoomTutorial がアサインされていません");
         if (paintingPuzzleManager == null)
-            Debug.LogWarning("[SecondRoomTutorial] paintingPuzzleManager ���A�T�C������Ă��܂���");
+            Debug.LogWarning("[SecondRoomTutorial] paintingPuzzleManager がアサインされていません");
         if (hintText == null)
-            Debug.LogWarning("[SecondRoomTutorial] hintText ���A�T�C������Ă��܂���i�i�� �Z/�Z �\���Ɏg�p�j");
+            Debug.LogWarning("[SecondRoomTutorial] hintText がアサインされていません（進捗 〇/〇 表示に使用）");
     }
 
+    /// <summary>
+    /// 毎フレーム、2部屋目突入判定と、各チュートリアル段階の進行条件をチェックする
+    /// </summary>
     private void Update()
     {
+        // プレイヤー参照がないと位置判定ができないので中断
         if (Player == null)
         {
-            Debug.LogWarning("[SecondRoomTutorial] Player �� null �ł�");
+            Debug.LogWarning("[SecondRoomTutorial] Player が null です");
             return;
         }
 
+        // 2部屋目突入の判定に使う座標（X）
         float px = Player.transform.position.x;
 
-        // �v���C���[�� X ���W�� triggerPosX �𒴂�����i��񂾂��j����
+        // まだ開始していない状態で、しきい値を超えたら「2部屋目チュートリアル開始」
         if (!canShowTutorial && px > triggerPosX)
         {
+            // 一度だけ発火するようフラグを立てる
             canShowTutorial = true;
-            IsPlayerInSecondRoom = true;  // �������Łu2�����ڂɓ������v�����ɂ���
 
-            Debug.Log($"[SecondRoomTutorial] �g���K�[�ʉ� PlayerX={px} / triggerPosX={triggerPosX} �� 2�����ڃt���OON");
+            // 外部から参照できる「2部屋目にいる」フラグをONにする
+            IsPlayerInSecondRoom = true;
+
+            Debug.Log($"[SecondRoomTutorial] トリガー通過 PlayerX={px} / triggerPosX={triggerPosX} → 2部屋目フラグON");
+
+            // 2部屋目チュートリアルの最初の段階へ
             StartTutorial1();
         }
 
+        // 2部屋目に入っていなければ、以降の進行チェックは不要
         if (!canShowTutorial) return;
 
-        // �{��S�����׏I�������`���[�g���A��2�֐i��
+        // チュートリアル1中に「本を全部調べ終わった」フラグが立ったらチュートリアル2へ
         if (tutorialStep == 1 && isBookChecked)
         {
             GoToTutorial2();
         }
 
-        // �`���[�g���A��3�i�G���W�߂�~�b�V�����j���ɁA
-        // �G�p�Y�����Łu�����̊G2���v����������玟�̃~�b�V�����֐i��
+        // チュートリアル3中に「正解の絵2枚」が揃ったら、次のミッションへ
         if (tutorialStep == 3 &&
             paintingPuzzleManager != null &&
             paintingPuzzleManager.AllCorrectPickedUp)
         {
-            Debug.Log("[SecondRoomTutorial] �G�p�Y���������������߁A���̃~�b�V�����֐i�݂܂�");
+            Debug.Log("[SecondRoomTutorial] 絵パズルが完成したため、次のミッションへ進みます");
             GoToNextMissionAfterPictures();
         }
 
-        // �� �`���[�g���A��2���́AHintText �����ɐi��������ă~�b�V�����e�L�X�g�����ɕ\��
+        // チュートリアル2中は、HintTextから進捗（〇/〇）を取り続けてミッションUIに反映
         if (tutorialStep == 2 && missiontext != null && hintText != null)
         {
+            // HintText側の現在進捗を取得
             int have, need;
             hintText.GetSecondRoomHintProgress(out have, out need);
 
+            // needが0の場合は表示を崩さない（仕様次第で調整）
             if (need > 0)
             {
-                missiontext.text = $"{HintMissionBaseText}�i{have}/{need}�j";
+                missiontext.text = $"{HintMissionBaseText}（{have}/{need}）";
             }
             else
             {
@@ -148,198 +189,215 @@ public class SecondRoomTutorial : MonoBehaviour
     }
 
     /// <summary>
-    /// �`���[�g���A��1���J�n����
-    /// �E��ڂ̕����̃`���[�g���A�� UI / ���W�b�N���~�߂�i�H��X�|�[�������������j
-    /// �E2�ڂ̕����ɓ������Ƃ��̂Ԃ₫�Z���t�� Saytext �ɏ��Ԃɕ\��
-    /// �E�~�b�V�����e�L�X�g�Ɂu�{�𒲂ׂď����W�߂悤�v��\��
+    /// チュートリアル1を開始する
+    /// ・1部屋目チュートリアルのUI/ロジックを止める（幽霊スポーンだけは生かす）
+    /// ・2部屋目突入時のセリフを順に表示
+    /// ・ミッションUIを「本を調べて情報を集めよう」にする
     /// </summary>
     private void StartTutorial1()
     {
+        // チュートリアル段階を1に設定
         tutorialStep = 1;
 
-        Debug.Log($"[SecondRoomTutorial] StartTutorial1 �Ăяo���BTime.timeScale={Time.timeScale}");
+        Debug.Log($"[SecondRoomTutorial] StartTutorial1 呼び出し。Time.timeScale={Time.timeScale}");
 
-        // �O�̂��߁A�����Ń^�C���X�P�[����K�� 1 �ɖ߂�
+        // もしTimeScaleが0のままだとコルーチンやゲームが止まるので戻す
         if (Time.timeScale == 0f)
         {
-            Debug.Log("[SecondRoomTutorial] Time.timeScale �� 0 �������̂� 1 �ɖ߂��܂�");
+            Debug.Log("[SecondRoomTutorial] Time.timeScale が 0 だったので 1 に戻します");
             Time.timeScale = 1f;
         }
 
-        // ��ڂ̕����̃`���[�g���A����������
+        // 1部屋目チュートリアルを「2部屋目用に停止」する
         if (firstRoomTutorial != null)
         {
-            Debug.Log("[SecondRoomTutorial] firstRoomTutorial �ɃX�|�[���J�n�{��~�w���𑗂�܂�");
+            Debug.Log("[SecondRoomTutorial] firstRoomTutorial にスポーン開始＋停止指示を送ります");
 
-            // �H��X�|�[�������͐�ɊJ�n�����Ă���
+            // 2部屋目に入った時点で幽霊スポーンは継続したいので、先に開始指示
             firstRoomTutorial.ForceStartSpawners();
 
-            // ���̏�ŁA1�����ڂ̃`���[�g���A�� UI / ���W�b�N���~�߂�
+            // その上で、1部屋目側のUI/ロジックを停止（2部屋目以降は不要）
             firstRoomTutorial.StopTutorialForSecondRoom();
         }
         else
         {
-            Debug.LogWarning("[SecondRoomTutorial] firstRoomTutorial ���A�T�C������Ă��܂���");
+            Debug.LogWarning("[SecondRoomTutorial] firstRoomTutorial がアサインされていません");
         }
 
-        // �������̃e�L�X�g�E�R���[�`������x�S�����Z�b�g
+        // 自分側の表示を一旦全部初期化（途中のタイプ中断・テキスト消去）
         ResetAllTextAndCoroutines();
 
-        // ��������u2�����ڐ�p�̃Z���t�v�ŏ㏑���\���i�Z���t�͏�����j
+        // セリフ表示（複数行を順番にタイプ表示し、最後に消す）
         if (Saytext != null && enterRoomSayLines != null && enterRoomSayLines.Length > 0)
         {
-            Debug.Log($"[SecondRoomTutorial] �Ԃ₫�J�n�B�s��={enterRoomSayLines.Length}");
+            Debug.Log($"[SecondRoomTutorial] つぶやき開始。行数={enterRoomSayLines.Length}");
             sayCoroutine = StartCoroutine(TypeLines(Saytext, enterRoomSayLines));
         }
         else
         {
-            Debug.LogWarning("[SecondRoomTutorial] Saytext �܂��� enterRoomSayLines ���ݒ肳��Ă��܂���");
+            Debug.LogWarning("[SecondRoomTutorial] Saytext または enterRoomSayLines が設定されていません");
         }
 
-        // �~�b�V�����e�L�X�g�͒��ڃZ�b�g�i�����Ȃ��j
+        // ミッションは「残す前提」なので即時セット
         if (missiontext != null)
         {
-            missiontext.text = "�~�b�V�����F�{�𒲂ׂď����W�߂悤�B";
+            missiontext.text = "ミッション：本を調べて情報を集めよう。";
         }
 
-        Debug.Log("�y�`���[�g���A��1�i��ڂ̕����j�z�����ɓ������Ƃ��̂Ԃ₫�{�{�𒲂ׂ悤 �J�n");
+        Debug.Log("【チュートリアル1（二つ目の部屋）】部屋に入ったときのつぶやき＋本を調べよう 開始");
     }
 
     /// <summary>
-    /// �`���[�g���A��2�֐i�ށi�{�A�C�e�����W�ߏI������^�C�~���O�ŌĂ΂���z��j
-    /// �H��̂Ԃ₫����q���g���W�߂�~�b�V�����ɐ؂�ւ���
+    /// チュートリアル2へ進む
+    /// ・本を全部調べ終わったタイミングで呼ばれる想定
+    /// ・幽霊のつぶやきからヒントを集めるミッションに切り替える
     /// </summary>
     public void GoToTutorial2()
     {
-        // �܂��`���[�g���A��1�ɓ����Ă��Ȃ��ꍇ�͉������Ȃ�
+        // まだチュートリアル1に入っていない場合は無効
         if (tutorialStep < 1) return;
 
-        // ���łɃ`���[�g���A��2�ȍ~�ɐi��ł���ꍇ�͓�d���s���Ȃ�
+        // すでにチュートリアル2以降なら二重実行しない
         if (tutorialStep >= 2) return;
 
+        // 段階を2へ
         tutorialStep = 2;
 
-        Debug.Log($"[SecondRoomTutorial] GoToTutorial2 �Ăяo���BTime.timeScale={Time.timeScale}");
+        Debug.Log($"[SecondRoomTutorial] GoToTutorial2 呼び出し。Time.timeScale={Time.timeScale}");
 
+        // 既存の表示・コルーチンをリセット
         ResetAllTextAndCoroutines();
 
-        // �Ԃ₫�i�Z���t�j�� TypeText �ŏo���ď��������������
+        // セリフは一瞬表示して消す（注意喚起）
         if (Saytext != null)
         {
-            Debug.Log("[SecondRoomTutorial] �`���[�g���A��2 �Z���t�\���J�n");
+            Debug.Log("[SecondRoomTutorial] チュートリアル2 セリフ表示開始");
             sayCoroutine = StartCoroutine(
-                TypeText(Saytext, "�H��̂Ԃ₫���悭�����΁A�����ƃq���g������ꂻ�����B")
+                TypeText(Saytext, "幽霊のつぶやきをよく聞けば、もっとヒントが得られそうだ。")
             );
         }
 
-        // �~�b�V�����e�L�X�g�͌Œ�ŕ\���i������ Update �ŏ㏑���j
+        // ミッションは固定文を置き、進捗（〇/〇）はUpdateで随時上書きする
         if (missiontext != null)
         {
             missiontext.text = HintMissionBaseText;
         }
 
-        Debug.Log("�y�`���[�g���A��2�i��ڂ̕����j�z�H��̂Ԃ₫����q���g���W�߂悤 �~�b�V�����J�n");
+        Debug.Log("【チュートリアル2（二つ目の部屋）】幽霊のつぶやきからヒントを集めよう ミッション開始");
     }
 
     /// <summary>
-    /// �`���[�g���A��3�֐i�ށi�H��̃q���g���W�ߏI������^�C�~���O�ŌĂ΂��z��j
-    /// �W�߂��q���g�����ƂɁA�H�삪�D���ȊG���W�߂�~�b�V�����ɐ؂�ւ���
+    /// チュートリアル3へ進む
+    /// ・幽霊のヒントを集め終わったタイミングで呼ばれる想定
+    /// ・幽霊が好きな絵を集めるミッションに切り替える
     /// </summary>
     public void GoToTutorial3()
     {
-        // �܂��`���[�g���A��2�i�Ԃ₫�q���g�j�ɓ����Ă��Ȃ��ꍇ�͉������Ȃ�
+        // チュートリアル2に入っていないなら無効
         if (tutorialStep < 2) return;
 
-        // ���łɃ`���[�g���A��3�ȍ~�ɐi��ł���ꍇ�͓�d���s���Ȃ�
+        // すでにチュートリアル3以降なら二重実行しない
         if (tutorialStep >= 3) return;
 
+        // 段階を3へ
         tutorialStep = 3;
 
-        Debug.Log($"[SecondRoomTutorial] GoToTutorial3 �Ăяo���BTime.timeScale={Time.timeScale}");
+        Debug.Log($"[SecondRoomTutorial] GoToTutorial3 呼び出し。Time.timeScale={Time.timeScale}");
 
+        // 表示・コルーチンをリセット
         ResetAllTextAndCoroutines();
 
-        // �Z���t�� TypeText �ň�u�o���ď�����
+        // セリフは一瞬表示して消す（ミッション導入）
         if (Saytext != null)
         {
-            Debug.Log("[SecondRoomTutorial] �`���[�g���A��3 �Z���t�\���J�n");
+            Debug.Log("[SecondRoomTutorial] チュートリアル3 セリフ表示開始");
             sayCoroutine = StartCoroutine(
-                TypeText(Saytext, "�W�߂��q���g�����ƂɁA�H�삪�D�������ȊG��I��ł݂悤�B")
+                TypeText(Saytext, "集めたヒントをもとに、幽霊が好きそうな絵を選んでみよう。")
             );
         }
 
-        // �� �~�b�V�����e�L�X�g�͒��ڃZ�b�g���āA�����Ǝc��
+        // ミッションは固定表示で残す
         if (missiontext != null)
         {
-            Debug.Log("[SecondRoomTutorial] �`���[�g���A��3 �~�b�V�����e�L�X�g�\���i�Œ�j");
-            missiontext.text = "�~�b�V�����F�H�삪�D���ȊG���W�߂悤�B";
+            Debug.Log("[SecondRoomTutorial] チュートリアル3 ミッションテキスト表示（固定）");
+            missiontext.text = "ミッション：幽霊が好きな絵を集めよう。";
         }
 
-        Debug.Log("�y�`���[�g���A��3�i��ڂ̕����j�z�H�삪�D���ȊG���W�߂悤 �~�b�V�����J�n");
+        Debug.Log("【チュートリアル3（二つ目の部屋）】幽霊が好きな絵を集めよう ミッション開始");
     }
 
     /// <summary>
-    /// �����̊G���W�ߏI��������Ƃ́u�H��ɊG��n�����v�~�b�V�����֐i��
-    /// �iUpdate ���ŊG�p�Y���̏�Ԃ����Ď����I�ɌĂ΂��z��j
+    /// 正解の絵を集め終わった後のミッションへ進む
+    /// ・Update内で絵パズル完成を検知して呼ばれる想定
+    /// ・「幽霊に絵を渡そう」へ切り替える
     /// </summary>
     public void GoToNextMissionAfterPictures()
     {
-        // �܂��G���W�߂�t�F�[�Y�ɓ����Ă��Ȃ��ꍇ�͉������Ȃ�
+        // まだチュートリアル3に入っていないなら無効
         if (tutorialStep < 3) return;
 
-        // ���łɂ��̃t�F�[�Y�ȍ~�ɐi��ł���ꍇ�͓�d���s���Ȃ�
+        // すでに4以降なら二重実行しない
         if (tutorialStep >= 4) return;
 
+        // 段階を4へ
         tutorialStep = 4;
 
-        Debug.Log($"[SecondRoomTutorial] GoToNextMissionAfterPictures �Ăяo���BTime.timeScale={Time.timeScale}");
+        Debug.Log($"[SecondRoomTutorial] GoToNextMissionAfterPictures 呼び出し。Time.timeScale={Time.timeScale}");
 
+        // 表示・コルーチンをリセット
         ResetAllTextAndCoroutines();
 
-        // �Z���t�͈�u�\�����ď�����
+        // セリフは一瞬表示して消す（達成感の補強）
         if (Saytext != null)
         {
-            Debug.Log("[SecondRoomTutorial] �`���[�g���A��4 �Z���t�\���J�n");
+            Debug.Log("[SecondRoomTutorial] チュートリアル4 セリフ表示開始");
             sayCoroutine = StartCoroutine(
-                TypeText(Saytext, "���ꂾ���W�߂�΁A�H��������Ɗ��ł����͂����B")
+                TypeText(Saytext, "これだけ集めれば、幽霊もきっと喜んでくれるはずだ。")
             );
         }
 
-        // �~�b�V�����e�L�X�g�͌Œ�\��
+        // ミッションは固定表示で残す
         if (missiontext != null)
         {
-            Debug.Log("[SecondRoomTutorial] �`���[�g���A��4 �~�b�V�����e�L�X�g�\���i�Œ�j");
-            missiontext.text = "�~�b�V�����F�H��ɊG��n�����B";
+            Debug.Log("[SecondRoomTutorial] チュートリアル4 ミッションテキスト表示（固定）");
+            missiontext.text = "ミッション：幽霊に絵を渡そう。";
         }
 
-        Debug.Log("�y�`���[�g���A��4�i��ڂ̕����j�z�H��ɊG��n���� �~�b�V�����J�n");
+        Debug.Log("【チュートリアル4（二つ目の部屋）】幽霊に絵を渡そう ミッション開始");
     }
 
     /// <summary>
-    /// �e�L�X�g�n�̃R���[�`�����~�߂āA�e�L�X�g���e�����S���Z�b�g����
+    /// テキスト表示とコルーチンを完全にリセットする
+    /// ・途中のタイプ演出を中断する
+    /// ・テキスト内容を空にする
+    /// ・UIオブジェクトは表示状態に戻す（必要ならここは方針に合わせて変更）
     /// </summary>
     private void ResetAllTextAndCoroutines()
     {
-        Debug.Log("[SecondRoomTutorial] ResetAllTextAndCoroutines �Ăяo��");
+        Debug.Log("[SecondRoomTutorial] ResetAllTextAndCoroutines 呼び出し");
 
-        // �R���[�`����~
+        // セリフ側コルーチンを止める
         if (sayCoroutine != null)
         {
             StopCoroutine(sayCoroutine);
             sayCoroutine = null;
         }
+
+        // ミッション側コルーチンを止める（現状は未使用だが保険で用意）
         if (missionCoroutine != null)
         {
             StopCoroutine(missionCoroutine);
             missionCoroutine = null;
         }
 
-        // �e�L�X�g���Z�b�g���\��ON
+        // セリフUIを初期化
         if (Saytext != null)
         {
             Saytext.text = "";
             Saytext.gameObject.SetActive(true);
         }
+
+        // ミッションUIを初期化
         if (missiontext != null)
         {
             missiontext.text = "";
@@ -348,105 +406,113 @@ public class SecondRoomTutorial : MonoBehaviour
     }
 
     /// <summary>
-    /// ���X�N���v�g����Ăяo���āu�{��S�����׏I������v�Ɠ`����p�̊֐�
-    /// �i�{�̊Ǘ�������A�Ō�̈���𒲂ׂ��^�C�~���O�ŌĂԑz��j
+    /// 外部から「本を全部調べ終わった」ことを通知するためのメソッド
+    /// ・本の管理側から最後の本を調べたタイミングで呼ぶ想定
     /// </summary>
     public void OnBookChecked()
     {
+        // Update側の条件（tutorialStep==1 && isBookChecked）で次へ進めるために立てる
         isBookChecked = true;
     }
 
     /// <summary>
-    /// 2�����ڂ̗H��Ԃ₫�istate3/state4�j���S���J�����ꂽ�Ƃ���
-    /// HintText ������Ă�ł��炤�֐�
+    /// 2部屋目の幽霊ヒントがすべて開示されたことを受け取るメソッド
+    /// ・HintText側から呼んでもらう想定
+    /// ・チュートリアル3へ進める
     /// </summary>
     public void OnSecondRoomAllHintsRevealed()
     {
-        Debug.Log("[SecondRoomTutorial] OnSecondRoomAllHintsRevealed ��M �� �`���[�g���A��3��");
+        Debug.Log("[SecondRoomTutorial] OnSecondRoomAllHintsRevealed 受信 → チュートリアル3へ");
         GoToTutorial3();
     }
 
     /// <summary>
-    /// 2�����ڃq���g�i���ihave/need�j���X�V���ꂽ�Ƃ���
-    /// �i�C�x���g�o�R�ŌĂ΂�Ă��������A�Ă΂�Ȃ��Ă������E���͕ی��p�j
+    /// 2部屋目のヒント進捗が更新された時に呼ばれる想定のメソッド
+    /// ・今は表示をUpdateで更新しているので、ここではログ程度に留める
     /// </summary>
     public void OnSecondRoomHintProgressUpdated(int have, int need)
     {
         Debug.Log($"[SecondRoomTutorial] OnSecondRoomHintProgressUpdated {have}/{need}");
-        // �\�����̂� Update ���ł���Ă���̂ł����ł̓��O����
     }
 
     /// <summary>
-    /// 1�������\������^�C�v���o�i�P���e�L�X�g�p�j
-    /// �\�����I������班�������c���Ă�������i�Z���t�p�j
+    /// 1行のテキストをタイプ表示するコルーチン
+    /// ・1文字ずつ表示していく
+    /// ・表示完了後に少し待ってからテキストを消す（セリフ用途）
     /// </summary>
     private IEnumerator TypeText(TextMeshProUGUI target, string content)
     {
+        // 表示対象がない場合は何もしない
         if (target == null) yield break;
 
-        Debug.Log($"[SecondRoomTutorial] TypeText �J�n content=\"{content}\"");
+        Debug.Log($"[SecondRoomTutorial] TypeText 開始 content=\"{content}\"");
 
+        // 最初に空にしてから開始
         string current = "";
         target.text = current;
 
+        // 1文字ずつ追加して表示更新
         foreach (char c in content)
         {
             current += c;
-            target.text = current;                  // ����A������ current �ŏ㏑��
+            target.text = current;
+
+            // UI演出はゲームのTimeScaleに影響されない方が扱いやすいのでRealtimeで待つ
             yield return new WaitForSecondsRealtime(typeSpeed);
         }
 
-        // �����\�����Ă�������i�Z���t�Ȃ̂ŉi�����Ȃ��j
+        // 表示が終わったら少し残してから消す
         yield return new WaitForSecondsRealtime(sayLineInterval);
         target.text = "";
 
-        Debug.Log($"[SecondRoomTutorial] TypeText �����i�e�L�X�g���N���A�j");
+        Debug.Log("[SecondRoomTutorial] TypeText 完了（テキストをクリア）");
     }
 
     /// <summary>
-    /// �����s�����Ԃɕ\������^�C�v���o�i�Z���t���X�g�p�j
-    /// ���e�s��\������Ƃ��A�O�̍s�̃e�L�X�g�͏����Ă���o��
-    /// ���Ō�̍s���o���I�������A�����҂��ăe�L�X�g������
+    /// 複数行のテキストを順番にタイプ表示するコルーチン
+    /// ・各行は「前の行を消してから」タイプ表示する
+    /// ・最後の行を表示後、少し残してから消す
     /// </summary>
     private IEnumerator TypeLines(TextMeshProUGUI target, string[] lines)
     {
+        // 表示対象やデータが無い場合は何もしない
         if (target == null || lines == null || lines.Length == 0)
         {
-            Debug.LogWarning("[SecondRoomTutorial] TypeLines: target �܂��� lines �������ł�");
+            Debug.LogWarning("[SecondRoomTutorial] TypeLines: target または lines が無効です");
             yield break;
         }
 
-        Debug.Log($"[SecondRoomTutorial] TypeLines �J�n �s��={lines.Length}");
+        Debug.Log($"[SecondRoomTutorial] TypeLines 開始 行数={lines.Length}");
 
+        // 行を順番に表示する
         for (int i = 0; i < lines.Length; i++)
         {
             string line = lines[i];
-            Debug.Log($"[SecondRoomTutorial] �s {i}: \"{line}\" �̕\���J�n");
+            Debug.Log($"[SecondRoomTutorial] 行 {i}: \"{line}\" の表示開始");
 
-            // �O�̍s�������Ă���J�n
+            // 行の開始時点で表示をクリア
             string current = "";
             target.text = current;
 
-            // 1�s�Ԃ�^�C�v
+            // 1行ぶんタイプ表示
             foreach (char c in line)
             {
                 current += c;
-                target.text = current;              // ��� current ���㏑��
+                target.text = current;
                 yield return new WaitForSecondsRealtime(typeSpeed);
             }
 
-            // �Ō�̍s�łȂ���΁A�����҂��Ă��玟�̍s��
+            // 最後の行でなければ、次の行へ行く前に少し間を置く
             if (i < lines.Length - 1)
             {
                 yield return new WaitForSecondsRealtime(sayLineInterval);
             }
         }
 
-        // �S���̍s���o���I��������ƁA�������������Ă������
+        // 全行の表示が終わったら少し残してから消す
         yield return new WaitForSecondsRealtime(sayLineInterval);
+        target.text = "";
 
-        target.text = "";              // �e�L�X�g������
-
-        Debug.Log("[SecondRoomTutorial] TypeLines �����B�e�L�X�g���N���A���܂���");
+        Debug.Log("[SecondRoomTutorial] TypeLines 完了。テキストをクリアしました");
     }
 }

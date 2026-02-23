@@ -178,8 +178,8 @@ MonoBehaviour:
   EnterDistance: 50
   ExitDistance: 150
   SwitchGap: 20
-  HighlightColor: {r: 1, g: 1, b: 1, a: 1}
-  NormalColor: {r: 1, g: 0, b: 0, a: 1}
+  HighlightColor: {r: 1, g: 0, b: 0, a: 1}
+  NormalColor: {r: 1, g: 1, b: 1, a: 1}
   OptionMenu: {fileID: 1582364784}
 --- !u!114 &5311816
 MonoBehaviour:
@@ -1422,7 +1422,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 1}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0

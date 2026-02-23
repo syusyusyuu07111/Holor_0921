@@ -5,6 +5,36 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(Animator))]
 public class PlayerController : MonoBehaviour
 {
+    /*
+        =========================
+        このスクリプトがやってること
+        =========================
+
+        ■目的
+        ・プレイヤーを「4方向（上/下/左/右）」に移動させる（斜め入力はしない）
+        ・家具レイヤーにだけ当たり判定を行い、壁にめり込まないように止める/滑らせる
+        ・入力に応じてアニメ(歩き/走り/スロー)を切り替える
+        ・CRI Atom で「歩きループ」「走りループ」の足音を、開始/終了のタイミングだけ再生/停止する
+
+        ■大きな流れ（Update）
+        1) 入力を読む（Move / SlowWalk / Dash）
+        2) 入力を「上下左右のどれか1軸」にスナップする（SnapOneAxis）
+        3) 入力が無いなら：位置をロック位置へ戻し、アニメ停止、足音停止
+        4) 入力があるなら：
+           - カメラの向き（Yaw）に合わせて移動方向を作る
+           - 速度を決める（通常 / ダッシュ / スロー）
+           - 移動量を小分け（サブステップ）にして、1回ずつ CapsuleCast で衝突チェック
+           - 当たったら「止め位置」まで進め、残り距離は壁に沿ってスライド
+           - ただし「方向反転したフレーム」はスライドしない（disableSlideOnFlip）
+           - 微小移動（ピクッ）を消す（microMoveEps）
+           - 回頭はRotateTowardsでスムーズに
+        5) 状態（IsMovingNow 等）更新、Dashイベント更新
+        6) 足音ループ制御（歩き/走りの開始・終了だけPlay/Stop）
+
+        ※「IsMovingNow」は“実際に動けたか”なので、壁押しっぱなしで動けない時は false になる。
+          ただし animator の IsMoving は「入力がある限り true」の運用になっている（Idleに戻りにくくする意図）。
+    */
+
     // ===== Input =====
     private InputSystem_Actions Input;
 
@@ -106,15 +136,23 @@ public class PlayerController : MonoBehaviour
 
     void Awake()
     {
+        // InputActions生成
         Input = new InputSystem_Actions();
+
+        // CapsuleColliderが付いていれば採用（無ければfallback設定を使う）
         _cap = GetComponent<CapsuleCollider>();
     }
 
     void OnEnable()
     {
+        // 入力を有効化
         Input.Player.Enable();
+
+        // 入力が無いフレームで「位置を戻す」ためのロックを初期化
         _lockedPos = transform.position;
         _lockedRot = transform.rotation;
+
+        // Y固定用（2Dっぽい運用）
         _fixedY = transform.position.y;
     }
 
@@ -122,62 +160,93 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
-        // ===== 入力 =====
+        // =========================================================
+        // 1) 入力を読む
+        // =========================================================
         Vector2 moveRaw = Input.Player.Move.ReadValue<Vector2>();
+
+        // アナログ入力でも一定値以上で「押した」扱いにする
         bool slowHeld = Input.Player.SlowWalk.ReadValue<float>() >= analogPressPoint;
         bool dashHeld = Input.Player.Dash.ReadValue<float>() >= analogPressPoint;
 
+        // =========================================================
+        // 2) 入力を上下左右のどれか1軸にスナップ（斜め禁止）
+        // =========================================================
         Vector2 moveSnap = SnapOneAxis(moveRaw);
         bool hasInput = (moveSnap.x != 0f) || (moveSnap.y != 0f);
 
+        // =========================================================
+        // 3) 入力なし：位置固定 / アニメ止め / 足音止め
+        // =========================================================
         if (!hasInput)
         {
+            // 前フレームの「最後に正しく動けた位置」に戻す（微振動を抑える意図）
             transform.SetPositionAndRotation(_lockedPos, _lockedRot);
+
+            // Y固定
             if (lockY) transform.position = new Vector3(transform.position.x, _fixedY, transform.position.z);
 
+            // StopGrace：入力が無い時間が少し続いたら IsMoving を false にする（瞬間の入力抜け対策）
             _noInputTimer += Time.deltaTime;
             if (_noInputTimer >= stopGrace && animator && animator.GetBool("IsMoving"))
                 animator.SetBool("IsMoving", false);
+
+            // ダッシュ/スローは即false
             if (animator)
             {
                 animator.SetBool("IsDashing", false);
                 animator.SetBool("IsSlowWalking", false);
             }
 
+            // 公開状態も停止
             IsMovingNow = IsDashingNow = IsSlowWalkingNow = false;
+
+            // Dashイベント終端
             if (_prevDash)
             {
                 OnDashEnd.Invoke();
                 _prevDash = false;
             }
 
-            // 足音も停止（論理的に歩き/走りとも false）
+            // 足音停止（歩き/走りとも false）
             UpdateFootstepLoop(false, false);
 
+            // 次回の優勢軸や符号をリセット
             _dominantAxis = 0;
             _lastSignX = 0; _lastSignY = 0;
             return;
         }
+
+        // 入力がある → stop grace リセット
         _noInputTimer = 0f;
 
-        // 符号反転検出
+        // =========================================================
+        // 4) 「方向反転」フレームか？（スライド無効化に使う）
+        // =========================================================
         int signX = (moveSnap.x > 0f) ? 1 : (moveSnap.x < 0f ? -1 : 0);
         int signY = (moveSnap.y > 0f) ? 1 : (moveSnap.y < 0f ? -1 : 0);
+
         bool flipped = (signX != 0 && _lastSignX != 0 && signX != _lastSignX)
                     || (signY != 0 && _lastSignY != 0 && signY != _lastSignY);
 
-        // 方向
+        // =========================================================
+        // 5) カメラの向きに合わせて移動方向を作る（Yawのみ）
+        // =========================================================
         float yaw = GetYaw();
         Quaternion yawRot = Quaternion.Euler(0f, yaw, 0f);
         Vector3 moveDir = (yawRot * new Vector3(moveSnap.x, 0f, moveSnap.y)).normalized;
 
-        // 速度
+        // =========================================================
+        // 6) 速度決定（後ろ入力はダッシュ禁止）
+        // =========================================================
         bool isBackward = moveSnap.y < 0f;
         float speed = slowHeld ? SlowSpeed : (dashHeld && !isBackward ? DashSpeed : MoveSpeed);
         bool isDashing = (!slowHeld && dashHeld && !isBackward);
 
-        // ===== サブステップ移動 =====
-        Vector3 frameStart = transform.position; // 微小移動キャンセル用に保持
+        // =========================================================
+        // 7) サブステップ移動（CapsuleCastで止める/滑らせる）
+        // =========================================================
+        Vector3 frameStart = transform.position; // 微小移動キャンセル用
         Vector3 desired = moveDir * speed * Time.deltaTime;
         float remain = desired.magnitude;
         bool movedThisFrame = false;
@@ -185,6 +254,8 @@ public class PlayerController : MonoBehaviour
         if (remain > 0f)
         {
             Vector3 dir = desired / remain;
+
+            // 大きい移動量を小分けにする（壁への引っ掛かりを減らす）
             int steps = Mathf.Max(1, Mathf.CeilToInt(remain / maxStep));
             float stepLen = remain / steps;
 
@@ -194,27 +265,27 @@ public class PlayerController : MonoBehaviour
                 Vector3 targetPos = startPos + dir * stepLen;
                 if (lockY) targetPos.y = _fixedY;
 
-                // 1回目：目標へスイープ
+                // 1回目：目標へスイープ（当たるか？）
                 if (!TrySweepTo(startPos, targetPos, out Vector3 stopPos, out RaycastHit hit))
                 {
-                    // ログ（任意）
+                    // 任意ログ：何に当たって止められたか
                     if (logBlockObjects && Time.frameCount % blockLogEveryNFrames == 0)
                     {
                         Vector3 moveDirLog = (targetPos - startPos).normalized;
                         LogBlock(stopPos, 1, hit.collider, moveDirLog);
                     }
 
-                    // 当たった → 止め位置まで進める
+                    // 当たったので、止め位置まで進める
                     transform.position = stopPos;
 
-                    // 残り距離（純粋な未到達分のみ）
+                    // 残り距離（このステップで進めなかった分）
                     float traveled = (stopPos - startPos).magnitude;
                     float leftover = Mathf.Max(0f, stepLen - traveled);
 
-                    // 方向反転フレームはスライド無効化
+                    // 方向反転フレームはスライド禁止
                     if (disableSlideOnFlip && flipped) leftover = 0f;
 
-                    // 残りを壁面へ投影して二度目のスイープ（壁沿いスライド）
+                    // 2回目：壁面へ投影した方向にスライドしてみる
                     if (leftover > 1e-5f)
                     {
                         Vector3 n = hit.normal;
@@ -224,8 +295,8 @@ public class PlayerController : MonoBehaviour
                             Vector3 slideTarget = stopPos + slideDir * (leftover * slideFactor);
                             if (lockY) slideTarget.y = _fixedY;
 
-                            // 2回目
                             TrySweepTo(stopPos, slideTarget, out Vector3 slidPos, out _);
+
                             if ((slidPos - stopPos).sqrMagnitude > 1e-8f)
                             {
                                 transform.position = slidPos;
@@ -243,7 +314,9 @@ public class PlayerController : MonoBehaviour
             }
         }
 
-        // 微小移動カット（視覚的“ピクッ”抑止）
+        // =========================================================
+        // 8) 微小移動をキャンセル（壁押しでピクピクするのを抑える）
+        // =========================================================
         float frameMoved = (transform.position - frameStart).magnitude;
         if (frameMoved < microMoveEps)
         {
@@ -251,7 +324,9 @@ public class PlayerController : MonoBehaviour
             movedThisFrame = false;
         }
 
-        // ===== スムーズ回頭（RotateTowards） =====
+        // =========================================================
+        // 9) 回頭（後ろ入力は回頭しない。動けなくても回頭したい場合は rotateEvenIfBlocked）
+        // =========================================================
         bool canRotateThisFrame = !isBackward && (movedThisFrame || rotateEvenIfBlocked);
         if (canRotateThisFrame && moveDir.sqrMagnitude > 1e-6f)
         {
@@ -263,68 +338,94 @@ public class PlayerController : MonoBehaviour
             );
         }
 
-        // lock & anim
+        // 入力無し時に戻すためのロック更新
         _lockedPos = transform.position;
         _lockedRot = transform.rotation;
 
+        // =========================================================
+        // 10) アニメ更新
+        //     ※「入力があるなら IsMoving=true」なので、壁で進めなくても Idleになりにくい
+        // =========================================================
         if (animator)
         {
-            // 衝突で実際は動けなくても、入力がある限りIdleに戻さない
             animator.SetBool("IsMoving", hasInput);
             animator.SetBool("IsDashing", hasInput && isDashing && movedThisFrame);
             animator.SetBool("IsSlowWalking", slowHeld);
         }
 
-        // 公開状態
+        // =========================================================
+        // 11) 公開状態更新（他スクリプトが見る用）
+        // =========================================================
         IsMovingNow = movedThisFrame;
         IsDashingNow = movedThisFrame && isDashing;
         IsSlowWalkingNow = slowHeld;
+
+        // Dashイベント（開始/終了）
         if (IsDashingNow && !_prevDash) OnDashStart.Invoke();
         if (!IsDashingNow && _prevDash) OnDashEnd.Invoke();
         _prevDash = IsDashingNow;
 
-        // 歩き / 走り判定（足音用）
+        // =========================================================
+        // 12) 足音ループ制御（状態変化があったときだけ Play/Stop）
+        // =========================================================
         bool isRunningNow = IsDashingNow;
         bool isWalkingNow = IsMovingNow && !IsDashingNow;
 
-        // ★ここで「始まった/終わった」の変化だけを検出して Play/Stop
-        UpdateFootstepLoop(isWalkingNow, isRunningNow); // 壁押し中も含めて足音制御
+        UpdateFootstepLoop(isWalkingNow, isRunningNow);
 
-        // 符号の記録
+        // 次フレーム用：符号を保存
         _lastSignX = signX; _lastSignY = signY;
     }
 
-    // --- 1方向限定（上下左右どちらか一方のみ通す）
+    // ------------------------------------------------------------
+    // SnapOneAxis
+    // ・入力(raw)を「左右」か「上下」のどちらか一方に固定する
+    // ・同じくらいの強さなら、前フレームの優勢軸(_dominantAxis)を優先してブレを減らす
+    // ------------------------------------------------------------
     Vector2 SnapOneAxis(Vector2 raw)
     {
         float ax = Mathf.Abs(raw.x), ay = Mathf.Abs(raw.y);
+
+        // deadZone未満は0にする
         float x = (ax >= deadZone) ? Mathf.Sign(raw.x) : 0f;
         float y = (ay >= deadZone) ? Mathf.Sign(raw.y) : 0f;
 
+        // 両方0なら入力なし
         if (x == 0f && y == 0f) { _dominantAxis = 0; return Vector2.zero; }
-        if (ax > ay + tieEpsilon) _dominantAxis = 1;
-        else if (ay > ax + tieEpsilon) _dominantAxis = 2;
-        else if (_dominantAxis == 0) _dominantAxis = (ay >= ax) ? 2 : 1;
+
+        // どちらが明確に強いかで優勢軸を決める
+        if (ax > ay + tieEpsilon) _dominantAxis = 1;          // 左右が強い
+        else if (ay > ax + tieEpsilon) _dominantAxis = 2;     // 上下が強い
+        else if (_dominantAxis == 0) _dominantAxis = (ay >= ax) ? 2 : 1; // 初回だけ適当に決める
+
+        // 優勢軸だけ通す（もう片方は0）
         return (_dominantAxis == 1) ? new Vector2(x, 0f) : new Vector2(0f, y);
     }
 
+    // ------------------------------------------------------------
+    // GetYaw
+    // ・移動方向をカメラの向きに合わせたいので、Yaw（Y回転）だけ取得
+    // ------------------------------------------------------------
     float GetYaw()
     {
         Transform src = Cam ? Cam : (Camera.main ? Camera.main.transform : transform);
         return src.eulerAngles.y;
     }
 
-    // --- 足音（CRI Atom制御） ---
-    // 「歩く始まる＞1回Play」「歩く終わる＞1回Stop」
-    // 「走る始まる＞1回Play」「走る終わる＞1回Stop」
+    // ------------------------------------------------------------
+    // UpdateFootstepLoop
+    // ・歩き/走り の「開始/終了」を検出してループSEをPlay/Stopする
+    // ・毎フレーム Play を呼ぶとループが不安定になるので、変化した時だけ
+    // ------------------------------------------------------------
     void UpdateFootstepLoop(bool isWalkingNow, bool isRunningNow)
     {
+        // どちらのソースも無ければ何もしない
         if (walkLoopSource == null && runLoopSource == null) return;
 
-        // --- 歩きの開始/終了 ---
+        // ===== 歩き：開始 =====
         if (isWalkingNow && !_wasWalking)
         {
-            // 歩き始め：走りループがついてたら止めてから WALK 再生
+            // 走りが鳴ってたら止めてから歩きへ切替
             if (_runLoopOn && runLoopSource != null)
             {
                 Debug.Log("Footstep: Stop RUN (because WALK started)");
@@ -340,9 +441,9 @@ public class PlayerController : MonoBehaviour
                 _walkLoopOn = true;
             }
         }
+        // ===== 歩き：終了 =====
         else if (!isWalkingNow && _wasWalking)
         {
-            // 歩き終了（Idle または 走りへの遷移）
             if (_walkLoopOn && walkLoopSource != null)
             {
                 Debug.Log("Footstep: Stop WALK");
@@ -351,10 +452,10 @@ public class PlayerController : MonoBehaviour
             }
         }
 
-        // --- 走りの開始/終了 ---
+        // ===== 走り：開始 =====
         if (isRunningNow && !_wasRunning)
         {
-            // 走り始め：歩きがついてたら止めてから RUN 再生
+            // 歩きが鳴ってたら止めてから走りへ切替
             if (_walkLoopOn && walkLoopSource != null)
             {
                 Debug.Log("Footstep: Stop WALK (because RUN started)");
@@ -370,9 +471,9 @@ public class PlayerController : MonoBehaviour
                 _runLoopOn = true;
             }
         }
+        // ===== 走り：終了 =====
         else if (!isRunningNow && _wasRunning)
         {
-            // 走り終了（Idle または 歩きへの遷移）
             if (_runLoopOn && runLoopSource != null)
             {
                 Debug.Log("Footstep: Stop RUN");
@@ -381,12 +482,15 @@ public class PlayerController : MonoBehaviour
             }
         }
 
-        // 状態を記録（次フレームの比較用）
+        // 次フレーム用に記録
         _wasWalking = isWalkingNow;
         _wasRunning = isRunningNow;
     }
 
-    // --- ログ
+    // ------------------------------------------------------------
+    // LogBlock
+    // ・どのColliderに当たって止められたかログを出す（任意）
+    // ------------------------------------------------------------
     void LogBlock(Vector3 nextPos, int hitCount, Collider first, Vector3 moveDir)
     {
         if (!first) return;
@@ -398,6 +502,10 @@ public class PlayerController : MonoBehaviour
         );
     }
 
+    // ------------------------------------------------------------
+    // ApproxPenetration
+    // ・ComputePenetration を使って「どれくらいめり込んでるか」を概算する（ログ用）
+    // ------------------------------------------------------------
     float ApproxPenetration(Vector3 nextPos, Collider other)
     {
         if (_cap != null)
@@ -405,19 +513,26 @@ public class PlayerController : MonoBehaviour
             Vector3 posA = nextPos;
             Quaternion rotA = transform.rotation;
             Vector3 direction; float distance;
+
             if (Physics.ComputePenetration(
                     _cap, posA, rotA,
                     other, other.transform.position, other.transform.rotation,
                     out direction, out distance))
             {
-                return distance; // 離すのに必要な距離
+                return distance;
             }
         }
+
         Vector3 p = other.ClosestPoint(nextPos);
         return Mathf.Max(0f, (nextPos - p).magnitude);
     }
 
-    // --- カプセル形状（現在位置）
+    // ------------------------------------------------------------
+    // GetCapsuleWorld
+    // ・CapsuleCast 用に「ワールド座標のカプセル端点(p1,p2)」と「半径(r)」を計算する
+    // ・CapsuleColliderがあればそれを優先、無ければ fallback を使う
+    // ・topTrim / bottomTrim で上下を少し削り誤反応を減らす
+    // ------------------------------------------------------------
     void GetCapsuleWorld(out Vector3 p1, out Vector3 p2, out float r)
     {
         var s = transform.lossyScale;
@@ -429,6 +544,7 @@ public class PlayerController : MonoBehaviour
             Vector3 c = transform.TransformPoint(_cap.center);
             float height = Mathf.Max(_cap.height * scaleY, _cap.radius * 2f * scaleXZ);
             r = _cap.radius * scaleXZ;
+
             float half = Mathf.Max(0f, height * 0.5f - r);
             p1 = c + Vector3.up * (half - topTrim);
             p2 = c - Vector3.up * (half - bottomTrim);
@@ -438,13 +554,19 @@ public class PlayerController : MonoBehaviour
             Vector3 c = transform.TransformPoint(capsuleCenter);
             float height = Mathf.Max(capsuleHeight * scaleY, capsuleRadius * 2f * scaleXZ);
             r = capsuleRadius * scaleXZ;
+
             float half = Mathf.Max(0f, height * 0.5f - r);
             p1 = c + Vector3.up * (half - topTrim);
             p2 = c - Vector3.up * (half - bottomTrim);
         }
     }
 
-    // --- 経路スイープ（CapsuleCast）
+    // ------------------------------------------------------------
+    // TrySweepTo
+    // ・fromPos → toPos へ移動できるか CapsuleCast で判定する
+    // ・当たったら hitStopPos を「壁手前(skin)で止まる位置」にして false を返す
+    // ・当たらなければ toPos を返して true
+    // ------------------------------------------------------------
     public bool TrySweepTo(Vector3 fromPos, Vector3 toPos, out Vector3 hitStopPos, out RaycastHit hitInfo)
     {
         hitInfo = default;
@@ -457,21 +579,26 @@ public class PlayerController : MonoBehaviour
         if (dist <= 0f) return true;
 
         dir /= dist;
+
+        // Overlap判定を少し細くする（めり込み/誤反応低減）
         float rAdj = Mathf.Max(0.001f, r - Mathf.Max(0f, overlapShrink));
 
         if (Physics.CapsuleCast(p1, p2, rAdj, dir, out RaycastHit hit, dist, furnitureMask, QueryTriggerInteraction.Ignore))
         {
+            // hit.distance は「当たるまでの距離」なので skin 分だけ手前で止める
             float stopDist = Mathf.Max(0f, hit.distance - skin);
             hitStopPos = fromPos + dir * stopDist;
             hitInfo = hit;
-            return false; // 途中で止まった
+            return false;
         }
 
-        return true; // ぶつからず到達
+        return true;
     }
 
     // ================================
-    //  外部用: 押しなどで delta だけ動かしたいとき
+    // ExternalMoveByDelta
+    // ・外部から「押す」などの理由で worldDelta だけ動かしたい時に使う
+    // ・同じ TrySweepTo を通すので、家具にめり込まない
     // ================================
     public void ExternalMoveByDelta(Vector3 worldDelta)
     {
@@ -494,7 +621,7 @@ public class PlayerController : MonoBehaviour
             transform.position = new Vector3(transform.position.x, _fixedY, transform.position.z);
         }
 
-        // 押された結果の位置をロックにも反映したいなら以下を有効化
+        // 押された結果をロック位置にも反映したいなら以下を使う
         // _lockedPos = transform.position;
         // _lockedRot = transform.rotation;
     }
