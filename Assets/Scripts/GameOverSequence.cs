@@ -17,7 +17,7 @@ public class GameOverSequence : MonoBehaviour
         BottomToTop,        // 下→上にニョキッと出る
         DiagonalTLBR,       // 左上→右下っぽく同時に広がる
         ThrownIn,           // 画面外からぶん投げられてドンッと当たる
-        Hide                // ★このステップの番で消す（フェードアウト）
+        Hide                // このステップの番で消す（フェードアウト）
     }
 
     // ------------------------------------------------
