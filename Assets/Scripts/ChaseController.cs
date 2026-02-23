@@ -1,10 +1,5 @@
-//プレイヤーの位置にそのまま追跡してくるスクリプト========================================================================================-
-
-
 using UnityEngine;
 using UnityEngine.AI;
-using System.Collections;
-using System.Collections.Generic;
 using Unity.AI.Navigation;
 
 public class ChaseController : MonoBehaviour
@@ -13,85 +8,165 @@ public class ChaseController : MonoBehaviour
     public NavMeshSurface surface;
     public Transform target;
 
-    float repathtimer = 0f;
-    public float repathinterval = 0.1f;   // 追跡頻度（細かめ）
+    private float repathtimer = 0f;
+    public float repathinterval = 0.1f;
 
-    public float maxDistance = 2;         // SamplePosition の探索半径（従来変数は残す）
+    public float maxDistance = 2f;
 
-    //=== 追加：メッシュ外スポーンの保険 ===================================================
-    public float placeOnMeshSearchRadius = 8f;   // 近くのNavMeshを探す半径
-    public float minSampleRadius = 6f;           // 目標をNavMeshへ投影する最低半径
+    public float placeOnMeshSearchRadius = 8f;
+    public float minSampleRadius = 6f;
 
-    void Start()
+    private void Start()
     {
-        // 物理/コンポーネントの競合を止める -------------------------------------------------
-        var rb = GetComponent<Rigidbody>();
-        if (rb) { rb.isKinematic = true; rb.useGravity = false; }
+        //================
+        // NavMeshAgentと競合するコンポーネントを無効化する
+        // RigidbodyやCharacterControllerが有効だと
+        // 移動がブレたり止まったりするため先に止める
+        //================
+        StopPhysicsComponents();
 
-        var cc = GetComponent<CharacterController>();
-        if (cc) cc.enabled = false; // NavMeshAgent と同居しない
-
-        // NavMesh上に載せる ----------------------------------------------------------------
-        EnsureOnNavMesh();
-
-        // Agentの基本値（未設定/0対策） ----------------------------------------------------
-        if (agent)
+        //================
+        // スポーン位置がNavMesh外だった場合の保険
+        // メッシュ上にスナップさせる
+        //================
+        if (!EnsureOnNavMesh())
         {
-            agent.isStopped = false;
-            if (agent.speed <= 0f) agent.speed = 3.5f;
-            if (agent.acceleration <= 0f) agent.acceleration = 8f;
-            agent.autoBraking = false;           // 減速で止まりにくくする
-            agent.updatePosition = true;
-            agent.updateRotation = true;
-            agent.baseOffset = Mathf.Max(0.1f, agent.baseOffset); // わずかに浮かせる（沈み防止）
+            Debug.LogError("[ChaseController] NavMeshに乗せられませんでした。");
+            return;
         }
+
+        //================
+        // Agentの初期値補正
+        // speedやaccelerationが0だと動かないため
+        // 未設定の場合のみ安全値を入れる
+        //================
+        SetupAgentDefaults();
     }
 
-    // Update is called once per frame -------------------------------------------------------
-    void Update()
+    private void Update()
     {
+        //================
+        // 毎フレーム追跡すると重いので
+        // 一定間隔で再経路探索する
+        //================
         repathtimer += Time.deltaTime;
-        if (repathtimer > repathinterval)
+        if (repathtimer <= repathinterval) return;
+
+        repathtimer = 0f;
+
+        //================
+        // 落下やワープでNavMesh外に出た場合の保険処理
+        //================
+        if (!EnsureOnNavMesh())
         {
-            repathtimer = 0f;
-
-            // 毎回、NavMesh上にいるかだけ確認（スポーン直後/段差落下の保険）
-            if (!EnsureOnNavMesh()) return;
-
-            TargetChase(); // 常に追いかける
+            Debug.LogError("[ChaseController] NavMesh外のため追跡停止。");
+            return;
         }
+
+        //================
+        // プレイヤー追跡処理
+        //================
+        TargetChase();
     }
 
-    // ターゲットを追いかける ---------------------------------------------------------------
-    void TargetChase()
+    /*
+         プレイヤーをNavMesh上に投影して追跡する
+         直接target.positionを使わないのは
+         NavMesh外を指定すると経路計算が失敗するため
+    */
+    private void TargetChase()
     {
-        if (!agent || !target) return;
+        if (agent == null)
+        {
+            Debug.LogError("[ChaseController] agent未設定。");
+            return;
+        }
+
+        if (target == null)
+        {
+            Debug.LogError("[ChaseController] target未設定。");
+            return;
+        }
+
         if (!agent.isOnNavMesh) return;
 
-        // 目標をNavMesh上にスナップ（半径が小さいと失敗しやすいので下限を用意）
-        float sample = Mathf.Max(minSampleRadius, maxDistance);
-        if (NavMesh.SamplePosition(target.position, out var hit, sample, NavMesh.AllAreas))
+        // 目標位置をNavMesh上に変換するための探索半径
+        float SampleRadius = Mathf.Max(minSampleRadius, maxDistance);
+
+        if (NavMesh.SamplePosition(target.position, out NavMeshHit Hit, SampleRadius, NavMesh.AllAreas))
         {
             agent.isStopped = false;
-            agent.SetDestination(hit.position);
+            agent.SetDestination(Hit.position);
+            return;
         }
-        else
-        {
-            // Sampleに失敗した場合は前回の経路を維持（何もしない）
-        }
+
+        // Sample失敗時は何もしない（前回の経路を維持）
     }
 
-    // メッシュ外ならワープして載せる -------------------------------------------------------
-    bool EnsureOnNavMesh()
+    /*
+         NavMesh外にいる場合
+         一番近いNavMeshへワープさせる
+         MoveではなくWarpを使うのは
+         Agent内部状態を正しく更新するため
+    */
+    private bool EnsureOnNavMesh()
     {
-        if (!agent) return false;
+        if (agent == null)
+        {
+            Debug.LogError("[ChaseController] agent未設定。");
+            return false;
+        }
+
         if (agent.isOnNavMesh) return true;
 
-        if (NavMesh.SamplePosition(transform.position, out var hit, placeOnMeshSearchRadius, NavMesh.AllAreas))
+        if (NavMesh.SamplePosition(transform.position, out NavMeshHit Hit, placeOnMeshSearchRadius, NavMesh.AllAreas))
         {
-            agent.Warp(hit.position); // MoveではなくWarpでNavMeshへスナップ
+            agent.Warp(Hit.position);
             return true;
         }
+
         return false;
+    }
+
+    /*
+         Rigidbody / CharacterControllerを止める
+         NavMeshAgentは自前で移動制御するため
+         他の移動系コンポーネントと共存させない
+    */
+    private void StopPhysicsComponents()
+    {
+        Rigidbody Rb = GetComponent<Rigidbody>();
+        if (Rb != null)
+        {
+            Rb.isKinematic = true;
+            Rb.useGravity = false;
+        }
+
+        CharacterController Cc = GetComponent<CharacterController>();
+        if (Cc != null) Cc.enabled = false;
+    }
+
+    /*
+         Agentの安全初期化
+         speedやaccelerationが0だと動かないため補正する
+         既に値が入っている場合は変更しない
+    */
+    private void SetupAgentDefaults()
+    {
+        if (agent == null)
+        {
+            Debug.LogError("[ChaseController] agent未設定。");
+            return;
+        }
+
+        agent.isStopped = false;
+
+        if (agent.speed <= 0f) agent.speed = 3.5f;
+        if (agent.acceleration <= 0f) agent.acceleration = 8f;
+
+        agent.autoBraking = false;
+        agent.updatePosition = true;
+        agent.updateRotation = true;
+        agent.baseOffset = Mathf.Max(0.1f, agent.baseOffset);
     }
 }

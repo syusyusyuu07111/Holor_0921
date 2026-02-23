@@ -18,89 +18,87 @@ public class AudioManager : MonoBehaviour
     [Header("足音ループ (SE_walk / loop)")]
     [SerializeField] private CriAtomSource SE_walk;
 
-    // 足音ループの状態を自前で覚える（ループを二重で鳴らさないため）
-    private bool isFootstepPlaying = false;
+    // 足音ループの再生状態
+    private bool IsFootstepPlaying = false;
 
-    // ドアを開けた時のSEを鳴らす-----------------------------------------------------------------
+    //================
+    // ドアを開けた時のSE
+    //================
     public void PlayDoorOpen()
     {
-        if (doorOpenSource != null)
-        {
-            doorOpenSource.Play();
-        }
-        else
-        {
-            Debug.LogWarning("AudioManager: doorOpenSource が割り当てられていません。");
-        }
+        PlayOneShot(doorOpenSource, "doorOpenSource");
     }
-    //-----------------------------------------------------------------------------------------------
-    // ドアを閉めた時のSEを鳴らす--------------------------------------------------------------------
+
+    //================
+    // ドアを閉めた時のSE
+    //================
     public void PlayDoorClose()
     {
-        if (doorCloseSource != null)
-        {
-            doorCloseSource.Play();
-        }
-        else
-        {
-            Debug.LogWarning("AudioManager: doorCloseSource が割り当てられていません。");
-        }
+        PlayOneShot(doorCloseSource, "doorCloseSource");
     }
-    //---------------------------------------------------------------------------------------------------
-    //幽霊が出現した時のSE-------------------------------------------------------------------------------
+
+    //================
+    // 幽霊出現SE
+    //================
     public void GHOSTAPPEAR()
     {
-        if (GhostAppearSource != null)
-        {
-            GhostAppearSource.Play();
-        }
-        else
-        {
-            Debug.LogWarning("AudioManager: GhostAppearSource が割り当てられていません。");
-        }
+        PlayOneShot(GhostAppearSource, "GhostAppearSource");
     }
-    //------------------------------------------------------------------------------------------------------
-    //幽霊につかまった時のSE-------------------------------------------------------------------------------
+
+    //================
+    // 幽霊に捕まった時のSE
+    //================
     public void CatchSource()
     {
-        if (SE_catchSource != null)
-        {
-            SE_catchSource.Play();
-        }
-        else
-        {
-            Debug.LogWarning("AudioManager: SE_catchSource が割り当てられていません。");
-        }
+        PlayOneShot(SE_catchSource, "SE_catchSource");
     }
-    //----------------------------------------------------------------------------------------------------------
-    // 足音ループを開始（歩いてる間だけ再生したい）
-    //----------------------------------------------------------------------------------------------------------
+
+    /*
+         単発SE再生共通処理
+         未設定ならErrorを出す
+    */
+    private void PlayOneShot(CriAtomSource Source, string SourceName)
+    {
+        if (Source == null)
+        {
+            Debug.LogError($"AudioManager: {SourceName} が未設定です。");
+            return;
+        }
+
+        Source.Play();
+    }
+
+    //================
+    // 足音ループ開始
+    //================
     public void StartFootstepLoop()
     {
         if (SE_walk == null)
         {
-            Debug.LogWarning("AudioManager: SE_walk が割り当てられていません。");
+            Debug.LogError("AudioManager: SE_walk が未設定です。");
             return;
         }
 
-        // すでに鳴ってるなら何もしない（重複スタート防止）
-        if (isFootstepPlaying) return;
+        if (IsFootstepPlaying) return;
 
-        SE_walk.Play();          // CriAtomSource 側でループ設定されたキューを再生
-        isFootstepPlaying = true;
+        SE_walk.Play();
+        IsFootstepPlaying = true;
     }
 
-    //----------------------------------------------------------------------------------------------------------
-    // 足音ループを止める（立ち止まったら呼ぶ）
-    //----------------------------------------------------------------------------------------------------------
+    //================
+    // 足音ループ停止
+    //================
     public void StopFootstepLoop()
     {
-        if (SE_walk == null) return;
+        if (SE_walk == null)
+        {
+            Debug.LogError("AudioManager: SE_walk が未設定です。");
+            return;
+        }
 
-        if (!isFootstepPlaying) return;
+        if (!IsFootstepPlaying) return;
 
-        SE_walk.Stop();          // 再生停止
-        isFootstepPlaying = false;
+        SE_walk.Stop();
+        IsFootstepPlaying = false;
     }
-    //----------------------------------------------------------------------------------------------------------
 }
