@@ -30,7 +30,7 @@ public class GameOverMenu : MonoBehaviour
 
     private InputSystem_Actions _input;
 
-    // ★ここ追加
+    // ここ追加
     private void Start()
     {
         // ゲームオーバー画面ではマウスを見せて、自由に動かせるようにする

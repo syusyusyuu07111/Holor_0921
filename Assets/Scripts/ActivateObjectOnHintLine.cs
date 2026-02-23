@@ -18,37 +18,83 @@ public class ActivateObjectOnHintLine : MonoBehaviour
     [Tooltip("その State の何行目か（0〜4）")]
     public int LineIndex = 0;
 
-    private string _targetId;
+    private string TargetId;
 
     private void Awake()
     {
+        //================
+        // 参照チェック
+        //================
+        if (Hint == null) Debug.LogError("[ActivateObjectOnHintLine] Hint が未設定です。");
+        if (TargetObject == null) Debug.LogError("[ActivateObjectOnHintLine] TargetObject が未設定です。");
+
+        //================
         // ターゲットIDを事前計算
-        _targetId = $"stage{StageIndex}.state{Mathf.Max(1, HintState)}.element{Mathf.Clamp(LineIndex, 0, 4)}";
+        //================
+        TargetId = CreateTargetId();
     }
 
     private void OnEnable()
     {
-        if (Hint != null)
-        {
-            Hint.OnLineFullyRevealed.AddListener(OnHintLineRevealed);
-        }
+        if (Hint == null) return;
+
+        //================
+        // イベント登録
+        //================
+        Hint.OnLineFullyRevealed.AddListener(OnHintLineRevealed);
     }
 
     private void OnDisable()
     {
-        if (Hint != null)
-        {
-            Hint.OnLineFullyRevealed.RemoveListener(OnHintLineRevealed);
-        }
+        if (Hint == null) return;
+
+        //================
+        // イベント解除
+        //================
+        Hint.OnLineFullyRevealed.RemoveListener(OnHintLineRevealed);
     }
 
-    private void OnHintLineRevealed(string id)
+    /*
+         HintText側で行が完全表示された瞬間に呼ばれる
+         IDが一致したらターゲットをアクティブ化する
+    */
+    private void OnHintLineRevealed(string Id)
     {
-        // 指定した行IDと一致したらターゲットをアクティブ化
-        if (id == _targetId && TargetObject != null && !TargetObject.activeSelf)
+        if (Id != TargetId) return;
+        if (TargetObject == null)
         {
-            TargetObject.SetActive(true);
-            Debug.Log($"[ActivateObjectOnHintLine] Activated {TargetObject.name} by hint: {id}");
+            Debug.LogError("[ActivateObjectOnHintLine] TargetObject が未設定のまま呼ばれました。");
+            return;
         }
+        if (TargetObject.activeSelf) return;
+
+        //================
+        // アクティブ化
+        //================
+        TargetObject.SetActive(true);
+        Debug.Log($"[ActivateObjectOnHintLine] Activated {TargetObject.name} by hint: {Id}");
     }
+
+    //================
+    // ターゲットID生成
+    //================
+    private string CreateTargetId()
+    {
+        // 不正値が入っても挙動が壊れないように丸める
+        int FixedStageIndex = Mathf.Max(0, StageIndex);
+        int FixedHintState = Mathf.Clamp(HintState, 1, 4);
+        int FixedLineIndex = Mathf.Clamp(LineIndex, 0, 4);
+
+        return $"stage{FixedStageIndex}.state{FixedHintState}.element{FixedLineIndex}";
+    }
+
+#if UNITY_EDITOR
+    private void OnValidate()
+    {
+        //================
+        // インスペクター変更時の反映
+        //================
+        TargetId = CreateTargetId();
+    }
+#endif
 }
