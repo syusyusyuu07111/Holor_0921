@@ -429,7 +429,7 @@ public class EnemyAI : MonoBehaviour
     }
 
     //======================================================================
-    // 出現エフェクト：スポーン地点にVFXを出す（任意でゴーストの子にする）
+    // 出現エフェクト：スポーン地点にVFXを出す
     //======================================================================
 
     private void SpawnGhostEffect(Vector3 spawnPos, GameObject ghostInstance)

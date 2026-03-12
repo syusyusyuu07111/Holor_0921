@@ -10,6 +10,11 @@ using UnityEngine.Events;
      ・近づくと1行ずつマスク解除（全文表示）
      ・発見状態では上書き表示（任意）
      ・2部屋目(state3/state4)のヒント進捗をイベントで通知する
+
+     2部屋目の表示ルール
+     ・State3 / State4 のどちらか片方がすでに全部開示済みなら、未完了の方だけを出す
+     ・両方とも未完了なら、State3 と State4 を交互に出す
+     ・Inspector の参照や設定は既存のまま使えるようにしている
 */
 
 public class HintText : MonoBehaviour
@@ -227,6 +232,18 @@ public class HintText : MonoBehaviour
     private readonly HashSet<int> _tutorialShownStages = new HashSet<int>();
 
     //================
+    // 2部屋目の交互表示管理
+    //================
+
+    // 2部屋目で最後に選んだヒント state（3 or 4）
+    // 初回は 3 を出したいので、前回 4 扱いにしておく
+    private int _lastSecondRoomHintState = 4;
+
+    // 現在表示中の 2部屋目ヒント state を固定保持する
+    // 毎フレーム交互に切り替わらないようにするためのロック
+    private int _currentLockedSecondRoomHintState = -1;
+
+    //================
     // Unity Lifecycle
     //================
 
@@ -264,6 +281,9 @@ public class HintText : MonoBehaviour
 
                     if (AutoDeriveChaseRefFromGhost)
                         ChaseRef = Ghost ? Ghost.GetComponent<SearchChase>() : null;
+
+                    // ゴーストが切り替わったら、次に出す 2部屋目ヒントの選択をやり直せるようにする
+                    UnlockSecondRoomHintSelection();
 
                     ResetRevealProgress();
                     ApplyMaskedAll();
@@ -511,7 +531,9 @@ public class HintText : MonoBehaviour
     /*
          ghostState(1/2) → hintState(1〜4)
          ・1部屋目: 1→1, 2→2
-         ・2部屋目: 1→3, 2→4
+         ・2部屋目:
+           - 片方が埋まっていたら未完了側を出す
+           - 両方未完了なら State3 / State4 を交互に出す
     */
     private int ConvertGhostStateToHintState(int ghostState)
     {
@@ -520,9 +542,93 @@ public class HintText : MonoBehaviour
 
         if (!inSecondRoom) return ghostState;
 
-        if (ghostState == 1) return 3;
-        if (ghostState == 2) return 4;
-        return ghostState;                                       // 保険
+        return GetOrLockSecondRoomHintState();
+    }
+
+    //================
+    // 2部屋目の表示ルール
+    //================
+
+    /*
+         現在表示する 2部屋目ヒント state（3 or 4）を返す
+         ・一度決めたらロックして、毎フレームは変えない
+         ・次の表示に切り替えたい時だけ UnlockSecondRoomHintSelection で解除する
+    */
+    private int GetOrLockSecondRoomHintState()
+    {
+        if (_currentLockedSecondRoomHintState == 3 || _currentLockedSecondRoomHintState == 4)
+            return _currentLockedSecondRoomHintState;
+
+        _currentLockedSecondRoomHintState = DecideNextSecondRoomHintState();
+        _lastSecondRoomHintState = _currentLockedSecondRoomHintState;
+
+        Debug.Log($"[HintText] 2部屋目ヒント選択 locked -> State{_currentLockedSecondRoomHintState}");
+        return _currentLockedSecondRoomHintState;
+    }
+
+    // 2部屋目の表示固定を解除して、次回再選択できるようにする
+    private void UnlockSecondRoomHintSelection()
+    {
+        _currentLockedSecondRoomHintState = -1;
+    }
+
+    /*
+         次に出す 2部屋目ヒント state を決める
+         ・片方が全部開示済みなら、未完了側を返す
+         ・両方未完了なら、最後に出したものと逆を返して交互にする
+         ・両方完了済みなら保険で 3 を返す
+    */
+    private int DecideNextSecondRoomHintState()
+    {
+        if (Stages == null || Stages.Count == 0) return 3;
+
+        int stageIndex = Mathf.Clamp(ProgressStage, 0, Stages.Count - 1);
+
+        bool state3Done = IsSecondRoomStateFullyRevealed(stageIndex, 3);
+        bool state4Done = IsSecondRoomStateFullyRevealed(stageIndex, 4);
+
+        // State3 が埋まっていて State4 が未完了なら、State4 を出す
+        if (state3Done && !state4Done)
+            return 4;
+
+        // State4 が埋まっていて State3 が未完了なら、State3 を出す
+        if (state4Done && !state3Done)
+            return 3;
+
+        // 両方埋まっていたら保険で 3
+        if (state3Done && state4Done)
+            return 3;
+
+        // 両方未完了なら交互
+        return (_lastSecondRoomHintState == 3) ? 4 : 3;
+    }
+
+    /*
+         2部屋目の State3 / State4 が、そのステージで全部開示済みか
+         ・空でない行だけを対象にチェックする
+    */
+    private bool IsSecondRoomStateFullyRevealed(int stageIndex, int hintState)
+    {
+        if (hintState != 3 && hintState != 4) return false;
+        if (Stages == null || Stages.Count == 0) return false;
+
+        stageIndex = Mathf.Clamp(stageIndex, 0, Stages.Count - 1);
+        var set = Stages[stageIndex];
+        if (set == null) return false;
+
+        string[] src = (hintState == 3) ? set.State3 : set.State4;
+        if (src == null) return true;
+
+        for (int i = 0; i < 5; i++)
+        {
+            string line = (i < src.Length) ? src[i] : null;
+            if (string.IsNullOrWhiteSpace(line)) continue;
+
+            if (!HasLineBeenRevealed(stageIndex, hintState, i))
+                return false;
+        }
+
+        return true;
     }
 
     //================
@@ -687,6 +793,9 @@ public class HintText : MonoBehaviour
         if (clamped == ProgressStage) return;
 
         ProgressStage = clamped;
+
+        // ステージが変わったら、2部屋目ヒントの固定選択を解除
+        UnlockSecondRoomHintSelection();
 
         ResetRevealProgress();
         SelectLinesByStageAndState();
