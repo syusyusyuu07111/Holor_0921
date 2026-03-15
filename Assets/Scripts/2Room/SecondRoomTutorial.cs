@@ -8,6 +8,7 @@
 ・本を調べ終わったらチュートリアル2へ進める
 ・幽霊のつぶやきヒント収集（HintText）の進捗をミッション表示に反映する
 ・絵パズル（PaintingPuzzleManager）が完成したら次のミッションへ自動遷移する
+・絵回収後、「幽霊に絵を渡そう」へ進んだタイミングで渡し先の幽霊を有効化する
 ・セリフはタイプライター演出で表示し、一定時間後に消える（ミッションは基本残す）
 
 進行ステップ
@@ -101,6 +102,17 @@ public class SecondRoomTutorial : MonoBehaviour
     // 幽霊つぶやきミッションのベーステキスト
     private const string HintMissionBaseText = "ミッション：幽霊のつぶやきからヒントを集めよう。";
 
+    //========================
+    // 絵回収後に出現させる幽霊の管理
+    //========================
+
+    // 絵回収後に有効化する対象をキャッシュ
+    // インスペクターで触らなくても内部で自動特定する
+    private GameObject _ghostToActivateAfterPictures;
+
+    // 有効化処理の二重実行防止
+    private bool _ghostActivatedAfterPictures = false;
+
     /// <summary>
     /// 参照が入っているかなど、初期状態のチェックを行う
     /// </summary>
@@ -119,6 +131,9 @@ public class SecondRoomTutorial : MonoBehaviour
             Debug.LogWarning("[SecondRoomTutorial] paintingPuzzleManager がアサインされていません");
         if (hintText == null)
             Debug.LogWarning("[SecondRoomTutorial] hintText がアサインされていません（進捗 〇/〇 表示に使用）");
+
+        // 絵回収後に出現させる幽霊を、開始時点で自動探索しておく
+        ResolveGhostAfterPicturesIfNeeded();
     }
 
     /// <summary>
@@ -330,6 +345,7 @@ public class SecondRoomTutorial : MonoBehaviour
     /// 正解の絵を集め終わった後のミッションへ進む
     /// ・Update内で絵パズル完成を検知して呼ばれる想定
     /// ・「幽霊に絵を渡そう」へ切り替える
+    /// ・あわせて渡し先の幽霊を有効化する
     /// </summary>
     public void GoToNextMissionAfterPictures()
     {
@@ -363,7 +379,124 @@ public class SecondRoomTutorial : MonoBehaviour
             missiontext.text = "ミッション：幽霊に絵を渡そう。";
         }
 
+        // 絵回収後に渡し先の幽霊を有効化する
+        ActivateGhostAfterPicturesIfNeeded();
+
         Debug.Log("【チュートリアル4（二つ目の部屋）】幽霊に絵を渡そう ミッション開始");
+    }
+
+    /// <summary>
+    /// 絵回収後に出現させる幽霊を、必要なら自動特定する
+    /// ・インスペクターで触らなくても良いように、シーン内の非アクティブオブジェクトも含めて探索する
+    /// ・優先順位は「非アクティブの Ghostタグ付き」→「非アクティブの SearchChase持ち」→「Ghostタグ付き」
+    /// </summary>
+    private void ResolveGhostAfterPicturesIfNeeded()
+    {
+        // すでに見つかっていれば再探索しない
+        if (_ghostToActivateAfterPictures != null) return;
+
+        Debug.Log("[SecondRoomTutorial] 絵回収後に有効化する幽霊を自動探索します");
+
+        GameObject fallbackActiveGhost = null;
+        GameObject fallbackInactiveSearchChase = null;
+
+        // 非アクティブも含めてシーン上の GameObject を全部見る
+        GameObject[] allObjects = Resources.FindObjectsOfTypeAll<GameObject>();
+
+        for (int i = 0; i < allObjects.Length; i++)
+        {
+            GameObject go = allObjects[i];
+            if (go == null) continue;
+
+            // Projectビュー上のPrefab等は除外し、シーン上にあるものだけ対象にする
+            if (!go.scene.IsValid()) continue;
+
+            // HideFlags付きの特殊オブジェクトは除外
+            if (go.hideFlags != HideFlags.None) continue;
+
+            bool isInactive = !go.activeInHierarchy;
+            bool hasGhostTag = go.CompareTag("Ghost");
+            bool hasSearchChase = go.GetComponent<SearchChase>() != null;
+
+            // 最優先：非アクティブの Ghost タグ付き
+            if (isInactive && hasGhostTag)
+            {
+                _ghostToActivateAfterPictures = go;
+                Debug.Log($"[SecondRoomTutorial] 絵回収後の出現対象を発見（最優先: 非アクティブ Ghostタグ） name={go.name}");
+                return;
+            }
+
+            // 次点：非アクティブの SearchChase 持ち
+            if (isInactive && hasSearchChase && fallbackInactiveSearchChase == null)
+            {
+                fallbackInactiveSearchChase = go;
+            }
+
+            // 最後の保険：Ghostタグ付き
+            if (hasGhostTag && fallbackActiveGhost == null)
+            {
+                fallbackActiveGhost = go;
+            }
+        }
+
+        if (fallbackInactiveSearchChase != null)
+        {
+            _ghostToActivateAfterPictures = fallbackInactiveSearchChase;
+            Debug.Log($"[SecondRoomTutorial] 絵回収後の出現対象を発見（次点: 非アクティブ SearchChase） name={fallbackInactiveSearchChase.name}");
+            return;
+        }
+
+        if (fallbackActiveGhost != null)
+        {
+            _ghostToActivateAfterPictures = fallbackActiveGhost;
+            Debug.Log($"[SecondRoomTutorial] 絵回収後の出現対象を発見（保険: Ghostタグ） name={fallbackActiveGhost.name}");
+            return;
+        }
+
+        Debug.LogWarning("[SecondRoomTutorial] 絵回収後に有効化する幽霊が見つかりませんでした。Ghostタグ または SearchChase を確認してください");
+    }
+
+    /// <summary>
+    /// 絵回収後に、必要なら幽霊を有効化する
+    /// ・二重実行を防ぐ
+    /// ・対象がまだ未特定ならここでも再探索する
+    /// ・未設定/未発見時は警告ログを出す
+    /// </summary>
+    private void ActivateGhostAfterPicturesIfNeeded()
+    {
+        // すでに一度有効化済みなら何もしない
+        if (_ghostActivatedAfterPictures)
+        {
+            Debug.Log("[SecondRoomTutorial] 絵回収後の幽霊有効化はすでに実行済みです");
+            return;
+        }
+
+        // 対象が未確定ならここでも再探索
+        if (_ghostToActivateAfterPictures == null)
+        {
+            ResolveGhostAfterPicturesIfNeeded();
+        }
+
+        // それでも見つからなければ警告
+        if (_ghostToActivateAfterPictures == null)
+        {
+            Debug.LogWarning("[SecondRoomTutorial] 絵回収後に有効化する幽霊が特定できなかったため、SetActive(true) を実行できません");
+            return;
+        }
+
+        // すでにアクティブなら、そのまま完了扱いにする
+        if (_ghostToActivateAfterPictures.activeSelf)
+        {
+            _ghostActivatedAfterPictures = true;
+            Debug.Log($"[SecondRoomTutorial] 絵回収後の幽霊はすでに active です name={_ghostToActivateAfterPictures.name}");
+            return;
+        }
+
+        // 出現させる
+        _ghostToActivateAfterPictures.SetActive(true);
+        _ghostActivatedAfterPictures = true;
+
+        Debug.Log($"[SecondRoomTutorial] 絵回収後の幽霊を有効化しました name={_ghostToActivateAfterPictures.name}");
     }
 
     /// <summary>
