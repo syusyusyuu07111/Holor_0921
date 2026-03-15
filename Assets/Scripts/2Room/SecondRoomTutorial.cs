@@ -43,6 +43,9 @@ public class SecondRoomTutorial : MonoBehaviour
     [Header("幽霊ヒント連携（HintText をアサイン）")]
     [SerializeField] private HintText hintText;
 
+    [Header("絵回収後に出現させる幽霊（任意。設定時はこれを最優先）")]
+    [SerializeField] private GameObject ghostToActivateAfterPictures;
+
     // どの位置を越えたらチュートリアルを出すか
     public float triggerPosX = -3.3f;
 
@@ -388,16 +391,30 @@ public class SecondRoomTutorial : MonoBehaviour
     /// <summary>
     /// 絵回収後に出現させる幽霊を、必要なら自動特定する
     /// ・インスペクターで触らなくても良いように、シーン内の非アクティブオブジェクトも含めて探索する
-    /// ・優先順位は「非アクティブの Ghostタグ付き」→「非アクティブの SearchChase持ち」→「Ghostタグ付き」
+    /// ・優先順位は「Inspectorで明示指定」→「非アクティブの GivePaintingToGhost持ち」
+    ///   →「非アクティブの Ghostタグ付き」→「非アクティブの SearchChase持ち」
+    ///   →「GivePaintingToGhost持ち」→「Ghostタグ付き」
     /// </summary>
     private void ResolveGhostAfterPicturesIfNeeded()
     {
         // すでに見つかっていれば再探索しない
         if (_ghostToActivateAfterPictures != null) return;
 
+        //==========================
+        // 明示指定がある場合は最優先
+        // （探索ミスの影響をなくすため）
+        //==========================
+        if (ghostToActivateAfterPictures != null)
+        {
+            _ghostToActivateAfterPictures = ghostToActivateAfterPictures;
+            Debug.Log($"[SecondRoomTutorial] Inspector指定の幽霊を使用します name={_ghostToActivateAfterPictures.name}");
+            return;
+        }
+
         Debug.Log("[SecondRoomTutorial] 絵回収後に有効化する幽霊を自動探索します");
 
         GameObject fallbackActiveGhost = null;
+        GameObject fallbackActiveGiveTarget = null;
         GameObject fallbackInactiveSearchChase = null;
 
         // 非アクティブも含めてシーン上の GameObject を全部見る
@@ -417,6 +434,18 @@ public class SecondRoomTutorial : MonoBehaviour
             bool isInactive = !go.activeInHierarchy;
             bool hasGhostTag = go.CompareTag("Ghost");
             bool hasSearchChase = go.GetComponent<SearchChase>() != null;
+            bool hasGivePaintingToGhost = go.GetComponent<GivePaintingToGhost>() != null;
+
+            //==========================
+            // 最優先：非アクティブの GivePaintingToGhost 持ち
+            // （「絵を渡す対象」を直接示すため最も確実）
+            //==========================
+            if (isInactive && hasGivePaintingToGhost)
+            {
+                _ghostToActivateAfterPictures = go;
+                Debug.Log($"[SecondRoomTutorial] 絵回収後の出現対象を発見（最優先: 非アクティブ GivePaintingToGhost） name={go.name}");
+                return;
+            }
 
             // 最優先：非アクティブの Ghost タグ付き
             if (isInactive && hasGhostTag)
@@ -432,6 +461,12 @@ public class SecondRoomTutorial : MonoBehaviour
                 fallbackInactiveSearchChase = go;
             }
 
+            // 次点（保険）：GivePaintingToGhost 持ち
+            if (hasGivePaintingToGhost && fallbackActiveGiveTarget == null)
+            {
+                fallbackActiveGiveTarget = go;
+            }
+
             // 最後の保険：Ghostタグ付き
             if (hasGhostTag && fallbackActiveGhost == null)
             {
@@ -443,6 +478,14 @@ public class SecondRoomTutorial : MonoBehaviour
         {
             _ghostToActivateAfterPictures = fallbackInactiveSearchChase;
             Debug.Log($"[SecondRoomTutorial] 絵回収後の出現対象を発見（次点: 非アクティブ SearchChase） name={fallbackInactiveSearchChase.name}");
+            return;
+        }
+
+
+        if (fallbackActiveGiveTarget != null)
+        {
+            _ghostToActivateAfterPictures = fallbackActiveGiveTarget;
+            Debug.Log($"[SecondRoomTutorial] 絵回収後の出現対象を発見（保険: GivePaintingToGhost） name={fallbackActiveGiveTarget.name}");
             return;
         }
 
